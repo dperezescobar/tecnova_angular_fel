@@ -1,0 +1,401 @@
+/* ──────────────────────────────────────────────────
+   Mi Perfil — Estilos
+   Diseño mobile-first, adaptable a tablet y desktop
+────────────────────────────────────────────────── */
+
+:host {
+  display: block;
+}
+
+.perfil-page {
+  min-height: 100vh;
+  background: var(--p-surface-ground, #f4f6fb);
+  padding: 1rem;
+}
+
+/* ── Contenedor principal ── */
+.perfil-container {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Hero / cabecera ── */
+.perfil-hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--p-surface-card, #fff);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+  flex-wrap: wrap;
+}
+
+.perfil-avatar {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--p-primary-500, #6366f1), var(--p-primary-300, #a5b4fc));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  i {
+    font-size: 1.75rem;
+    color: #fff;
+  }
+}
+
+.perfil-hero-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.perfil-hero-nombre {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--p-surface-900, #1e293b);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.perfil-hero-sub {
+  font-size: 0.82rem;
+  color: var(--p-surface-500, #64748b);
+  font-family: 'Courier New', monospace;
+}
+
+.perfil-hero-giro {
+  font-family: inherit;
+  font-style: italic;
+}
+
+.perfil-hero-actions {
+  margin-left: auto;
+}
+
+/* ── Tabs container ── */
+:host ::ng-deep .p-tabs {
+  background: var(--p-surface-card, #fff);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+}
+
+:host ::ng-deep .p-tablist {
+  border-bottom: 1px solid var(--p-surface-200, #e2e8f0);
+  padding: 0 1rem;
+}
+
+:host ::ng-deep .p-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.85rem 1rem;
+  color: var(--p-surface-500, #64748b);
+
+  i {
+    font-size: 1rem;
+  }
+
+  &[data-p-active='true'] {
+    color: var(--p-primary-500, #6366f1);
+  }
+}
+
+:host ::ng-deep .p-tabpanels {
+  padding: 0;
+}
+
+:host ::ng-deep .p-tabpanel {
+  padding: 1.5rem;
+}
+
+/* ── Estados de carga / vacío ── */
+.perfil-loading {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 0;
+}
+
+.perfil-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 0;
+  color: var(--p-surface-400, #94a3b8);
+  font-size: 0.95rem;
+
+  i {
+    font-size: 2rem;
+    opacity: 0.5;
+  }
+}
+
+/* ══════════════════════════════════════
+   PESTAÑA: MIS DATOS
+══════════════════════════════════════ */
+
+.perfil-datos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+/* Grupos que ocupan toda la fila */
+.perfil-group-full {
+  grid-column: 1 / -1;
+}
+
+/* ── Grupo (card interno) ── */
+.perfil-group {
+  background: var(--p-surface-50, #f8fafc);
+  border: 1px solid var(--p-surface-200, #e2e8f0);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.perfil-group-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--p-primary-500, #6366f1);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  i {
+    font-size: 0.9rem;
+  }
+}
+
+/* ── Campo individual ── */
+.perfil-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.perfil-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+/* Campo que ocupa ambas columnas del sub-grid */
+.perfil-field-full {
+  grid-column: 1 / -1;
+}
+
+.pf-label {
+  font-size: 0.73rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--p-surface-400, #94a3b8);
+}
+
+.pf-value {
+  font-size: 0.95rem;
+  color: var(--p-surface-800, #1e293b);
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.pf-mono {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+/* ══════════════════════════════════════
+   PESTAÑA: HISTORIAL DE PAGOS
+══════════════════════════════════════ */
+
+.abonos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.abono-card {
+  background: var(--p-surface-card, #fff);
+  border: 1px solid var(--p-surface-200, #e2e8f0);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.09);
+    transform: translateY(-2px);
+  }
+}
+
+.abono-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.abono-ref {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--p-surface-700, #334155);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+/* Estado badge */
+.abono-estado {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.estado-success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.estado-warn {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.estado-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.estado-secondary {
+  background: var(--p-surface-100, #f1f5f9);
+  color: var(--p-surface-600, #475569);
+}
+
+.abono-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.abono-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  color: var(--p-surface-500, #64748b);
+
+  i {
+    font-size: 0.85rem;
+  }
+}
+
+.abono-monto {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--p-primary-600, #4f46e5);
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE — tablet (≤ 768px)
+══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .perfil-page {
+    padding: 0.75rem;
+  }
+
+  .perfil-datos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .perfil-group-full {
+    grid-column: auto;
+  }
+
+  :host ::ng-deep .p-tabpanel {
+    padding: 1rem;
+  }
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE — móvil (≤ 480px)
+══════════════════════════════════════ */
+@media (max-width: 480px) {
+  .perfil-page {
+    padding: 0.5rem;
+  }
+
+  .perfil-hero {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .perfil-avatar {
+    width: 48px;
+    height: 48px;
+
+    i {
+      font-size: 1.4rem;
+    }
+  }
+
+  .perfil-hero-nombre {
+    font-size: 1rem;
+  }
+
+  .perfil-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .perfil-field-full {
+    grid-column: auto;
+  }
+
+  .abonos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  :host ::ng-deep .p-tab {
+    padding: 0.75rem 0.6rem;
+    font-size: 0.82rem;
+
+    i {
+      font-size: 0.9rem;
+    }
+  }
+
+  :host ::ng-deep .p-tabpanel {
+    padding: 0.75rem;
+  }
+}

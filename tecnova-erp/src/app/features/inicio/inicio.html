@@ -1,0 +1,25 @@
+<section class="inicio-page">
+  <article class="logo-card" aria-labelledby="inicio-title">
+    <header class="logo-card__header">
+      <h1 id="inicio-title">Bienvenido</h1>
+    </header>
+
+    <div class="logo-wrapper">
+      @if (logoSrc() && !imageError()) {
+        <img
+          class="inicio-logo-image"
+          [src]="logoSrc()"
+          loading="lazy"
+          decoding="async"
+          fetchpriority="low"
+          [alt]="'Logo de ' + nombreComercial()"
+          (error)="onImageError()"
+        />
+      } @else {
+        <div class="logo-fallback" role="status" aria-live="polite">
+          No se pudo cargar el logo de la empresa.
+        </div>
+      }
+    </div>
+  </article>
+</section>

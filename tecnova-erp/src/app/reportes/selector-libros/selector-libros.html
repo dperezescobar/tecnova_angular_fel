@@ -1,0 +1,115 @@
+<div class="selector-container animate-fadein">
+
+  <!-- ── Barra de herramientas ────────────────────────────────────────────── -->
+  <div class="toolbar-card mb-4">
+
+    <!-- Grupo período -->
+    <div class="toolbar-group">
+      <span class="group-label">
+        <i class="pi pi-calendar-clock"></i> Período fiscal
+      </span>
+      <div class="date-range">
+        <div class="date-field">
+          <label for="desde-date" class="date-label">Desde</label>
+          <input
+            id="desde-date"
+            type="date"
+            [ngModel]="desde()"
+            (ngModelChange)="onDesdeChange($event)"
+            aria-label="Fecha inicio de rango"
+            class="custom-date-input"
+          />
+        </div>
+        <span class="date-arrow"><i class="pi pi-arrow-right"></i></span>
+        <div class="date-field">
+          <label for="hasta-date" class="date-label">Hasta</label>
+          <input
+            id="hasta-date"
+            type="date"
+            [ngModel]="hasta()"
+            (ngModelChange)="onHastaChange($event)"
+            aria-label="Fecha fin de rango"
+            class="custom-date-input"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Grupo tipo de libro -->
+    <div class="toolbar-group">
+      <span class="group-label">
+        <i class="pi pi-book"></i> Tipo de libro
+      </span>
+      <div class="libro-tabs">
+        <button
+          class="libro-tab"
+          [class.active]="libroActivo() === 'FAC'"
+          (click)="setLibro('FAC')"
+          title="Libro de Ventas a Consumidor Final">
+          <i class="pi pi-users"></i>
+          <span class="tab-text">Consumidor Final</span>
+          <span class="tab-badge">FAC</span>
+        </button>
+        <button
+          class="libro-tab"
+          [class.active]="libroActivo() === 'CCF'"
+          (click)="setLibro('CCF')"
+          title="Libro de Créditos Fiscales (Contribuyentes)">
+          <i class="pi pi-building"></i>
+          <span class="tab-text">Contribuyentes</span>
+          <span class="tab-badge">CCF</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Área de contenido ─────────────────────────────────────────────────── -->
+  <div class="libro-content-area">
+    @switch (libroActivo()) {
+
+      @case ('FAC') {
+        <div class="animate-fadein">
+          <app-libro-consumidor-final
+            [desde]="desde()"
+            [hasta]="hasta()">
+          </app-libro-consumidor-final>
+        </div>
+      }
+
+      @case ('CCF') {
+        <div class="animate-fadein">
+          <app-libro-contribuyentes
+            [desde]="desde()"
+            [hasta]="hasta()">
+          </app-libro-contribuyentes>
+        </div>
+      }
+
+      @default {
+        <div class="welcome-state animate-fadein">
+          <div class="welcome-icon-wrap">
+            <i class="pi pi-chart-line"></i>
+          </div>
+          <h3 class="welcome-title">Módulo de Libros IVA</h3>
+          <p class="welcome-body">
+            Selecciona un tipo de libro usando los controles superiores para visualizar
+            las operaciones del período
+            <strong>{{ desde() }}</strong> — <strong>{{ hasta() }}</strong>.
+          </p>
+          <div class="welcome-chips">
+            <button class="chip" (click)="setLibro('FAC')">
+              <i class="pi pi-users"></i> Consumidor Final (FAC)
+            </button>
+            <button class="chip" (click)="setLibro('CCF')">
+              <i class="pi pi-building"></i> Contribuyentes (CCF)
+            </button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+</div>

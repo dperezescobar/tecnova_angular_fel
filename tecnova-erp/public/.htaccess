@@ -1,0 +1,27 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  Options -MultiViews
+
+  # No reescribir llamadas a API
+  RewriteRule ^api(/|$) - [L]
+
+  # Si existe archivo o directorio, servirlo normalmente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Si no existe, redirigir a Angular index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+  FallbackResource /index.html
+</IfModule>
+
+# Seguridad básica
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

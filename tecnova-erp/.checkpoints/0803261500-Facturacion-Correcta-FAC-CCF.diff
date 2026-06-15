@@ -1,0 +1,896 @@
+﻿commit d1efeae2d3a698407ecfe470b8689cdfaf158c60
+Author: Rayones <rayones-satex@hotmail.com>
+Date:   Wed Mar 18 15:20:01 2026 -0600
+
+    0803261500 Facturacion Correcta FAC/CCF
+
+diff --git a/src/app/features/facturacion/fac-pos/fac-pos.html b/src/app/features/facturacion/fac-pos/fac-pos.html
+index 7ade2d3..046fd60 100644
+--- a/src/app/features/facturacion/fac-pos/fac-pos.html
++++ b/src/app/features/facturacion/fac-pos/fac-pos.html
+@@ -52,6 +52,74 @@
+     </ng-template>
+   </p-dialog>
+ 
++  <p-dialog
++    header="Motivo de anulaci├│n"
++    [(visible)]="anulacionDialogVisible"
++    [modal]="true"
++    [closable]="false"
++    [draggable]="false"
++    [resizable]="false"
++    [style]="{ width: '34rem', maxWidth: '96vw' }"
++  >
++    <div class="pos-anulacion-dialog-content">
++      <label for="pos-anulacion-motivo" class="pos-anulacion-label">Motivo</label>
++      <input
++        pInputText
++        id="pos-anulacion-motivo"
++        [value]="anulacionMotivo()"
++        (input)="onAnulacionMotivoInput($any($event.target).value)"
++        [disabled]="anulandoDte()"
++        placeholder="Escriba el motivo de la anulaci├│n"
++      />
++    </div>
++    <ng-template pTemplate="footer">
++      <p-button
++        type="button"
++        label="Cancelar"
++        severity="secondary"
++        [disabled]="anulandoDte()"
++        (onClick)="cancelarAnulacionDialogo()"
++      ></p-button>
++      <p-button
++        type="button"
++        label="Anular documento"
++        severity="danger"
++        [loading]="anulandoDte()"
++        [disabled]="anulandoDte()"
++        (onClick)="solicitarConfirmarAnulacion()"
++      ></p-button>
++    </ng-template>
++  </p-dialog>
++
++  <p-dialog
++    header="Confirmar anulaci├│n"
++    [(visible)]="confirmAnulacionDialogVisible"
++    [modal]="true"
++    [closable]="false"
++    [draggable]="false"
++    [resizable]="false"
++    [style]="{ width: '28rem', maxWidth: '92vw' }"
++  >
++    <p>Esta acci├│n no se puede revertir ┬┐Desea continuar?</p>
++    <ng-template pTemplate="footer">
++      <p-button
++        type="button"
++        label="No"
++        severity="secondary"
++        [disabled]="anulandoDte()"
++        (onClick)="cancelarConfirmacionAnulacion()"
++      ></p-button>
++      <p-button
++        type="button"
++        label="S├¡"
++        severity="danger"
++        [loading]="anulandoDte()"
++        [disabled]="anulandoDte()"
++        (onClick)="confirmarAnulacionDocumento()"
++      ></p-button>
++    </ng-template>
++  </p-dialog>
++
+   <p-dialog
+     header="Datos del cliente"
+     [(visible)]="clienteDataDialogVisible"
+@@ -405,13 +473,13 @@
+         <div class="pos-doc-actions">
+           @if (currentEstadoVisualKey() === 'EMITIDO') {
+             <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger"
+-              [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
++              [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
+           }
+           @if (currentEstadoVisualKey() === 'PENDIENTE_EMITIR' || currentEstadoVisualKey() === 'ELABORACION') {
+             <p-button type="button" label="Eliminar" icon="pi pi-trash" severity="danger"
+               [disabled]="!canEliminarFactura()" (onClick)="solicitarEliminarFactura()"></p-button>
+           }
+-          <p-button type="button" icon="pi pi-print" severity="contrast" [text]="true" [loading]="previewLoading()" [disabled]="previewLoading()"
++          <p-button type="button" icon="pi pi-print" severity="contrast" [text]="true" [loading]="previewLoading()" [disabled]="previewLoading() || !canVistaPrevia()"
+             ariaLabel="Vista previa" (onClick)="vistaPrevia()"></p-button>
+         </div>
+       </div>
+@@ -451,7 +519,7 @@
+             (onSelect)="onArticuloSelect($event.value)"
+             formControlName="LineaArticuloDisplay"
+             [readonly]="isReadOnlyField() || shouldSuppressMobileKeyboard()"
+-            placeholder="C├│digo de barras o nombre del art├¡culoÔÇª"
++            placeholder="C├│digo o nombre del art├¡culoÔÇª"
+             styleClass="pos-articulo-input"
+           ></p-autocomplete>
+ 
+@@ -509,7 +577,7 @@
+             } @empty {
+               <div class="pos-cart-empty">
+                 <i class="pi pi-shopping-cart"></i>
+-                <span>Sin art├¡culos ÔÇö escanea o busca para comenzar</span>
++                <span>Sin art├¡culos ÔÇö busca para comenzar</span>
+               </div>
+             }
+           </div>
+diff --git a/src/app/features/facturacion/fac-pos/fac-pos.ts b/src/app/features/facturacion/fac-pos/fac-pos.ts
+index 64ddec7..5eba7a6 100644
+--- a/src/app/features/facturacion/fac-pos/fac-pos.ts
++++ b/src/app/features/facturacion/fac-pos/fac-pos.ts
+@@ -14,7 +14,9 @@ import { MessageService } from 'primeng/api';
+ 
+ import { AuthService } from '../../../core/services/auth';
+ import {
++  AnulacionFacturaDto,
+   ArticuloPorBodegaDto,
++  DatosDestinatarioDteDto,
+   EmisionStep,
+   FacturaDetalleDto,
+   FacturaEncabezadoDto,
+@@ -25,6 +27,7 @@ import {
+   FormaPagoDto,
+   PerfilClienteDto,
+   ParametrosDteDto,
++  ParametrosDteAnulacionDto,
+   CondicionPagoCatalogoDto,
+   DeleteFacturaDto,
+   RetencionCatalogoDto,
+@@ -37,6 +40,8 @@ import {
+   UpdateFacturaRetencionDto,
+   VerificarSecuenciasDto
+ } from '../../../core/models/facturacion.models';
++import { environment } from '../../../../environments/environment';
++import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
+ import { FacturacionService } from '../services/facturacion';
+ 
+ @Component({
+@@ -86,6 +91,10 @@ export class FacPosComponent {
+   showCobroSection = signal(false);
+   cobroDialogVisible = signal(false);
+   confirmDeleteFacturaDialogVisible = signal(false);
++  anulacionDialogVisible = signal(false);
++  confirmAnulacionDialogVisible = signal(false);
++  anulacionMotivo = signal('');
++  anulandoDte = signal(false);
+   tipoFacturaActual = signal<'FAC' | 'CCF'>('FAC');
+   private facturaTotalesRequestInFlightForId: number | null = null;
+ 
+@@ -669,12 +678,207 @@ export class FacPosComponent {
+     if (!this.canAnularDte()) { this.showError('FAC POS', 'Solo facturas aplicadas con sello permiten anular DTE.'); return; }
+     const idFactura = this.facForm.controls.IdFactura.value;
+     if (!idFactura) { this.showError('FAC POS', 'No hay factura para anular.'); return; }
+-    this.facturacionService.anularFac(idFactura).subscribe({
+-      next: () => {
+-        this.showInfo('FAC POS', 'Solicitud de anulaci├│n enviada.');
+-        this.refreshEncabezadoAfterEmission();
+-      },
+-      error: (error) => this.showError('FAC POS', this.extractError(error, 'No se pudo anular.'))
++
++    this.anulacionMotivo.set('');
++    this.confirmAnulacionDialogVisible.set(false);
++    this.anulacionDialogVisible.set(true);
++    this.focusAnulacionMotivoInput();
++  }
++
++  cancelarAnulacionDialogo() {
++    this.confirmAnulacionDialogVisible.set(false);
++    this.anulacionDialogVisible.set(false);
++    this.anulacionMotivo.set('');
++  }
++
++  solicitarConfirmarAnulacion() {
++    const motivo = this.anulacionMotivoNormalizado();
++    if (!motivo) {
++      this.showError('FAC POS', 'Debe ingresar un motivo de anulaci├│n v├ílido.');
++      this.focusAnulacionMotivoInput();
++      return;
++    }
++
++    this.confirmAnulacionDialogVisible.set(true);
++  }
++
++  cancelarConfirmacionAnulacion() {
++    this.confirmAnulacionDialogVisible.set(false);
++    this.focusAnulacionMotivoInput();
++  }
++
++  confirmarAnulacionDocumento() {
++    const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
++    if (!idFactura) {
++      this.showError('FAC POS', 'No hay factura para anular.');
++      return;
++    }
++
++    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
++    if (!idEmpresa) {
++      this.showError('FAC POS', 'No se encontr├│ IdEmpresa en la sesi├│n.');
++      return;
++    }
++
++    const motivoAnulacion = this.anulacionMotivoNormalizado();
++    if (!motivoAnulacion) {
++      this.showError('FAC POS', 'Debe ingresar un motivo de anulaci├│n v├ílido.');
++      this.focusAnulacionMotivoInput();
++      return;
++    }
++
++    const apiBaseUrl = this.authService.getEmissionApiBaseUrl();
++    if (!apiBaseUrl) {
++      this.showError('FAC POS', 'No se encontr├│ UrlAPI en la sesi├│n de empresa.');
++      return;
++    }
++
++    const raw = this.facForm.getRawValue();
++    const empresa = this.authService.currentUser()?.selectedEmpresa;
++    const nombreSolicita = this.authService.getCurrentNombreUsuario() || String(this.authService.currentUser()?.username ?? '').trim();
++    const duiSolicita = this.authService.getCurrentDui();
++    if (!duiSolicita) {
++      this.showError('FAC POS', 'No se encontr├│ DUI del usuario para anular el DTE. Inicie sesi├│n nuevamente.');
++      return;
++    }
++
++    const payloadAnulacion: ParametrosDteAnulacionDto = {
++      idEmpresa,
++      idFactura,
++      ambiente: this.getAmbiente(),
++      codEstablecimiento: this.resolveCodigoSucursalMh(raw.Sucursal ?? '', raw.PuntoVenta ?? ''),
++      codPuntoVenta: this.resolveCodigoPuntoMh(raw.Sucursal ?? '', raw.PuntoVenta ?? ''),
++      user: String(this.authService.currentUser()?.username ?? '').trim(),
++      motivo: {
++        tipoAnulacion: 2,
++        motivoAnulacion,
++        nombreResponsable: String(empresa?.nombreComercial ?? empresa?.nombre ?? '').trim(),
++        tipDocResponsable: '13',
++        numDocResponsable: String(empresa?.nit ?? '').trim(),
++        nombreSolicita: nombreSolicita || 'Usuario',
++        tipDocSolicita: '36',
++        numDocSolicita: duiSolicita
++      }
++    };
++
++    const tipoFactura = this.getCurrentTipoFactura();
++    const payloadAnularFactura: AnulacionFacturaDto = {
++      codGeneracion: String(raw.CodGeneracion ?? '').trim(),
++      Sucursal: String(raw.Sucursal ?? '').trim(),
++      PuntoVenta: String(raw.PuntoVenta ?? '').trim(),
++      TipoFactura: tipoFactura,
++      ComentarioAnulacion: motivoAnulacion,
++      usuario: String(this.authService.currentUser()?.username ?? '').trim()
++    };
++
++    const tipoFacturaDescripcion = getTipoFacturaDescripcion(tipoFactura);
++    const perfilCorreo: DatosDestinatarioDteDto = {
++      nombre: String(raw.FacturarA ?? raw.Cliente ?? '').trim() || 'Cliente',
++      NombreComercialEmpresa: String(empresa?.nombreComercial ?? empresa?.nombre ?? '').trim(),
++      fecEmi: this.ensureDate(raw.Fecha),
++      nitemisor: String(empresa?.nit ?? '').trim(),
++      numeroControl: String(raw.NoControl ?? '').trim(),
++      codigoGeneracion: String(raw.CodGeneracion ?? '').trim(),
++      sellorecepcion: String(raw.SelloRecepcion ?? '').trim(),
++      totalPagar: this.toNumber(raw.TotalFactura),
++      correoDestino: String(raw.CorreoElectronico ?? '').trim()
++    };
++
++    this.anulandoDte.set(true);
++    this.confirmAnulacionDialogVisible.set(false);
++    this.anulacionDialogVisible.set(false);
++
++    this.facturacionService
++      .postDteAnulacion(apiBaseUrl, payloadAnulacion)
++      .pipe(
++        switchMap((respuesta) => {
++          const mensajeGeneral = String(respuesta?.MensajeGeneral ?? '').trim();
++          const yaProcesado = mensajeGeneral.toUpperCase().includes('PROCESADO');
++          const yaInvalidadoEnHacienda = mensajeGeneral.toUpperCase().includes('DOCUMENTO SE ENCUENTRA INVALIDADO');
++
++          if (!yaProcesado && !yaInvalidadoEnHacienda) {
++            throw new Error(mensajeGeneral || 'La API de anulaci├│n no devolvi├│ estado PROCESADO.');
++          }
++
++          return this.facturacionService.anularFactura(payloadAnularFactura).pipe(map(() => mensajeGeneral));
++        }),
++        switchMap(() =>
++          this.facturacionService
++            .enviarDteAnulado(idEmpresa, tipoFacturaDescripcion, !environment.production, perfilCorreo)
++            .pipe(
++              catchError((correoError) => {
++                this.showError('FAC POS', this.extractError(correoError, 'Documento anulado, pero fall├│ el env├¡o de correo de notificaci├│n.'));
++                return of(null);
++              })
++            )
++        ),
++        finalize(() => {
++          this.anulandoDte.set(false);
++          this.anulacionMotivo.set('');
++        })
++      )
++      .subscribe({
++        next: () => {
++          this.showInfo('FAC POS', 'Documento anulado correctamente.');
++          this.refreshEncabezadoAfterEmission();
++          this.loadMaestro();
++        },
++        error: (error) => this.showError('FAC POS', this.extractError(error, 'No se pudo anular.'))
++      });
++  }
++
++  /** TODO: BORRAR ÔÇô m├®todo temporal para probar env├¡o de correo de anulaci├│n */
++  testEnviarCorreoAnulado() {
++    const raw = this.facForm.getRawValue();
++    const empresa = this.authService.currentUser()?.selectedEmpresa;
++    const idEmpresa = empresa?.idEmpresa ?? 0;
++    if (!idEmpresa) { this.showError('FAC POS', 'No se encontr├│ IdEmpresa en la sesi├│n.'); return; }
++
++    const tipoFactura = this.getCurrentTipoFactura();
++    const tipoFacturaDescripcion = getTipoFacturaDescripcion(tipoFactura);
++    const perfilCorreo: DatosDestinatarioDteDto = {
++      nombre: String(raw.FacturarA ?? raw.Cliente ?? '').trim() || 'Cliente',
++      NombreComercialEmpresa: String(empresa?.nombreComercial ?? empresa?.nombre ?? '').trim(),
++      fecEmi: this.ensureDate(raw.Fecha),
++      nitemisor: String(empresa?.nit ?? '').trim(),
++      numeroControl: String(raw.NoControl ?? '').trim(),
++      codigoGeneracion: String(raw.CodGeneracion ?? '').trim(),
++      sellorecepcion: String(raw.SelloRecepcion ?? '').trim(),
++      totalPagar: this.toNumber(raw.TotalFactura),
++      correoDestino: String(raw.CorreoElectronico ?? '').trim()
++    };
++
++    this.anulandoDte.set(true);
++    this.facturacionService
++      .enviarDteAnulado(idEmpresa, tipoFacturaDescripcion, !environment.production, perfilCorreo)
++      .pipe(finalize(() => this.anulandoDte.set(false)))
++      .subscribe({
++        next: () => this.showInfo('FAC POS', '[TEST] Correo de anulaci├│n enviado correctamente.'),
++        error: (err) => this.showError('FAC POS', this.extractError(err, '[TEST] Fall├│ el env├¡o del correo de anulaci├│n.'))
++      });
++  }
++
++  onAnulacionMotivoInput(value: string) {
++    this.anulacionMotivo.set(String(value ?? ''));
++  }
++
++  private anulacionMotivoNormalizado(): string {
++    return String(this.anulacionMotivo() ?? '').replace(/\s+/g, ' ').trim();
++  }
++
++  private focusAnulacionMotivoInput() {
++    if (!isPlatformBrowser(this.platformId) || typeof document === 'undefined') {
++      return;
++    }
++
++    requestAnimationFrame(() => {
++      const input = document.getElementById('pos-anulacion-motivo') as HTMLInputElement | null;
++      if (!input) {
++        return;
++      }
++
++      input.focus();
++      input.select();
+     });
+   }
+ 
+@@ -754,6 +958,11 @@ export class FacPosComponent {
+       return;
+     }
+ 
++    if (!this.canVistaPrevia()) {
++      this.showError('FAC POS', 'No se permite vista previa/imprimir para documentos anulados.');
++      return;
++    }
++
+     const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
+     if (!idFactura) {
+       this.showError('FAC POS', 'Guarde la factura antes de abrir la vista previa.');
+@@ -766,17 +975,8 @@ export class FacPosComponent {
+       return;
+     }
+ 
+-    const tipoFactura = this.getCurrentTipoFactura();
+     const emitido = !this.isSelloRecepcionEmpty(this.facForm.controls.SelloRecepcion.value);
+-    const previewUrl = this.facturacionService.getPreviewDteUrl(idEmpresa, idFactura, tipoFactura, emitido);
+-
+-    this.previewLoading.set(true);
+-    const popup = window.open(previewUrl, '_blank');
+-    this.previewLoading.set(false);
+-
+-    if (!popup) {
+-      this.showError('FAC POS', 'El navegador bloque├│ la vista previa.');
+-    }
++    this.openPreviewUrlWithFallback(emitido);
+   }
+ 
+   emitirDte() {
+@@ -864,7 +1064,7 @@ export class FacPosComponent {
+                 this.setStep('sync', 'ok', 'Datos actualizados');
+                 this.setStep('correo', 'running', 'Enviando correo y obteniendo formato visual');
+                 return this.facturacionService.enviarCorreoDte(idEmpresa, idFactura, tipoFactura).pipe(
+-                  map((html) => ({ emitido: true, html: this.normalizeDteVisualHtml(html) })),
++                  map(() => ({ emitido: true, html: '' })),
+                   catchError((correoError) => {
+                     this.setStep('correo', 'error', this.extractError(correoError, 'No se pudo enviar correo ni recuperar formato visual.'));
+                     return of({ emitido: true, html: '' });
+@@ -880,12 +1080,10 @@ export class FacPosComponent {
+         this.syncDisabledControls();
+       })
+     ).subscribe({
+-      next: ({ emitido, html }) => {
++      next: ({ emitido }) => {
+         if (emitido) {
+-          if (html) {
+-            this.openDteVisualPreview(html);
+-            this.setStep('correo', 'ok', 'Correo enviado y formato visual cargado');
+-          }
++          this.openPreviewUrlWithFallback(true);
++          this.setStep('correo', 'ok', 'Correo enviado y vista previa abierta');
+           this.showInfo('FAC POS', 'DTE emitido correctamente.');
+         }
+         this.loadMaestro();
+@@ -977,6 +1175,7 @@ export class FacPosComponent {
+   canDesaplicar(): boolean { return !this.emitting() && this.currentEstado() === 'APLICADO' && !this.hasSelloRecepcion() && !!this.facForm.controls.IdFactura.value; }
+   canEmit(): boolean { return !this.emitting() && this.currentEstado() === 'APLICADO' && !this.hasSelloRecepcion() && !!this.facForm.controls.IdFactura.value; }
+   canAnularDte(): boolean { return !this.emitting() && this.currentEstado() === 'APLICADO' && this.hasSelloRecepcion() && !!this.facForm.controls.IdFactura.value; }
++  canVistaPrevia(): boolean { return !!this.facForm.controls.IdFactura.value && this.currentEstadoVisualKey() !== 'ANULADO'; }
+   canCambiarTipoFacturaCobro(): boolean {
+     return !this.saving() && !this.emitting() && this.cobroDialogVisible() && !!this.facForm.controls.IdFactura.value;
+   }
+@@ -1395,14 +1594,7 @@ export class FacPosComponent {
+   }
+ 
+   resolveTipoFacturaLabel(tipoFactura: unknown): string {
+-    const tipo = String(tipoFactura ?? '').trim().toUpperCase();
+-    if (tipo === 'FAC') {
+-      return 'Consumidor final';
+-    }
+-    if (tipo === 'CCF') {
+-      return 'Cr├®dito Fiscal';
+-    }
+-    return tipo || 'ÔÇö';
++    return getTipoFacturaDescripcion(tipoFactura);
+   }
+ 
+   agregarDetalleManual(skipAutoSave: boolean = false) {
+@@ -1836,8 +2028,22 @@ export class FacPosComponent {
+     const selected = this.selectedFactura();
+     const raw = this.facForm.getRawValue();
+     const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
++    
++    let prefijo = selected?.Prefijo || '';
++    let factura = selected?.Factura || '';
++    
++    // Si prefijo/factura no disponibles, extraer de CodGeneracion
++    if (!prefijo && !factura) {
++      const codGeneracion = String(raw.CodGeneracion ?? '').trim();
++      if (codGeneracion && codGeneracion.length >= 36) {
++        prefijo = codGeneracion.substring(0, 18);
++        factura = codGeneracion.substring(18, 36);
++      }
++    }
++    
+     return this.facturacionService.getFacturaEncabezado(
+-      selected?.Prefijo || '', selected?.Factura || '',
++      prefijo,
++      factura,
+       selected?.CODIGOSUCURSAL || selected?.SUCURSAL || raw.Sucursal || '',
+       selected?.PUNTO_VENTA || raw.PuntoVenta || '', idEmpresa
+     ).pipe(
+@@ -2119,6 +2325,27 @@ export class FacPosComponent {
+     return text;
+   }
+ 
++  private openPreviewUrlWithFallback(emitido: boolean) {
++    const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
++    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
++    const tipoFactura = this.getCurrentTipoFactura();
++
++    if (!idFactura || !idEmpresa) {
++      this.showError('FAC POS', 'No se pudo construir la vista previa del documento.');
++      return;
++    }
++
++    const previewUrl = this.facturacionService.getPreviewDteUrl(idEmpresa, idFactura, tipoFactura, emitido);
++
++    this.previewLoading.set(true);
++    const popup = window.open(previewUrl, '_blank', 'noopener,noreferrer');
++    this.previewLoading.set(false);
++
++    if (!popup) {
++      this.showError('FAC POS', 'El navegador bloque├│ la vista previa. Aseg├║rese de permitir ventanas emergentes.');
++    }
++  }
++
+   private openDteVisualPreview(htmlCompleto: string) {
+     const popup = window.open('', '_blank');
+     if (!popup) {
+diff --git a/src/app/features/facturacion/fac/fac.html b/src/app/features/facturacion/fac/fac.html
+index 9c4c586..97e8e0f 100644
+--- a/src/app/features/facturacion/fac/fac.html
++++ b/src/app/features/facturacion/fac/fac.html
+@@ -118,6 +118,74 @@
+     </ng-template>
+   </p-dialog>
+ 
++  <p-dialog
++    header="Motivo de anulaci├│n"
++    [(visible)]="anulacionDialogVisible"
++    [modal]="true"
++    [closable]="false"
++    [draggable]="false"
++    [resizable]="false"
++    [style]="{ width: '34rem', maxWidth: '96vw' }"
++  >
++    <div class="fac-anulacion-dialog-content">
++      <label for="fac-anulacion-motivo" class="fac-anulacion-label">Motivo</label>
++      <input
++        pInputText
++        id="fac-anulacion-motivo"
++        [value]="anulacionMotivo()"
++        (input)="onAnulacionMotivoInput($any($event.target).value)"
++        [disabled]="anulandoDte()"
++        placeholder="Escriba el motivo de la anulaci├│n"
++      />
++    </div>
++    <ng-template pTemplate="footer">
++      <p-button
++        type="button"
++        label="Cancelar"
++        severity="secondary"
++        [disabled]="anulandoDte()"
++        (onClick)="cancelarAnulacionDialogo()"
++      ></p-button>
++      <p-button
++        type="button"
++        label="Anular documento"
++        severity="danger"
++        [loading]="anulandoDte()"
++        [disabled]="anulandoDte()"
++        (onClick)="solicitarConfirmarAnulacion()"
++      ></p-button>
++    </ng-template>
++  </p-dialog>
++
++  <p-dialog
++    header="Confirmar anulaci├│n"
++    [(visible)]="confirmAnulacionDialogVisible"
++    [modal]="true"
++    [closable]="false"
++    [draggable]="false"
++    [resizable]="false"
++    [style]="{ width: '28rem', maxWidth: '92vw' }"
++  >
++    <p>Esta acci├│n no se puede revertir ┬┐Desea continuar?</p>
++    <ng-template pTemplate="footer">
++      <p-button
++        type="button"
++        label="No"
++        severity="secondary"
++        [disabled]="anulandoDte()"
++        (onClick)="cancelarConfirmacionAnulacion()"
++      ></p-button>
++      <p-button
++        type="button"
++        label="S├¡"
++        severity="danger"
++        [loading]="anulandoDte()"
++        [disabled]="anulandoDte()"
++        (onClick)="confirmarAnulacionDocumento()"
++      ></p-button>
++    </ng-template>
++  </p-dialog>
++
+   <header class="fac-header">
+     <div class="fac-title-row">
+       @if (showDetail()) {
+@@ -254,7 +322,7 @@
+               <span class="action-group-label">Documento</span>
+               <div class="action-group-btns">
+                 <p-button type="button" label="Guardar" icon="pi pi-save" [loading]="saving()" [disabled]="!canSave()" (onClick)="guardar()"></p-button>
+-                <p-button type="button" label="Vista Previa" icon="pi pi-eye" severity="contrast" [loading]="previewLoading()" [disabled]="previewLoading()" (onClick)="vistaPrevia()"></p-button>
++                <p-button type="button" label="Vista Previa" icon="pi pi-eye" severity="contrast" [loading]="previewLoading()" [disabled]="previewLoading() || !canVistaPrevia()" (onClick)="vistaPrevia()"></p-button>
+               </div>
+             </div>
+ 
+@@ -274,7 +342,7 @@
+               <span class="action-group-label">Transmisi├│n DTE</span>
+               <div class="action-group-btns">
+                 <p-button type="button" label="Emitir DTE" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" (onClick)="emitirDte()"></p-button>
+-                <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
++                <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
+               </div>
+             </div>
+           </div>
+diff --git a/src/app/features/facturacion/fac/fac.ts b/src/app/features/facturacion/fac/fac.ts
+index 6d2d7c8..a5bf533 100644
+--- a/src/app/features/facturacion/fac/fac.ts
++++ b/src/app/features/facturacion/fac/fac.ts
+@@ -1,7 +1,7 @@
+ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+ import { CommonModule, isPlatformBrowser } from '@angular/common';
+ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+-import { Observable, finalize, forkJoin, map, of, switchMap } from 'rxjs';
++import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+ 
+ import { ButtonModule } from 'primeng/button';
+ import { CardModule } from 'primeng/card';
+@@ -14,8 +14,11 @@ import { MessageService } from 'primeng/api';
+ 
+ import { AuthService } from '../../../core/services/auth';
+ import {
++  AnulacionFacturaDto,
+   ArticuloPorBodegaDto,
+   CondicionPagoCatalogoDto,
++  DatosDestinatarioDteDto,
++  ParametrosDteAnulacionDto,
+   EmisionStep,
+   FacturaDetalleDto,
+   FacturaEncabezadoDto,
+@@ -35,6 +38,8 @@ import {
+   UpdateFacturaFormaPagoDto,
+   UpdateFacturaRetencionDto
+ } from '../../../core/models/facturacion.models';
++import { environment } from '../../../../environments/environment';
++import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
+ import { FacturacionService } from '../services/facturacion';
+ 
+ @Component({
+@@ -77,6 +82,10 @@ export class FacComponent {
+   showDetail = signal(false);
+   confirmClienteDialogVisible = signal(false);
+   confirmDeleteFacturaDialogVisible = signal(false);
++  anulacionDialogVisible = signal(false);
++  confirmAnulacionDialogVisible = signal(false);
++  anulacionMotivo = signal('');
++  anulandoDte = signal(false);
+   clienteDataDialogVisible = signal(false);
+   isLocked = signal(false);
+   emitting = signal(false);
+@@ -716,14 +725,177 @@ export class FacComponent {
+       return;
+     }
+ 
+-    this.facturacionService.anularFac(idFactura).subscribe({
+-      next: () => {
+-        this.showInfo('Facturaci├│n FAC', 'Solicitud de anulaci├│n enviada.');
+-        this.refreshEncabezadoAfterEmission();
+-      },
+-      error: (error) => {
+-        this.showError('Facturaci├│n FAC', this.extractError(error, 'No se pudo anular el DTE.'));
++    this.anulacionMotivo.set('');
++    this.confirmAnulacionDialogVisible.set(false);
++    this.anulacionDialogVisible.set(true);
++    this.focusAnulacionMotivoInput();
++  }
++
++  cancelarAnulacionDialogo() {
++    this.confirmAnulacionDialogVisible.set(false);
++    this.anulacionDialogVisible.set(false);
++    this.anulacionMotivo.set('');
++  }
++
++  solicitarConfirmarAnulacion() {
++    const motivo = this.anulacionMotivoNormalizado();
++    if (!motivo) {
++      this.showError('Facturaci├│n FAC', 'Debe ingresar un motivo de anulaci├│n v├ílido.');
++      this.focusAnulacionMotivoInput();
++      return;
++    }
++
++    this.confirmAnulacionDialogVisible.set(true);
++  }
++
++  cancelarConfirmacionAnulacion() {
++    this.confirmAnulacionDialogVisible.set(false);
++    this.focusAnulacionMotivoInput();
++  }
++
++  confirmarAnulacionDocumento() {
++    const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
++    if (!idFactura) {
++      this.showError('Facturaci├│n FAC', 'No hay factura para anular.');
++      return;
++    }
++
++    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
++    if (!idEmpresa) {
++      this.showError('Facturaci├│n FAC', 'No se encontr├│ IdEmpresa en la sesi├│n.');
++      return;
++    }
++
++    const motivoAnulacion = this.anulacionMotivoNormalizado();
++    if (!motivoAnulacion) {
++      this.showError('Facturaci├│n FAC', 'Debe ingresar un motivo de anulaci├│n v├ílido.');
++      this.focusAnulacionMotivoInput();
++      return;
++    }
++
++    const apiBaseUrl = this.authService.getEmissionApiBaseUrl();
++    if (!apiBaseUrl) {
++      this.showError('Facturaci├│n FAC', 'No se encontr├│ UrlAPI en la sesi├│n de empresa.');
++      return;
++    }
++
++    const raw = this.facForm.getRawValue();
++    const empresa = this.authService.currentUser()?.selectedEmpresa;
++    const nombreSolicita = this.authService.getCurrentNombreUsuario() || String(this.authService.currentUser()?.username ?? '').trim();
++    const duiSolicita = this.authService.getCurrentDui();
++    if (!duiSolicita) {
++      this.showError('Facturaci├│n FAC', 'No se encontr├│ DUI del usuario para anular el DTE. Inicie sesi├│n nuevamente.');
++      return;
++    }
++
++    const payloadAnulacion: ParametrosDteAnulacionDto = {
++      idEmpresa,
++      idFactura,
++      ambiente: this.getAmbiente(),
++      codEstablecimiento: this.resolveCodigoSucursalMh(raw.Sucursal ?? '', raw.PuntoVenta ?? ''),
++      codPuntoVenta: this.resolveCodigoPuntoMh(raw.Sucursal ?? '', raw.PuntoVenta ?? ''),
++      user: String(this.authService.currentUser()?.username ?? '').trim(),
++      motivo: {
++        tipoAnulacion: 2,
++        motivoAnulacion,
++        nombreResponsable: String(empresa?.nombreComercial ?? empresa?.nombre ?? '').trim(),
++        tipDocResponsable: '13',
++        numDocResponsable: String(empresa?.nit ?? '').trim(),
++        nombreSolicita: nombreSolicita || 'Usuario',
++        tipDocSolicita: '36',
++        numDocSolicita: duiSolicita
+       }
++    };
++
++    const tipoFactura = String(this.selectedFactura()?.Tipo_Factura ?? 'FAC').trim() || 'FAC';
++    const payloadAnularFactura: AnulacionFacturaDto = {
++      codGeneracion: String(raw.CodGeneracion ?? '').trim(),
++      Sucursal: String(raw.Sucursal ?? '').trim(),
++      PuntoVenta: String(raw.PuntoVenta ?? '').trim(),
++      TipoFactura: tipoFactura,
++      ComentarioAnulacion: motivoAnulacion,
++      usuario: String(this.authService.currentUser()?.username ?? '').trim()
++    };
++
++    const tipoFacturaDescripcion = getTipoFacturaDescripcion(tipoFactura);
++    const perfilCorreo: DatosDestinatarioDteDto = {
++      nombre: String(raw.FacturarA ?? raw.Cliente ?? '').trim() || 'Cliente',
++      NombreComercialEmpresa: String(empresa?.nombreComercial ?? empresa?.nombre ?? '').trim(),
++      fecEmi: this.ensureDate(raw.Fecha),
++      nitemisor: String(empresa?.nit ?? '').trim(),
++      numeroControl: String(raw.NoControl ?? '').trim(),
++      codigoGeneracion: String(raw.CodGeneracion ?? '').trim(),
++      sellorecepcion: String(raw.SelloRecepcion ?? '').trim(),
++      totalPagar: this.toNumber(raw.TotalFactura),
++      correoDestino: String(raw.CorreoElectronico ?? '').trim()
++    };
++
++    this.anulandoDte.set(true);
++    this.confirmAnulacionDialogVisible.set(false);
++    this.anulacionDialogVisible.set(false);
++
++    this.facturacionService
++      .postDteAnulacion(apiBaseUrl, payloadAnulacion)
++      .pipe(
++        switchMap((respuesta) => {
++          const mensajeGeneral = String(respuesta?.MensajeGeneral ?? '').trim();
++          const yaProcesado = mensajeGeneral.toUpperCase().includes('PROCESADO');
++          const yaInvalidadoEnHacienda = mensajeGeneral.toUpperCase().includes('DOCUMENTO SE ENCUENTRA INVALIDADO');
++
++          if (!yaProcesado && !yaInvalidadoEnHacienda) {
++            throw new Error(mensajeGeneral || 'La API de anulaci├│n no devolvi├│ estado PROCESADO.');
++          }
++
++          return this.facturacionService.anularFactura(payloadAnularFactura).pipe(map(() => mensajeGeneral));
++        }),
++        switchMap(() =>
++          this.facturacionService
++            .enviarDteAnulado(idEmpresa, tipoFacturaDescripcion, !environment.production, perfilCorreo)
++            .pipe(
++              catchError((correoError) => {
++                this.showError('Facturaci├│n FAC', this.extractError(correoError, 'Documento anulado, pero fall├│ el env├¡o de correo de notificaci├│n.'));
++                return of(null);
++              })
++            )
++        ),
++        finalize(() => {
++          this.anulandoDte.set(false);
++          this.anulacionMotivo.set('');
++        })
++      )
++      .subscribe({
++        next: () => {
++          this.showInfo('Facturaci├│n FAC', 'Documento anulado correctamente.');
++          this.refreshEncabezadoAfterEmission();
++          this.loadMaestro();
++        },
++        error: (error) => {
++          this.showError('Facturaci├│n FAC', this.extractError(error, 'No se pudo anular el DTE.'));
++        }
++      });
++  }
++
++  onAnulacionMotivoInput(value: string) {
++    this.anulacionMotivo.set(String(value ?? ''));
++  }
++
++  private anulacionMotivoNormalizado(): string {
++    return String(this.anulacionMotivo() ?? '').replace(/\s+/g, ' ').trim();
++  }
++
++  private focusAnulacionMotivoInput() {
++    if (!isPlatformBrowser(this.platformId) || typeof document === 'undefined') {
++      return;
++    }
++
++    requestAnimationFrame(() => {
++      const input = document.getElementById('fac-anulacion-motivo') as HTMLInputElement | null;
++      if (!input) {
++        return;
++      }
++
++      input.focus();
++      input.select();
+     });
+   }
+ 
+@@ -732,6 +904,11 @@ export class FacComponent {
+       return;
+     }
+ 
++    if (!this.canVistaPrevia()) {
++      this.showError('Facturaci├│n FAC', 'No se permite vista previa/imprimir para documentos anulados.');
++      return;
++    }
++
+     const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
+     if (!idFactura) {
+       this.showError('Facturaci├│n FAC', 'Guarde la factura antes de abrir la vista previa.');
+@@ -749,11 +926,11 @@ export class FacComponent {
+     const previewUrl = this.facturacionService.getPreviewDteUrl(idEmpresa, idFactura, tipoFactura, emitido);
+ 
+     this.previewLoading.set(true);
+-    const popup = window.open(previewUrl, '_blank');
++    const popup = window.open(previewUrl, '_blank', 'noopener,noreferrer');
+     this.previewLoading.set(false);
+ 
+     if (!popup) {
+-      this.showError('Facturaci├│n FAC', 'El navegador bloque├│ la vista previa.');
++      this.showError('Facturaci├│n FAC', 'El navegador bloque├│ la vista previa. Aseg├║rese de permitir ventanas emergentes.');
+     }
+   }
+ 
+@@ -940,6 +1117,14 @@ export class FacComponent {
+     return !this.emitting() && this.currentEstado() === 'APLICADO' && this.hasSelloRecepcion() && !!this.facForm.controls.IdFactura.value;
+   }
+ 
++  canVistaPrevia(): boolean {
++    const visual = this.estadoVisualKey(
++      this.facForm.controls.Estado.value,
++      this.facForm.controls.SelloRecepcion.value
++    );
++    return !!this.facForm.controls.IdFactura.value && visual !== 'ANULADO';
++  }
++
+   canEliminarFactura(item: FacturaGeneralDto): boolean {
+     const visual = this.estadoVisualKey(item.ESTADO, item.SelloRecepcion);
+     return visual === 'ELABORACION' || visual === 'PENDIENTE_EMITIR';
+@@ -1702,8 +1887,18 @@ export class FacComponent {
+     const raw = this.facForm.getRawValue();
+     const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+ 
+-    const prefijo = selected?.Prefijo || '';
+-    const factura = selected?.Factura || '';
++    let prefijo = selected?.Prefijo || '';
++    let factura = selected?.Factura || '';
++    
++    // Si prefijo/factura no disponibles, extraer de CodGeneracion
++    if (!prefijo && !factura) {
++      const codGeneracion = String(raw.CodGeneracion ?? '').trim();
++      if (codGeneracion && codGeneracion.length >= 36) {
++        prefijo = codGeneracion.substring(0, 18);
++        factura = codGeneracion.substring(18, 36);
++      }
++    }
++    
+     const sucursal = selected?.CODIGOSUCURSAL || selected?.SUCURSAL || raw.Sucursal || '';
+     const punto = selected?.PUNTO_VENTA || raw.PuntoVenta || '';
+ 

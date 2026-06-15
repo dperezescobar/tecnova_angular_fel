@@ -1,0 +1,27 @@
+<section class="factura-selector-page">
+  <p-card>
+    <div class="factura-selector-content">
+      <h1>Facturación</h1>
+      <p class="factura-selector-label">{{ etiqueta() }}</p>
+
+      <div class="factura-selector-actions">
+        <p-button
+          label="Factura Rápida"
+          icon="pi pi-bolt"
+          severity="info"
+          size="large"
+          (onClick)="abrirFacturaRapida()"
+        ></p-button>
+
+        <p-button
+          label="Factura Ampliada"
+          icon="pi pi-file-edit"
+          severity="secondary"
+          size="large"
+          [disabled]="!this.emiteDte()"
+          (onClick)="abrirFacturaAmpliada()"
+        ></p-button>
+      </div>
+    </div>
+  </p-card>
+</section>

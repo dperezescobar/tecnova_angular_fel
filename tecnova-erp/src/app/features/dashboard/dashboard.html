@@ -1,0 +1,162 @@
+<section class="dashboard-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="page-title">Resumen anual y del mes seleccionado.</h1>
+        </div>
+
+        <div class="filters-card">
+            <div class="filter-field">
+                <label for="month-filter">Mes</label>
+                <p-select
+                    inputId="month-filter"
+                    [options]="months"
+                    [(ngModel)]="selectedMonth"
+                    optionLabel="label"
+                    optionValue="value"
+                    [style]="{ width: '100%' }"
+                ></p-select>
+            </div>
+
+            <div class="filter-field">
+                <label for="year-filter">Año</label>
+                <p-select inputId="year-filter" [options]="years" [(ngModel)]="selectedYear" [style]="{ width: '100%' }"></p-select>
+            </div>
+
+            <p-button label="Actualizar" icon="pi pi-sync" severity="info" (onClick)="loadData()" [disabled]="isLoading()"></p-button>
+        </div>
+    </header>
+
+    @if (isLoading()) {
+        <div class="loading-state" role="status" aria-live="polite">
+            <p-progressSpinner></p-progressSpinner>
+        </div>
+    }
+
+    @if (!isLoading() && dashboardData(); as data) {
+        <section class="metric-section" aria-labelledby="metric-month-title">
+            <div class="section-head">
+                <h2 id="metric-month-title">Indicadores del Mes</h2>
+                <p>Valores del período seleccionado para priorizar la operación diaria.</p>
+            </div>
+
+            <div class="month-layout">
+                <article class="kpi-card kpi-card--month-highlight">
+                    <span class="kpi-label">Ventas del Mes</span>
+                    <h2 class="kpi-value">{{ data.ventasMesActual | currency }}</h2>
+                </article>
+
+                <article class="kpi-card">
+                    <span class="kpi-label">Facturas Emitidas (Mes)</span>
+                    <h2 class="kpi-value">{{ data.facturasEmitidasMes }}</h2>
+                </article>
+
+                <section class="panel panel--month-side">
+                    <div class="panel-head">
+                        <h3>Top Productos (Mes)</h3>
+                    </div>
+                    <div class="progress-group">
+                        @for (item of data.topProductosMes; track item.nombre) {
+                            <div class="progress-row">
+                                <div class="progress-labels">
+                                    <span>{{ item.nombre }}</span>
+                                    <strong>{{ item.porcentaje }}%</strong>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" [style.width.%]="item.porcentaje"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="metric-section" aria-labelledby="metric-year-title">
+            <div class="section-head">
+                <h2 id="metric-year-title">Indicadores Anuales</h2>
+                <p>Resultados acumulados para evaluar desempeño general del año.</p>
+            </div>
+
+            <div class="kpi-grid kpi-grid--year">
+                <article class="kpi-card highlight">
+                    <span class="kpi-label">Ingresos Totales (Año)</span>
+                    <h2 class="kpi-value">{{ data.ingresosTotalesAnio | currency }}</h2>
+                </article>
+            </div>
+        </section>
+
+        <div class="content-grid">
+            <section class="panel">
+                <div class="panel-head">
+                    <h3>Facturas por Tipo</h3>
+                </div>
+                <div class="list-group">
+                    @for (item of data.facturasPorTipo; track item.tipo) {
+                        <div class="list-item">
+                            <span>{{ item.tipo }}</span>
+                            <strong>{{ item.cantidad }}</strong>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h3>Top Clientes (Año)</h3>
+                </div>
+                <div class="list-group">
+                    @for (item of data.topClientesAnio; track item.nombre) {
+                        <div class="list-item">
+                            <span>{{ item.nombre }}</span>
+                            <strong>{{ item.valor | currency }}</strong>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h3>Top Productos (Año)</h3>
+                </div>
+                <div class="list-group">
+                    @for (item of data.topProductosAnio; track item.nombre) {
+                        <div class="list-item">
+                            <span>{{ item.nombre }}</span>
+                            <strong>{{ item.valor | currency }}</strong>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <section class="panel chart-panel" aria-labelledby="chart-title">
+            <div class="panel-head">
+                <h3 id="chart-title">Tendencia de Ventas</h3>
+            </div>
+
+            <div class="chart-container">
+                @for (punto of data.historialVentas; track punto.etiqueta) {
+                    <div class="bar-column" aria-label="{{ punto.etiqueta }}: {{ punto.valor | currency }}">
+                        <div class="bar-wrapper">
+                            <div
+                                class="bar-fill"
+                                [style.height.%]="calculateBarHeight(punto.valor)"
+                                [attr.title]="punto.etiqueta + ': ' + (punto.valor | currency)"
+                            ></div>
+                        </div>
+                        <span class="bar-label">{{ punto.etiqueta.substring(0, 3) | uppercase }}</span>
+                    </div>
+                }
+            </div>
+
+            <div class="chart-legend">
+                @for (punto of data.historialVentas; track punto.etiqueta) {
+                    <div class="legend-item">
+                        <span class="legend-month">{{ punto.etiqueta.substring(0, 3) | uppercase }}</span>
+                        <strong class="legend-value">{{ punto.valor | currency }}</strong>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</section>

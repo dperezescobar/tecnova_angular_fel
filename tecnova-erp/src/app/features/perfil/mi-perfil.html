@@ -1,0 +1,174 @@
+<section class="perfil-page">
+  <p-toast position="top-right"></p-toast>
+
+  <div class="perfil-container">
+
+    <!-- Hero / cabecera de empresa -->
+    <header class="perfil-hero">
+      <div class="perfil-avatar" aria-hidden="true">
+        <i class="bi bi-building"></i>
+      </div>
+      <div class="perfil-hero-info">
+        <h1 class="perfil-hero-nombre">
+          {{ perfil()?.nombreComercial || perfil()?.nombre || 'Mi empresa' }}
+        </h1>
+        @if (perfil()?.nit) {
+          <span class="perfil-hero-sub">NIT: {{ perfil()!.nit }}</span>
+        }
+        @if (perfil()?.giro) {
+          <span class="perfil-hero-sub perfil-hero-giro">{{ perfil()!.giro }}</span>
+        }
+      </div>
+      <div class="perfil-hero-actions">
+        <p-button
+          icon="pi pi-refresh"
+          [text]="true"
+          severity="secondary"
+          ariaLabel="Recargar datos"
+          [disabled]="loadingPerfil() || loadingAbonos()"
+          (onClick)="reload()"
+        ></p-button>
+      </div>
+    </header>
+
+    <!-- Pestañas -->
+    <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)">
+      <p-tablist>
+        <p-tab value="mis-datos">
+          <i class="pi pi-id-card" aria-hidden="true"></i>
+          <span>Mis datos</span>
+        </p-tab>
+        <p-tab value="historial-pagos">
+          <i class="pi pi-credit-card" aria-hidden="true"></i>
+          <span>Historial de Pagos</span>
+        </p-tab>
+      </p-tablist>
+
+      <p-tabpanels>
+
+        <!-- ══ PESTAÑA: Mis datos ══ -->
+        <p-tabpanel value="mis-datos">
+          @if (loadingPerfil()) {
+            <div class="perfil-loading" role="status" aria-live="polite">
+              <p-progressSpinner></p-progressSpinner>
+            </div>
+          } @else if (perfil()) {
+            <div class="perfil-datos-grid">
+
+              <div class="perfil-group">
+                <h2 class="perfil-group-title">
+                  <i class="pi pi-building" aria-hidden="true"></i>
+                  Información general
+                </h2>
+                <div class="perfil-fields">
+                  <div class="perfil-field">
+                    <span class="pf-label">Razón Social</span>
+                    <span class="pf-value">{{ perfil()!.nombre || '—' }}</span>
+                  </div>
+                  <div class="perfil-field">
+                    <span class="pf-label">Nombre Comercial</span>
+                    <span class="pf-value">{{ perfil()!.nombreComercial || '—' }}</span>
+                  </div>
+                  <div class="perfil-field">
+                    <span class="pf-label">NIT</span>
+                    <span class="pf-value pf-mono">{{ perfil()!.nit || '—' }}</span>
+                  </div>
+                  <div class="perfil-field">
+                    <span class="pf-label">NRC</span>
+                    <span class="pf-value pf-mono">{{ perfil()!.nrc || '—' }}</span>
+                  </div>
+                  <div class="perfil-field perfil-field-full">
+                    <span class="pf-label">Giro / Actividad económica</span>
+                    <span class="pf-value">{{ perfil()!.giro || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="perfil-group">
+                <h2 class="perfil-group-title">
+                  <i class="pi pi-envelope" aria-hidden="true"></i>
+                  Contacto
+                </h2>
+                <div class="perfil-fields">
+                  <div class="perfil-field">
+                    <span class="pf-label">Correo electrónico</span>
+                    <span class="pf-value">{{ perfil()!.email || '—' }}</span>
+                  </div>
+                  <div class="perfil-field">
+                    <span class="pf-label">Teléfono</span>
+                    <span class="pf-value">{{ perfil()!.phone || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="perfil-group perfil-group-full">
+                <h2 class="perfil-group-title">
+                  <i class="pi pi-map-marker" aria-hidden="true"></i>
+                  Ubicación
+                </h2>
+                <div class="perfil-fields">
+                  <div class="perfil-field">
+                    <span class="pf-label">Departamento</span>
+                    <span class="pf-value">{{ perfil()!.departamento || '—' }}</span>
+                  </div>
+                  <div class="perfil-field">
+                    <span class="pf-label">Municipio</span>
+                    <span class="pf-value">{{ perfil()!.municipio || '—' }}</span>
+                  </div>
+                  <div class="perfil-field perfil-field-full">
+                    <span class="pf-label">Dirección</span>
+                    <span class="pf-value">{{ perfil()!.direccion || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          } @else {
+            <div class="perfil-empty">
+              <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+              <span>No se encontraron datos del perfil.</span>
+            </div>
+          }
+        </p-tabpanel>
+
+        <!-- ══ PESTAÑA: Historial de Pagos ══ -->
+        <p-tabpanel value="historial-pagos">
+          @if (loadingAbonos()) {
+            <div class="perfil-loading" role="status" aria-live="polite">
+              <p-progressSpinner></p-progressSpinner>
+            </div>
+          } @else if (abonos().length > 0) {
+            <div class="abonos-grid">
+              @for (abono of abonos(); track abono.fecha + (abono.referencia ?? '')) {
+                <article class="abono-card">
+                  <div class="abono-card-top">
+                    <span class="abono-ref">{{ abono.referencia || '—' }}</span>
+                    <span [class]="'abono-estado ' + estadoBadgeClass(abono.estado)">
+                      {{ abono.estado }}
+                    </span>
+                  </div>
+                  <div class="abono-card-body">
+                    <div class="abono-meta">
+                      <i class="pi pi-calendar" aria-hidden="true"></i>
+                      <span>{{ abono.fecha | date:'dd/MM/yyyy' }}</span>
+                    </div>
+                    <div class="abono-monto">
+                      {{ abono.monto | currency:'USD':'symbol':'1.2-2' }}
+                    </div>
+                  </div>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="perfil-empty">
+              <i class="pi pi-inbox" aria-hidden="true"></i>
+              <span>No hay historial de pagos registrado.</span>
+            </div>
+          }
+        </p-tabpanel>
+
+      </p-tabpanels>
+    </p-tabs>
+
+  </div>
+</section>

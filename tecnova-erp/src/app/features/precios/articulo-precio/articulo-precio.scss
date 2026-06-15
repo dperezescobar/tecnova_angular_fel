@@ -1,0 +1,974 @@
+$pos-primary:     #1a56db;
+$pos-success:     #0e9f6e;
+$pos-danger:      #e02424;
+$pos-warning:     #d97706;
+$pos-bg:          #f3f4f6;
+$pos-surface:     #ffffff;
+$pos-border:      #e5e7eb;
+$pos-text:        #111827;
+$pos-text-muted:  #6b7280;
+$pos-radius:      10px;
+$pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
+/* Estilo para Observación igual que en fac */
+.summary-observaciones textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.ingresos-inv-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  touch-action: pan-y;
+}
+/* --- Corrección para Escritorio y Tablets --- */
+.doc-table {
+  display: block !important; // Mata la estructura de tabla tradicional
+  width: 100% !important;
+  min-width: 0 !important; // ELIMINA el 46rem que causa el desborde
+  border: none !important;
+
+  thead {
+    display: none !important; // Los encabezados de tabla ya no sirven con divs
+  }
+
+  tbody {
+    display: grid !important;
+    // En escritorio/tablet horizontal mostramos 2 o 3 columnas de cards
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)) !important;
+    gap: 1.5rem;
+    padding: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  tr.inv-card {
+    display: flex !important;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #ffffff;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 12px;
+    padding: 1.25rem !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    min-height: 160px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.3s;
+
+    // Estado: ELABORACION (Borrador/Activo)
+  &[data-estado-card='ELABORACION'] {
+    border-left: 5px solid #3b82f6 !important; // Azul para resaltar que es editable
+    background-color: #ffffff;
+  }
+
+  // Estado: APLICADO (Finalizado/Protegido)
+  &[data-estado-card='APLICADO'] {
+    border-left: 5px solid #10b981 !important; // Verde de éxito
+    background-color: #f0fdf4; // Fondo verde muy tenue para diferenciarlo
+    border-color: #bbf7d0 !important;
+    
+    // Opcional: Atenuar un poco el texto para indicar que es histórico
+    .inv-card-comment {
+      color: #64748b;
+    }
+  }
+  }
+}
+
+.ingresos-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.ingresos-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.ingresos-maestro-form, .ingresos-detalle-form {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 1.2rem 2.2rem;
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.2rem 1.2rem 1.2rem;
+  box-shadow: 0 2px 8px #0001;
+  margin-bottom: 1.5rem;
+  .field-group-row {
+    display: flex;
+    gap: 1.2rem;
+    width: 100%;
+  }
+}
+
+.ingresos-maestro-form label, .ingresos-detalle-form label {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+  font-size: 0.98rem;
+}
+
+.ingresos-maestro-form input,
+.ingresos-detalle-form input {
+  margin-top: 0.25rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.55rem;
+  font-size: 0.95rem;
+  background: #fff;
+  transition: border 0.2s;
+}
+.ingresos-maestro-form input:focus,
+.ingresos-detalle-form input:focus {
+  border-color: #0b63f3;
+  outline: none;
+  box-shadow: 0 0 0 2.5px rgba(11, 99, 243, 0.1);
+}
+
+.ingresos-detalles-list {
+  background: #f8fafc;
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: #f8fafc;
+  border-radius: 0.7rem;
+  flex-basis: 100%; // Fuerza el salto de línea en flex containers
+}
+.ingresos-detalles-list h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  color: #334155;
+}
+.ingresos-detalles-list ul {
+  list-style: disc;
+  margin-left: 2rem;
+  color: #334155;
+  font-size: 1rem;
+}
+
+.ingresos-acciones {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+}
+// ---- Action Groups Bar ----
+.form-actions {
+  display: flex;
+  gap: 0.5rem 1.25rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 2px solid #e2e8f0;
+}
+
+.form-actions.form-actions-top {
+  margin-top: 0;
+  margin-bottom: 0.6rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.action-group-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #94a3b8;
+  padding-left: 0.15rem;
+}
+
+.action-group-btns {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.action-group-divider {
+  width: 1px;
+  align-self: stretch;
+  background: linear-gradient(180deg, transparent, #cbd5e1 40%, #cbd5e1 60%, transparent);
+  margin: 0 0.25rem;
+  flex-shrink: 0;
+}
+.pos-back-btn {
+  :deep(.p-button) {
+    min-width: 8rem;
+    justify-content: center;
+    white-space: nowrap;
+  }
+}
+.field-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  label {
+    font-size: 0.84rem;
+    color: #475569;
+    font-weight: 600;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.6rem;
+    padding: 0.55rem 0.65rem;
+    background: #fff;
+    font: inherit;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 5.5rem;
+  }
+
+  p-autocomplete {
+    width: 100%;
+  }
+}
+.line-articulo,
+.line-desc,
+.line-qty,
+.line-price {
+  grid-column: auto;
+}
+.line-actions {
+  display: flex;
+  align-items: flex-end;
+
+  ::ng-deep .p-button {
+    min-width: 7.4rem;
+  }
+
+  :is(.p-button, p-button) {
+    width: 100%;
+  }
+}
+/* --- Alineación Interna de la Card --- */
+.inv-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+
+  .inv-card-id {
+    font-weight: 800;
+    color: #1a56db; // Tu variable $pos-primary
+    font-size: 1.15rem;
+  }
+}
+.inv-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto; // Empuja el footer al fondo de la card
+  padding-top: 0.75rem;
+  border-top: 1px solid #f3f4f6;
+
+  .inv-card-date {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 600;
+  }
+}
+// ── Responsive Table to Cards ────────────────────────────────────────
+// Se activa en tablets y teléfonos (ajustable según necesidad)
+// ── Responsive Table to Modern Cards (Mejorado) ──────────────────────
+/* --- Diseño unificado para Tablets y Celulares --- */
+@media (max-width: 1024px) {
+  .ingresos-inv-page {
+    padding: 1rem 0.5rem !important; // Reducimos el padding lateral al mínimo
+  }
+
+  .table-wrap {
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow-x: hidden !important; // Garantía total contra el scroll lateral
+  }
+  .doc-table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important; // Mata el desborde de los 712px
+    border: none;
+
+    thead { display: none; } // Oculta cabecera real
+
+    tbody {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0.5rem !important;
+      width: 100%;
+      box-sizing: border-box !important;
+    }
+
+    /* La Tarjeta (tr) */
+    tr.inv-card {
+      display: flex !important;
+      flex-direction: column;
+      background: #ffffff;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 12px;
+      padding: 1rem !important;
+      margin-bottom: 0;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      box-sizing: border-box !important; // El padding no suma al ancho
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.3s;
+      // Estado: ELABORACION (Borrador/Activo)
+  &[data-estado-card='ELABORACION'] {
+    border-left: 5px solid #3b82f6 !important; // Azul para resaltar que es editable
+    background-color: #ffffff;
+  }
+
+  // Estado: APLICADO (Finalizado/Protegido)
+  &[data-estado-card='APLICADO'] {
+    border-left: 5px solid #10b981 !important; // Verde de éxito
+    background-color: #f0fdf4; // Fondo verde muy tenue para diferenciarlo
+    border-color: #bbf7d0 !important;
+    
+    // Opcional: Atenuar un poco el texto para indicar que es histórico
+    .inv-card-comment {
+      color: #64748b;
+      word-break: break-word; // Rompe palabras largas si es necesario
+  display: block;
+  line-height: 1.4;
+  padding-right: 0.5rem; // Evita que el texto pegue con el borde derecho
+    }
+  }
+    }
+
+    /* Cabecera de la tarjeta (ID y Estado) */
+    .inv-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+
+      .inv-card-id {
+        font-weight: 800;
+        color: $pos-primary; // Usa tu variable #1a56db
+        font-size: 1.1rem;
+      }
+    }
+
+    /* Cuerpo (Comentario) */
+    .inv-card-body {
+      margin-bottom: 0.5rem;
+      .inv-card-comment {
+        font-size: 0.95rem;
+        color: $pos-text;
+        font-weight: 500;
+        display: block;
+      }
+    }
+
+    /* Footer (Fecha y Acciones) */
+    .inv-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.6rem;
+      border-top: 1px solid #f1f5f9;
+      
+      .inv-card-date {
+        font-size: 0.85rem;
+        color: $pos-text-muted;
+        font-weight: 600;
+      }
+    }
+
+    /* Contenedor de botones */
+    .inv-card-actions {
+      display: flex;
+      gap: 0.5rem;
+      
+      ::ng-deep .p-button.p-button-text {
+        padding: 0.25rem !important;
+        width: 38px !important;
+        height: 38px !important;
+      }
+    }
+  }
+}
+.fac-estado-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+
+  &[data-estado='ELABORACION'] {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+  }
+
+  &[data-estado='APLICADO'] {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+  }
+}
+.pos-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid $pos-border;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.pos-view-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+
+  .pos-view-toggle {
+    flex: 0 0 auto;
+  }
+}
+.pos-view-toggle-btn {
+  border: 0;
+  background: transparent;
+  color: $pos-text-muted;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: #e5e7eb;
+    color: $pos-text;
+  }
+}
+
+.pos-view-toggle-btn-active {
+  background: $pos-primary;
+  color: #fff;
+}
+.pos-articulos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+  padding: 1rem 0;
+  align-items: start;
+  align-content: start;
+}
+
+.pos-articulo-card {
+position: relative;
+  border: 1px solid $pos-border;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.85rem;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  // Control de altura total
+  min-height: 180px; 
+  max-height: 220px; 
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: $pos-shadow;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  // ESTADO SELECCIONADO
+  &-selected {
+    border-color: #2563eb; // Azul primario
+    background: #eff6ff;   // Fondo azul tenue
+    
+    // Checkmark visual (opcional)
+    &::after {
+      content: '\e909'; // Icono de check de PrimeIcons
+      font-family: 'primeicons';
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: #2563eb;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+  }
+}
+.pos-articulo-card-thumb-wrap {
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  .pi {
+    font-size: 1.25rem;
+    color: $pos-text-muted;
+  }
+}
+
+.pos-articulo-card-thumb {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  display: block;
+}
+.pos-articulo-card-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  align-items: center;
+  width: 100%;
+  margin-top: 0.5rem;
+  // SOLUCIÓN #2: Espacio uniforme para el texto
+  min-height: auto; // Altura suficiente para el código y 2 líneas de descripción
+  justify-content: flex-start; // Alinea el contenido al inicio para evitar que el precio se mueva
+}
+
+// Estilos de Código (Pequeño y gris)
+.pos-articulo-card-code {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 0.15rem;
+}
+
+// Estilos de Descripción (El truco del truncado)
+.pos-articulo-card-desc {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.25;
+  text-align: center;
+  width: 100%;
+
+  // SOLUCIÓN #3: Truncado de texto a 2 líneas
+  display: -webkit-box;
+  -webkit-line-clamp: 2; // Número máximo de líneas a mostrar
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis; // Añade los '...' automáticos
+  // Altura máxima para este texto = line-height * line-clamp (1.25 * 2)
+  max-height: calc(1.25rem * 2); 
+}
+
+// Estilos del precio (si los tienes)
+.pos-articulo-card-price {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary-color, #2563eb);
+  margin-top: auto; // Empuja el precio al fondo si la tarjeta es muy alta
+}
+/* --- Contenedor con Scroll Interno --- */
+.pos-images-wrapper {
+  width: 100%;
+  max-height: 400px; // Altura máxima fija antes de mostrar scroll
+  overflow-y: auto;  // Permite scroll vertical si hay muchas imágenes
+  padding-right: 8px;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  background: #fafafa;
+  margin-bottom: 1rem;
+
+  /* Estilizar el scroll para que se vea moderno */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+  }
+}
+.pos-image-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  .pi {
+    position: absolute;
+    left: 0.55rem;
+    color: $pos-text-muted;
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    height: 2.25rem;
+    border: 1px solid $pos-border;
+    border-radius: 8px;
+    padding: 0 0.65rem 0 1.9rem;
+    font-size: 0.86rem;
+    outline: none;
+
+    &:focus {
+      border-color: $pos-primary;
+      box-shadow: 0 0 0 3px #bfdbfe55;
+    }
+
+    &[readonly] {
+      background: #f9fafb;
+      color: $pos-text-muted;
+      cursor: default;
+    }
+  }
+}
+// ── Cart ─────────────────────────────────────────────────────────────
+.pos-cart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: $pos-border transparent;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: $pos-surface;
+  border: 1px solid $pos-border;
+  border-radius: $pos-radius;
+  padding: 0.45rem;
+  box-shadow: $pos-shadow;
+}
+
+.pos-cart-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  background: #f9fafb;
+  border: 1px solid $pos-border;
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  transition: background 0.1s;
+  &:hover { background: #eff6ff; border-color: #bfdbfe; }
+}
+
+.pos-cart-item-main {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pos-cart-thumb-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  .pi {
+    font-size: 0.95rem;
+    color: $pos-text-muted;
+  }
+}
+
+.pos-cart-thumb {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  display: block;
+}
+
+.pos-cart-image-mode {
+  .pos-cart-item-main {
+    gap: 0.5rem;
+  }
+}
+
+.pos-cart-linea {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: $pos-text-muted;
+  flex-shrink: 0;
+  padding-top: 0.05rem;
+}
+
+.pos-cart-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+
+  .pos-cart-articulo {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: $pos-primary;
+    line-height: 1.15;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pos-cart-desc {
+    display: block;
+    font-size: 0.82rem;
+    color: $pos-text;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+.pos-cart-item-nums {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.pos-cart-qty   { font-size: 0.86rem; font-weight: 600; color: $pos-text; }
+.pos-cart-sep   { color: $pos-text-muted; font-size: 0.76rem; }
+.pos-cart-price { font-size: 0.82rem; color: $pos-text-muted; }
+.pos-cart-total {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: $pos-text;
+  min-width: 70px;
+  text-align: right;
+}
+
+@media (max-width: 1024px) {
+  .pos-cart-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+  }
+
+  .pos-cart-item-main {
+    align-items: flex-start;
+  }
+
+  .pos-cart-image-mode {
+    .pos-cart-thumb-wrap,
+    .pos-cart-thumb {
+      width: 42px;
+      height: 42px;
+    }
+  }
+
+  .pos-cart-info {
+    display: block;
+
+    .pos-cart-articulo,
+    .pos-cart-desc {
+      display: block;
+      white-space: normal;
+    }
+  }
+
+  .pos-cart-item-nums {
+    flex-wrap: wrap;
+  }
+}
+
+.pos-cart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: $pos-text-muted;
+  .pi { font-size: 2rem; opacity: 0.5; }
+  span { font-size: 0.85rem; }
+}
+/* --- Optimización Final para Tecnova Sv --- */
+.ingresos-detalle-form {
+  .grid.flex-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch;
+
+    label {
+      min-width: 0 !important; // MATA EL DESBORDE: anula los 220px del padre
+      width: 100% !important;
+      margin-bottom: 2px !important;
+      font-size: 0.75rem !important;
+    }
+  }
+}
+
+/* --- Optimización de Distribución para Tecnova Sv --- */
+.pricing-card {
+  padding: 1.5rem !important; // Más desahogo interno
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  min-width: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+
+  &.card-mandatory { border-top: 5px solid #3b82f6; }
+  &.card-optional { 
+    border-top: 5px solid #f59e0b; 
+    background-color: #fffcf5; 
+  }
+
+  label {
+    min-width: 0 !important;
+    width: auto !important;
+    letter-spacing: 0.02em;
+  }
+
+  ::ng-deep {
+    /* Elimina botones residuales si los hay y ajusta el input */
+    .p-inputnumber {
+      display: inline-block !important;
+    }
+    
+    .p-inputnumber-input {
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 8px !important;
+      padding: 0.5rem 0.75rem !important;
+      font-size: 0.95rem !important;
+      color: #334155 !important;
+      
+      &:focus {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+      }
+    }
+  }
+}
+
+// Aseguramos que el formulario padre no fuerce anchos
+.ingresos-detalle-form .pricing-card .field {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+/* --- Ajustes para Móviles --- */
+@media (max-width: 768px) {
+  /* Forzamos que el contenedor flex se vuelva vertical */
+  .ingresos-detalle-form div[style*="display: flex"] {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .pricing-card {
+    padding: 1.25rem !important;
+    width: 100% !important;
+
+    /* En móvil, permitimos que los inputs ocupen un poco más de ancho 
+       para facilitar el toque con el dedo */
+    ::ng-deep .p-inputnumber-input {
+      max-width: 100% !important;
+      width: 140px !important; 
+    }
+  }
+
+  /* Ajuste de la botonera inferior para que sea más fácil de tocar */
+  .flex.justify-content-end {
+    flex-direction: column-reverse; // Pone Guardar arriba de Cancelar
+    gap: 10px !important;
+    
+    button, ::ng-deep .p-button {
+      width: 100% !important; // Botones de ancho completo
+      justify-content: center;
+    }
+  }
+}
+/* --- Optimización del Listado Principal (Mobile First) --- */
+:host ::ng-deep {
+  @media screen and (max-width: 960px) {
+    .p-datatable.p-datatable-responsive-demo {
+      .p-datatable-tbody > tr {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        margin-bottom: 1rem !important;
+        padding: 1rem !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+        display: block !important;
+        width: 100% !important;
+
+        td {
+          display: flex !important;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.5rem 0 !important;
+          border: none !important;
+          width: 100% !important;
+          text-align: left !important;
+
+          &:not(:last-child) {
+            border-bottom: 1px dashed #f1f5f9 !important;
+          }
+
+          .p-column-title {
+            min-width: 30%;
+            color: #64748b;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+          }
+        }
+      }
+    }
+  }
+
+  /* Estilos para que los datos resalten */
+  .text-success { color: #10b981; }
+  .articulo-info { display: flex; align-items: center; }
+}

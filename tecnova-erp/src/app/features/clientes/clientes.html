@@ -1,0 +1,353 @@
+<section class="clientes-page">
+  <header class="clientes-header">
+    <div>
+      <h1>Catálogo de Clientes</h1>
+    </div>
+
+    <div class="header-actions">
+      @if (!showForm()) {
+        <span class="search-box">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Buscar por nombre, NIT o código"
+            [value]="filterText()"
+            (input)="onFilterChange($any($event.target).value)"
+            (keyup.enter)="loadClientes()"
+          />
+        </span>
+
+        <div class="header-buttons" role="group" aria-label="Acciones del listado de clientes">
+          <p-button label="Buscar" icon="pi pi-filter" (onClick)="loadClientes()" [disabled]="loading()"></p-button>
+          <p-button label="Registrar Cliente" icon="pi pi-user-plus" severity="info" (onClick)="openCreateForm()"></p-button>
+          <p-button label="Descargar Excel" icon="pi pi-file-excel" severity="info" (onClick)="exportToExcel()"></p-button>
+        </div>
+      } @else {
+        <div class="detail-actions">
+          <p-button type="button" label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+        </div>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage()) {
+    <p-message severity="error" [text]="errorMessage()"></p-message>
+  }
+
+  @if (!showForm()) {
+    <section class="maestro-section">
+      @if (loading()) {
+        <div class="loading-box" role="status" aria-live="polite">
+          <p-progressSpinner></p-progressSpinner>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="clientes-table" aria-label="Listado de clientes">
+            <thead>
+              <tr>
+                <th class="actions-col">Acciones</th>
+                <th>CLIENTE</th>
+                <th>NOMBRE_RAZON_SOCIAL</th>
+                <th>NOMBRE_COMERCIAL</th>
+                <th>REGISTRO_COMERCIO</th>
+                <th>NIT</th>
+                <th>País</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (cliente of clientes(); track cliente.CLIENTE) {
+                <tr>
+                  <td class="actions-col">
+                    <p-button
+                      icon="pi pi-pencil"
+                      [text]="true"
+                      severity="info"
+                      styleClass="action-icon-btn action-edit"
+                      ariaLabel="Editar cliente"
+                      (onClick)="openEditForm(cliente)"
+                    ></p-button>
+                    <p-button
+                      icon="pi pi-trash"
+                      [text]="true"
+                      severity="danger"
+                      styleClass="action-icon-btn action-delete"
+                      ariaLabel="Eliminar cliente"
+                      (onClick)="deleteCliente(cliente)"
+                    ></p-button>
+                  </td>
+                  <td> {{cliente.CLIENTE}}</td>
+                   <td>
+  <div class="flex align-items-center gap-2">
+    <span class="font-bold text-primary">{{ cliente.NOMBRE }}</span>
+    @if (cliente.CLIENTE_PREFERENCIAL) {
+      <p-tag severity="warn" value="PREFERENCIAL" icon="pi pi-star-fill" [style]="{'font-size': '10px'}"></p-tag>
+    }
+  </div>
+</td>
+                  <td>{{ cliente.ALIAS }}</td>
+                  <td>{{ cliente.REGISTRO_COMERCIO }}</td>
+                  <td>{{ cliente.NIT }}</td>
+                  <td>{{ cliente.Pais }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7">No se encontraron clientes con el filtro aplicado.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          <div class="list-mobile-cards" aria-label="Listado de clientes en móvil">
+            @for (cliente of clientes(); track cliente.CLIENTE) {
+              <article class="list-mobile-card">
+                <div class="card-row">
+                  <span class="card-label">Cliente</span>
+                  <span class="card-value">{{ cliente.CLIENTE }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Nombre</span>
+                  <span class="card-value flex align-items-center gap-2 flex-wrap">
+    {{ cliente.NOMBRE }}
+    @if (cliente.CLIENTE_PREFERENCIAL) {
+      <p-tag severity="warn" value="PREFERENCIAL" icon="pi pi-star-fill" [style]="{'font-size': '9px', 'padding': '2px 4px'}"></p-tag>
+    }
+  </span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Comercial</span>
+                  <span class="card-value">{{ cliente.ALIAS }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">NIT</span>
+                  <span class="card-value">{{ cliente.NIT }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">País</span>
+                  <span class="card-value">{{ cliente.Pais }}</span>
+                </div>
+                <div class="card-actions">
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="info"
+                    styleClass="action-icon-btn action-edit"
+                    ariaLabel="Editar cliente"
+                    (onClick)="openEditForm(cliente)"
+                  ></p-button>
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    styleClass="action-icon-btn action-delete"
+                    ariaLabel="Eliminar cliente"
+                    (onClick)="deleteCliente(cliente)"
+                  ></p-button>
+                </div>
+              </article>
+            } @empty {
+              <div class="mobile-empty">No se encontraron clientes con el filtro aplicado.</div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+
+  @if (showForm()) {
+    <section class="form-panel detalle-section">
+      <p-card>
+        <ng-template pTemplate="title">{{ formTitle() }}</ng-template>
+        <div class="mode-indicator" aria-live="polite">
+          <span class="mode-chip" [class.mode-edit]="clienteForm.controls.TipoMtto.value === 'C'">
+            Modo: {{ modoMttoTexto() }}
+          </span>
+        </div>
+        @if (loadingFormData()) {
+          <div class="loading-box" role="status" aria-live="polite">
+            <p-progressSpinner></p-progressSpinner>
+          </div>
+        } @else {
+          <form [formGroup]="clienteForm" (ngSubmit)="saveCliente()" class="cliente-form">
+          <div class="field-grid">
+            <div class="field-item">
+              <label for="cliente">Código Cliente</label>
+              <input pInputText id="cliente" formControlName="CLIENTE" [readonly]="clienteForm.controls.TipoMtto.value === 'C'" />
+            </div>
+
+            <div class="field-item">
+              <label for="tipo-cliente">Tipo de Cliente</label>
+              <p-select
+                inputId="tipo-cliente"
+                [options]="tipoClienteOptions()"
+                optionLabel="DESCRIPCION"
+                optionValue="TIPO_CLIENTE"
+                formControlName="TIPO_CLIENTE"
+              ></p-select>
+            </div>
+
+            <div class="field-item field-wide">
+              <label for="nombre">Nombre / Razón Social</label>
+              <input pInputText id="nombre" formControlName="NOMBRE" />
+            </div>
+
+            <div class="field-item field-wide">
+              <label for="alias">Nombre Comercial</label>
+              <input pInputText id="alias" formControlName="ALIAS" />
+            </div>
+
+            <div class="field-item">
+              <label for="nit">NIT</label>
+              <input pInputText id="nit" formControlName="NIT" />
+            </div>
+
+            <div class="field-item">
+              <label for="nrc">Registro Comercio</label>
+              <input pInputText id="nrc" formControlName="NRC" />
+            </div>
+
+            <div class="field-item">
+              <label for="pais">País</label>
+              <p-select
+                inputId="pais"
+                [options]="paisesOptions()"
+                optionLabel="label"
+                optionValue="value"
+                formControlName="IDPAIS"
+              ></p-select>
+            </div>
+
+            <div class="field-item">
+              <label for="departamento">Departamento</label>
+              <p-select
+                inputId="departamento"
+                [options]="departamentosOptions()"
+                optionLabel="label"
+                optionValue="value"
+                formControlName="IDDEPARTAMENTO"
+              ></p-select>
+            </div>
+
+            <div class="field-item">
+              <label for="municipio">Municipio</label>
+              <p-select
+                inputId="municipio"
+                [options]="municipiosOptions()"
+                optionLabel="label"
+                optionValue="value"
+                formControlName="IDMUNICIPIO"
+              ></p-select>
+            </div>
+
+            <div class="field-item">
+              <label for="condicion-pago">Condición de Pago</label>
+              <p-select
+                inputId="condicion-pago"
+                [options]="condicionesPagoOptions()"
+                optionLabel="label"
+                optionValue="value"
+                formControlName="CONDICION_PAGO"
+              ></p-select>
+            </div>
+
+            <div class="field-item">
+              <label for="giro">Giro</label>
+              <p-autocomplete
+                inputId="giro"
+                [suggestions]="giroSuggestions()"
+                [dropdown]="true"
+                [forceSelection]="true"
+                [minLength]="0"
+                [delay]="0"
+                [dropdownMode]="'blank'"
+                [completeOnFocus]="true"
+                [appendTo]="'body'"
+                [autoZIndex]="true"
+                [baseZIndex]="1300"
+                panelStyleClass="giro-autocomplete-panel"
+                optionLabel="label"
+                (completeMethod)="onGiroComplete($event.query)"
+                formControlName="IDGIRO"
+                placeholder="Buscar giro por coincidencia"
+              ></p-autocomplete>
+            </div>
+
+            <div class="field-item field-wide">
+              <label for="direccion">Dirección</label>
+              <input pInputText id="direccion" formControlName="DIRECCION" />
+            </div>
+
+            <div class="field-item">
+              <label for="telefono">Teléfono</label>
+              <input pInputText id="telefono" formControlName="TELEFONO" />
+            </div>
+
+            <div class="field-item">
+              <label for="email">Email</label>
+              <input pInputText id="email" formControlName="EMAIL" />
+            </div>
+
+            <div class="field-item">
+              <label for="tipo-persona">Tipo Persona</label>
+              <p-select
+                inputId="tipo-persona"
+                [options]="tipoPersonaOptions"
+                optionLabel="label"
+                optionValue="value"
+                formControlName="TIPOPERSONA"
+              ></p-select>
+            </div>
+
+            <div class="field-item">
+              <label for="activo">Estado</label>
+              <p-select
+                inputId="activo"
+                [options]="activeOptions"
+                optionLabel="label"
+                optionValue="value"
+                formControlName="ACTIVO"
+              ></p-select>
+            </div>
+
+            <div class="field-item field-wide">
+              <label for="observacion">Observación</label>
+              <input pInputText id="observacion" formControlName="OBSERVACION" />
+            </div>
+          </div>
+<div class="preferencia-switch-wrapper border-top-1 border-200 mt-3 pt-3">
+  <div class="switch-row">
+    <p-toggleSwitch 
+      formControlName="CLIENTE_PREFERENCIAL" 
+      inputId="preferencial">
+    </p-toggleSwitch>
+    <label for="preferencial" class="font-bold text-sm text-700 cursor-pointer">
+      Habilitar Precio Preferencial de Mayoreo
+    </label>
+  </div>
+
+  @if (clienteForm.get('CLIENTE_PREFERENCIAL')?.value) {
+    <div class="compact-field-qty">
+      <label for="cantidad-minima" class="text-xs font-bold block mb-2 text-800">Cantidad Mínima Global</label>
+      <div class="flex align-items-center gap-2">
+        <p-inputNumber
+          id="cantidad-minima"
+          formControlName="CANTIDAD_MINIMA"
+          mode="decimal"
+          [min]="1"
+          [inputStyle]="{'width': '80px', 'padding': '0.35rem', 'text-align': 'center'}">
+        </p-inputNumber>
+        <span class="text-xs text-500 italic">unidades en factura</span>
+      </div>
+    </div>
+  }
+</div>
+          <div class="form-actions">
+            <p-button type="button" label="Cancelar" severity="secondary" (onClick)="closeForm()"></p-button>
+            <p-button type="submit" [label]="accionGuardarTexto()" icon="pi pi-save" [loading]="saving()"></p-button>
+          </div>
+          </form>
+        }
+      </p-card>
+    </section>
+  }
+</section>

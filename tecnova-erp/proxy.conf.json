@@ -1,0 +1,18 @@
+{
+  "/dte-proxy": {
+    "target": "https://apitecf-v2.tecnovasv.com",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/dte-proxy": ""
+    }
+  },
+  "/maildte-proxy": {
+    "target": "https://maildte.kulstoresv.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/maildte-proxy": ""
+    }
+  }
+}

@@ -1,0 +1,217 @@
+<p-toast></p-toast>
+
+<div class="card p-4">
+  <div class="flex justify-content-between align-items-center mb-4">
+    <h2 class="m-0">Control de Precios Vigentes</h2>
+    <p-button label="Nuevo Precio" icon="pi pi-plus" (onClick)="abrirNuevo()"></p-button>
+  </div>
+
+  <p-table 
+  [value]="precios()" 
+  [loading]="loading()" 
+  [rows]="10" 
+  [paginator]="true"
+  responsiveLayout="stack" 
+  breakpoint="960px"
+  styleClass="p-datatable-responsive-demo">
+  
+  <ng-template pTemplate="header">
+    <tr>
+      <th>Artículo</th>
+      <th>Tipo</th>
+      <th>Precio</th>
+      <th>Cant. Mínima</th>
+      <th>Vigencia</th>
+    </tr>
+  </ng-template>
+  
+  <ng-template pTemplate="body" let-p>
+    <tr class="precio-row-card">
+      <td>
+        <span class="p-column-title font-bold">Artículo</span>
+        <div class="articulo-info">
+          <i class="pi pi-box mr-2 text-primary"></i>
+          <span class="font-bold">{{ p.articulo+' '+p.articulodescripcion }}</span>
+        </div>
+      </td>
+      <td>
+        <span class="p-column-title font-bold">Tipo</span>
+        <p-tag [value]="p.tipoPrecio" [severity]="p.tipoPrecio === 'NORMAL' ? 'info' : 'warn'"></p-tag>
+      </td>
+      <td>
+        <span class="p-column-title font-bold">Precio</span>
+        <span class="text-success font-bold text-lg">{{ p.precio | currency }}</span>
+      </td>
+      <td>
+        <span class="p-column-title font-bold">Cant. Mínima</span>
+        <span class="text-700">{{ p.cantidadMinima }} unidades</span>
+      </td>
+      <td>
+        <span class="p-column-title font-bold">Vigencia</span>
+        <span class="text-500"><i class="pi pi-calendar mr-1"></i>{{ p.fechaInicio | date:'dd/MM/yyyy' }}</span>
+      </td>
+    </tr>
+  </ng-template>
+</p-table>
+</div>
+
+<p-dialog header="Actualizar Precio" [(visible)]="displayDialog" [modal]="true" [style]="{width: '500px'}">
+    <section class="detalle-section section-card">  
+ <form [formGroup]="precioForm" class="ingresos-detalle-form">
+      <div class="pos-view-toolbar mb-3">
+  <div class="pos-view-toggle">
+    <button
+      type="button"
+      class="pos-view-toggle-btn"
+      [class.pos-view-toggle-btn-active]="articleViewMode() === 'listado'"
+      (click)="setArticleViewMode('listado')"
+    >
+      Listado
+    </button>
+    <button
+      type="button"
+      class="pos-view-toggle-btn"
+      [class.pos-view-toggle-btn-active]="articleViewMode() === 'imagenes'"
+      (click)="setArticleViewMode('imagenes')"
+    >
+      Imágenes
+    </button>
+  </div>
+</div>
+
+      @if (articleViewMode() === 'listado') {
+
+        <p-autocomplete
+          formControlName="articulo"
+          [suggestions]="articuloSuggestions()"
+          [dropdown]="true"
+          placeholder="Busque articulo por código o descripción..."
+          (completeMethod)="onArticuloComplete($event.query)"
+          (onSelect)="onArticuloSelect($event.value)">
+        </p-autocomplete>
+      } @else {
+        <div class="pos-image-search">
+          <i class="pi pi-search"></i>
+          <input pInputText type="text" 
+                 [value]="articuloCardSearch()" 
+                 (input)="onArticuloCardSearch($any($event.target).value)"
+                 placeholder="Buscar por imágenes...">
+        </div>
+        
+        <div class="pos-images-wrapper">
+          <div class="pos-articulos-grid">
+            @for (art of visibleArticuloCards(); track art.ARTICULO) {
+              <button type="button" class="pos-articulo-card"
+                [class.pos-articulo-card-selected]="articuloSeleccionadoCodigo() === art.ARTICULO"
+                (click)="selectArticuloCard(art)">
+                <div class="pos-articulo-card-thumb-wrap">
+                  @if (articuloImagenUrl(art.ARTICULO)) {
+                    <img [src]="articuloImagenUrl(art.ARTICULO)!" class="pos-articulo-card-thumb" />
+                  } @else { <i class="pi pi-box"></i> }
+                </div>
+                <span class="pos-articulo-card-code">{{ art.ARTICULO }}</span>
+                <span class="pos-articulo-card-desc">{{ art.DESCRIPCION }}</span>
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+    <!-- <div class="flex flex-column gap-4">
+      
+      <div class="surface-ground p-3 border-round border-1 border-200">
+        <div class="flex align-items-center mb-3">
+          <i class="pi pi-tag mr-2 text-primary"></i>
+          <span class="font-bold text-lg">Venta por Unidad</span>
+          <p-tag value="Obligatorio" severity="info" class="ml-auto"></p-tag>
+        </div>
+        
+        <div class="field">
+          <label>Precio Unitario ($)</label>
+          <p-inputNumber formControlName="precioUnidad" mode="currency" currency="USD" locale="en-US" placeholder="0.00"></p-inputNumber>
+        </div>
+      </div>
+
+      <div class="surface-card p-3 border-round border-1 border-300 shadow-1">
+        <div class="flex align-items-center mb-3">
+          <i class="pi pi-tags mr-2 text-warning"></i>
+          <span class="font-bold text-lg">Venta por Mayoreo</span>
+          <p-tag value="Opcional" severity="warn" class="ml-auto"></p-tag>
+        </div>
+
+        <div class="formgrid grid">
+          <div class="field col-6">
+            <label>Precio Mayoreo ($)</label>
+            <p-inputNumber formControlName="precioMayoreo" mode="currency" currency="USD" locale="en-US" placeholder="0.00"></p-inputNumber>
+          </div>
+          <div class="field col-6">
+            <label>Cant. Mínima</label>
+            <p-inputNumber formControlName="cantidadMinimaMayoreo" [min]="0" [showButtons]="true" placeholder="Ej. 12"></p-inputNumber>
+          </div>
+        </div>
+      </div>
+
+    </div> -->
+<div class="pricing-container" style="display: flex; gap: 20px; width: 100%; align-items: stretch; margin-top: 15px;">
+  
+  <div class="pricing-card card-mandatory" style="flex: 1;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="pi pi-tag" style="color: #2563eb; font-size: 1rem;"></i>
+        <span style="font-weight: 700; font-size: 0.9rem; color: #1e293b;">Por Unidad</span>
+      </div>
+      <p-tag value="Obligatorio" severity="info" [style]="{'font-size': '10px'}"></p-tag>
+    </div>
+    
+    <div class="field" style="margin: 0;">
+      <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 6px;">Precio Unitario ($)</label>
+      <p-inputNumber 
+        formControlName="precioUnidad" 
+        mode="currency" currency="USD" locale="en-US"
+        [showButtons]="false"
+        [inputStyle]="{'width': '110px'}"
+        class="compact-input">
+      </p-inputNumber>
+    </div>
+  </div>
+
+  <div class="pricing-card card-optional" style="flex: 1;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+      <i class="pi pi-tags" style="color: #d97706; font-size: 1rem;"></i>
+      <span style="font-weight: 700; font-size: 0.9rem; color: #1e293b;">Por Mayoreo</span>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="field" style="margin: 0;">
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 6px;">Precio Mayoreo ($)</label>
+        <p-inputNumber 
+          formControlName="precioMayoreo" 
+          mode="currency" currency="USD" locale="en-US"
+          [showButtons]="false"
+          [inputStyle]="{'width': '110px'}"
+          class="compact-input">
+        </p-inputNumber>
+      </div>
+
+      <div class="field" style="margin: 0;">
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 6px;">Mínimo de Unidades</label>
+        <p-inputNumber 
+          formControlName="cantidadMinimaMayoreo" 
+          [showButtons]="false"
+          [inputStyle]="{'width': '70px', 'text-align': 'center'}"
+          class="compact-input">
+        </p-inputNumber>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+    <div class="flex justify-content-end gap-2 mt-5 pt-3 border-top-1 border-200">
+      <p-button label="Cancelar" icon="pi pi-times" [outlined]="true" severity="secondary" (onClick)="displayDialog.set(false)"></p-button>
+      <p-button label="Guardar Precios" icon="pi pi-save" (onClick)="guardarDoblePrecio()" [loading]="isSaving()"></p-button>
+    </div>
+
+  </form>
+    </section>
+</p-dialog>

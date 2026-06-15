@@ -1,0 +1,248 @@
+.libro-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.animate-fadein {
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ── Badge count ──────────────────────────────────────────────────────────────
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+// ── Table wrapper ────────────────────────────────────────────────────────────
+.table-wrap {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.libro-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+
+  thead tr {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+
+    th {
+      padding: 0.55rem 0.5rem;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      border: none;
+
+      &.text-right  { text-align: right; }
+      &.text-center { text-align: center; }
+    }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.12s ease;
+    cursor: pointer;
+
+    &:hover:not(.totals-row) {
+      background-color: #f8fafc;
+    }
+
+    &.row-selected {
+      background-color: #f0fdf4 !important;
+      box-shadow: inset 3px 0 0 #10b981;
+
+      td { color: #064e3b; }
+    }
+  }
+
+  td {
+    padding: 0.45rem 0.5rem;
+    color: #334155;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+
+  .text-right  { text-align: right; }
+  .text-center { text-align: center; }
+}
+
+// ── Date cell ────────────────────────────────────────────────────────────────
+.fecha-cell {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── DTE block ────────────────────────────────────────────────────────────────
+.dte-cell-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.15rem 0;
+}
+
+.dte-ctrl {
+  font-size: 0.7rem;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dte-ids {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.dte-label {
+  font-weight: 700;
+  color: #64748b;
+}
+
+// ── Financial cells ──────────────────────────────────────────────────────────
+.retencion-cell { color: #c2410c; }
+.total-cell     { color: #0f172a; font-weight: 700; }
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+// ── Totals row ───────────────────────────────────────────────────────────────
+.totals-row {
+  background: #f1f5f9 !important;
+  border-top: 2px solid #94a3b8;
+
+  td {
+    padding: 0.5rem 0.5rem;
+    color: #0f172a;
+    font-size: 0.78rem;
+  }
+}
+
+// ── Resumen card ─────────────────────────────────────────────────────────────
+.resumen-fiscal-card {
+  width: 360px;
+  border-left: 3px solid #10b981;
+}
+
+.resumen-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.resumen-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.resumen-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: #475569;
+  gap: 1rem;
+}
+
+.resumen-separator {
+  padding-top: 0.4rem;
+  margin-top: 0.2rem;
+  border-top: 1px dashed #e2e8f0;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.resumen-total {
+  padding-top: 0.5rem;
+  margin-top: 0.2rem;
+  border-top: 2px solid #cbd5e1;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────────
+.empty-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  background-color: #f8fafc;
+  border-radius: 50%;
+}
+
+// ── Folio input ──────────────────────────────────────────────────────────────
+.folio-input {
+  width: 90px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #1e293b;
+  text-align: right;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+}
+
+// ── Multi-row thead ──────────────────────────────────────────────────────────
+.libro-table thead th.align-bottom {
+  vertical-align: bottom;
+}
+
+.libro-table thead th.super-header {
+  background: linear-gradient(135deg, #1e4976 0%, #3b6fcf 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+// ── Firma section ────────────────────────────────────────────────────────────
+.firma-container {
+  min-height: 120px;
+}
+
+.firma-block {
+  width: 280px;
+}
+
+.firma-line {
+  border-top: 1px solid #64748b;
+  padding-top: 0.3rem;
+}
+

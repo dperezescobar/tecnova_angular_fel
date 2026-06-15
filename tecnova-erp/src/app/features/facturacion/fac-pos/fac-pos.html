@@ -1,0 +1,968 @@
+<section class="pos-page">
+  <p-toast position="top-right"></p-toast>
+  <p-dialog
+    header="Cliente no seleccionado"
+    [(visible)]="confirmClienteDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '30rem', maxWidth: '90vw' }"
+  >
+    <p>No hay cliente seleccionado. Se facturará a nombre de Sr(a). ¿Desea continuar?</p>
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="cancelarGuardarSinCliente()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Continuar"
+        severity="info"
+        (onClick)="confirmarGuardarConSrA()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Eliminar factura"
+    [(visible)]="confirmDeleteFacturaDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '30rem', maxWidth: '90vw' }"
+  >
+    <p>¿Desea eliminar esta factura?</p>
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="cancelarEliminarFactura()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Eliminar"
+        severity="danger"
+        (onClick)="confirmarEliminarFactura()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Motivo de anulación"
+    [(visible)]="anulacionDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '34rem', maxWidth: '96vw' }"
+  >
+    <div class="pos-anulacion-dialog-content">
+      <label for="pos-anulacion-motivo" class="pos-anulacion-label">Motivo</label>
+      <input
+        pInputText
+        id="pos-anulacion-motivo"
+        [value]="anulacionMotivo()"
+        (input)="onAnulacionMotivoInput($any($event.target).value)"
+        [disabled]="anulandoDte()"
+        placeholder="Escriba el motivo de la anulación"
+      />
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Cancelar"
+        severity="secondary"
+        [disabled]="anulandoDte()"
+        (onClick)="cancelarAnulacionDialogo()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Anular documento"
+        severity="danger"
+        [loading]="anulandoDte()"
+        [disabled]="anulandoDte()"
+        (onClick)="solicitarConfirmarAnulacion()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Confirmar anulación"
+    [(visible)]="confirmAnulacionDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '28rem', maxWidth: '92vw' }"
+  >
+    <p>Esta acción no se puede revertir ¿Desea continuar?</p>
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="No"
+        severity="secondary"
+        [disabled]="anulandoDte()"
+        (onClick)="cancelarConfirmacionAnulacion()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Sí"
+        severity="danger"
+        [loading]="anulandoDte()"
+        [disabled]="anulandoDte()"
+        (onClick)="confirmarAnulacionDocumento()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Agregar artículo"
+    [(visible)]="articuloImagenDialogVisible"
+    [modal]="true"
+    [closable]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '26rem', maxWidth: '95vw' }"
+    (onHide)="closeArticuloImagenDialog()"
+  >
+    @if (selectedArticuloImagen(); as art) {
+      <div class="pos-articulo-imagen-dialog" [formGroup]="articuloImagenForm">
+        <div class="pos-articulo-imagen-preview-wrap">
+          @if (articuloImagenUrl(art.ARTICULO)) {
+            <img [src]="articuloImagenUrl(art.ARTICULO)!" [alt]="art.DESCRIPCION" class="pos-articulo-imagen-preview" />
+          } @else {
+            <div class="pos-articulo-imagen-fallback">
+              <i class="pi pi-box"></i>
+            </div>
+          }
+        </div>
+
+        <div class="pos-articulo-imagen-meta">
+          <span class="pos-articulo-imagen-code">{{ art.ARTICULO }}</span>
+          <span class="pos-articulo-imagen-desc">{{ art.DESCRIPCION }}</span>
+        </div>
+
+        <div class="pos-articulo-imagen-fields">
+          <div class="pos-articulo-imagen-field">
+            <label for="pos-art-img-cant">Cantidad</label>
+            <input
+              pInputText
+              id="pos-art-img-cant"
+              type="number"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              formControlName="cantidad"
+              (focus)="selectInputText($event)"
+              (keydown)="onNumericKeyDown($event)"
+              (input)="sanitizeNumericInput($event)"
+            />
+          </div>
+
+          <div class="pos-articulo-imagen-field">
+            <label for="pos-art-img-precio">P. Unidad</label>
+            <input
+              pInputText
+              id="pos-art-img-precio"
+              type="number"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              formControlName="precio"
+              [readonly]="!articuloImagenRequierePrecio()"
+              (focus)="selectInputText($event)"
+              (keydown)="onNumericKeyDown($event)"
+              (input)="sanitizeNumericInput($event)"
+            />
+          </div>
+
+           <div class="pos-articulo-imagen-field">
+            <label for="pos-art-img-precio">P. Mayoreo minimo {{art.cantidadmayoreo}} unds</label>
+            <input
+              pInputText
+              id="pos-art-img-precio"
+              type="number"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              formControlName="preciomayoreo"
+              [readonly]="!articuloImagenRequierePrecio()"
+              (focus)="selectInputText($event)"
+              (keydown)="onNumericKeyDown($event)"
+              (input)="sanitizeNumericInput($event)"
+            />
+          </div>
+        </div>
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="closeArticuloImagenDialog()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Agregar"
+        severity="info"
+        (onClick)="confirmarAgregarArticuloImagen()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Escanear código"
+    [(visible)]="scannerDialogVisible"
+    [modal]="true"
+    [closable]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '30rem', maxWidth: '96vw' }"
+    (onHide)="onScannerDialogHide()"
+  >
+    <div class="pos-scan-dialog">
+      <div class="pos-scan-preview-wrap">
+        <video
+          id="pos-scanner-video"
+          class="pos-scan-preview"
+          autoplay
+          muted
+          playsinline
+          aria-label="Vista previa para escanear código"
+        ></video>
+      </div>
+
+      <div class="pos-scan-status" role="status" aria-live="polite">
+        {{ scannerStatusMessage() }}
+      </div>
+
+      <p class="pos-scan-help">
+        Se aceptan códigos de barras/SKU internos. No se aceptan links o códigos con longitud fuera del estándar.
+      </p>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Cerrar"
+        severity="secondary"
+        (onClick)="closeScannerDialog()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Datos del cliente"
+    [(visible)]="clienteDataDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '56rem', maxWidth: '96vw' }"
+  >
+    <div class="pos-client-dialog-grid">
+      <div class="pos-client-dialog-field pos-client-dialog-field-wide">
+        <label>Cliente</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.FacturarA.value || facForm.controls.Cliente.value || '—' }}</div>
+      </div>
+      @if (isAnonimoClient()) {
+        <div class="pos-client-dialog-field pos-client-dialog-field-wide">
+          <label>Nombre para factura</label>
+          <div class="pos-client-dialog-value">{{ facForm.controls.NombreFacturarA.value || 'Sr(a)' }}</div>
+        </div>
+      }
+      <div class="pos-client-dialog-field">
+        <label>NIT</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.NIT.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>Identificación</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.Identificacion.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>NRC</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.RegistroComercio.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>Giro</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.Giro.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>Correo</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.CorreoElectronico.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>Condición de pago</label>
+        <div class="pos-client-dialog-value">{{ resolveCondicionPagoLabel(facForm.controls.CondicionPago.value) }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>País</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.Pais.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>Departamento</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.Departamento.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field">
+        <label>Municipio</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.Municipio.value || '—' }}</div>
+      </div>
+      <div class="pos-client-dialog-field pos-client-dialog-field-wide">
+        <label>Dirección</label>
+        <div class="pos-client-dialog-value">{{ facForm.controls.Direccion.value || '—' }}</div>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button type="button" label="Regresar" severity="secondary" (onClick)="cerrarDatosClienteDialog()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Más información de factura"
+    [(visible)]="adminInfoDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '64rem', maxWidth: '96vw' }"
+  >
+    <div class="pos-admin-dialog-layout" [formGroup]="facForm">
+      <div class="pos-right-section pos-client-section pos-dialog-client-section">
+        <div class="pos-right-section-title">
+          <i class="pi pi-user"></i>
+          <span>Cliente</span>
+        </div>
+        <div class="pos-client-compact">
+          <div class="pos-client-compact-search">
+            <div class="pos-client-autocomplete-row">
+              <p-autocomplete
+              inputId="pos-cliente"
+              [suggestions]="clienteSuggestions()"
+              [dropdown]="true"
+              [forceSelection]="true"
+              [minLength]="0"
+              [delay]="0"
+              [dropdownMode]="'blank'"
+              [completeOnFocus]="true"
+              (completeMethod)="onClienteComplete($event.query)"
+              (onSelect)="onClienteSelect($event.value)"
+              formControlName="FacturarA"
+              [readonly]="isReadOnlyField() || shouldSuppressMobileKeyboard()"
+              placeholder="Buscar cliente por coincidencia"
+              styleClass="pos-client-autocomplete"
+            ></p-autocomplete>
+            <p-button
+              type="button"
+              class="pos-ver-info-host"
+              icon="pi pi-eye"
+              label="Ver información"
+              [text]="true"
+              severity="secondary"
+              styleClass="pos-client-view-btn"
+              ariaLabel="Ver datos del cliente"
+              (onClick)="abrirDatosClienteDialog()"
+            ></p-button>
+          </div>
+
+          @if (isAnonimoClient()) {
+            <div class="pos-dialog-client-form-field">
+              <label for="pos-nombre-facturar-a">Nombre para factura</label>
+              <input
+                pInputText
+                id="pos-nombre-facturar-a"
+                class="pos-dialog-client-input"
+                formControlName="NombreFacturarA"
+                [readonly]="isReadOnlyField()"
+                placeholder="Sr(a)"
+              />
+            </div>
+          }
+
+          <div class="pos-client-meta">
+            <div class="pos-client-meta-item">
+              <span class="pos-client-meta-label">Correo</span>
+              <input
+                pInputText
+                type="email"
+                formControlName="CorreoElectronico"
+                [readonly]="isReadOnlyField()"
+                placeholder="correo@dominio.com"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pos-dialog-grid-section">
+        <div class="pos-right-section-title">
+          <i class="pi pi-file"></i>
+          <span>Datos generales</span>
+        </div>
+        <div class="pos-client-dialog-grid">
+          <div class="pos-client-dialog-field">
+            <label>Fecha</label>
+            <div class="pos-client-dialog-value">{{ formatDateDisplay(facForm.controls.Fecha.value) }}</div>
+          </div>
+          <div class="pos-client-dialog-field">
+            <label>Estado</label>
+            <div class="pos-client-dialog-value">{{ currentEstadoVisualLabel() }}</div>
+          </div>
+          <div class="pos-client-dialog-field">
+            <label>Sucursal</label>
+            <div class="pos-client-dialog-value">{{ facForm.controls.Sucursal.value || '—' }}</div>
+          </div>
+          <div class="pos-client-dialog-field">
+            <label>Punto de venta</label>
+            <div class="pos-client-dialog-value">{{ facForm.controls.PuntoVenta.value || '—' }}</div>
+          </div>
+          <div class="pos-client-dialog-field">
+            <label>Condición de pago</label>
+            <div class="pos-client-dialog-value">{{ resolveCondicionPagoLabel(facForm.controls.CondicionPago.value) }}</div>
+          </div>
+          <div class="pos-client-dialog-field">
+            <label>Vendedor</label>
+            <div class="pos-client-dialog-value">{{ facForm.controls.Vendedor.value || '—' }}</div>
+          </div>
+          <div class="pos-client-dialog-field pos-client-dialog-field-wide">
+            <label>Código de generación</label>
+            <div class="pos-client-dialog-value">{{ facForm.controls.CodGeneracion.value || '—' }}</div>
+          </div>
+          <div class="pos-client-dialog-field">
+            <label>Número de control</label>
+            <div class="pos-client-dialog-value">{{ facForm.controls.NoControl.value || '—' }}</div>
+          </div>
+          <div class="pos-client-dialog-field">
+            <label>Sello de recepción</label>
+            <div class="pos-client-dialog-value">{{ facForm.controls.SelloRecepcion.value || '—' }}</div>
+          </div>
+          <div class="pos-client-dialog-field pos-client-dialog-field-wide">
+            <label>Observaciones</label>
+            <div class="pos-client-dialog-value">{{ facForm.controls.Observaciones.value || '—' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Guardar"
+        icon="pi pi-save"
+        severity="info"
+        [loading]="saving()"
+        [disabled]="!canSave()"
+        (onClick)="guardar()"
+      ></p-button>
+      <p-button type="button" label="Regresar" severity="secondary" (onClick)="cerrarMasInformacionDialog()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── COBRO ── -->
+  <p-dialog
+    header="Cobro"
+    [(visible)]="cobroDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '36rem', maxWidth: '96vw' }"
+  >
+    @if (cobroDialogVisible()) {
+      <div [formGroup]="facForm" class="pos-cobro-section">
+     
+     @if(emiteDte()){
+<div class="pos-cobro-change-type">
+        <p-button
+          type="button"
+          severity="contrast"
+          [outlined]="true"
+          [label]="cambioTipoFacturaLabel()"
+          [disabled]="!canCambiarTipoFacturaCobro()"
+          [loading]="saving()"
+          (onClick)="cambiarTipoFacturaCobro()"
+        ></p-button>
+      </div>
+     }
+        
+      <div class="pos-cobro-total">
+        <span>Total a cobrar</span>
+        <strong>{{ formatCurrency(facForm.controls.TotalFactura.value) }}</strong>
+      </div>
+
+      <div class="pos-payment-form">
+        <select formControlName="FormaPagoCodigo">
+          <option value="">Selecciona…</option>
+          @for (item of formasPagoOptions(); track item.Codigo) {
+            <option [value]="item.Codigo">{{ item.Descripcion }}</option>
+          }
+        </select>
+        <div class="pos-payment-monto-row">
+          <input pInputText type="number" min="0" step="0.01" inputmode="decimal"
+            formControlName="FormaPagoMonto"
+            (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)"
+            placeholder="Monto cobrado" />
+          <p-button type="button" icon="pi pi-plus" label="Agregar"
+            severity="secondary"
+            [disabled]="saving()"
+            (onClick)="agregarFormaPago()"></p-button>
+        </div>
+      </div>
+
+      <div class="pos-payment-resumen">
+        <span>Cobrado: {{ totalFormasPago() | currency:'USD':'symbol':'1.2-2' }}</span>
+        <span class="pos-payment-diff" [class.pos-payment-ok]="saldoPendienteCobro() <= 0.009">
+          Pendiente: {{ saldoPendienteCobro() | currency:'USD':'symbol':'1.2-2' }}
+        </span>
+      </div>
+
+      <div class="pos-payment-list">
+        @for (pago of formasPagoDetalle(); track $index) {
+          <div class="pos-payment-item">
+            <span>{{ pago.descripcion }}</span>
+            <strong>{{ pago.monto | currency:'USD':'symbol':'1.2-2' }}</strong>
+            <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger"
+              ariaLabel="Eliminar" (onClick)="eliminarFormaPago($index)"></p-button>
+          </div>
+        } @empty {
+          <span class="pos-payment-empty">Sin cobros registrados.</span>
+        }
+      </div>
+    </div>
+    }
+    <ng-template pTemplate="footer">
+      <p-button type="button" label="Cancelar" severity="secondary" (onClick)="cancelarCobro()"></p-button>
+      <p-button type="button" [label]="confirmarCobroLabel()" severity="success" icon="pi pi-check-circle" [loading]="saving()" (onClick)="confirmarCobro()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── Panel de Emisión DTE ── -->
+  <p-dialog
+    header="Panel de emisión DTE"
+    [(visible)]="emisionPanelOpen"
+    [modal]="false"
+    [closable]="true"
+    [draggable]="true"
+    [resizable]="false"
+    [style]="{ width: '26rem', maxWidth: '90vw' }"
+  >
+    <div class="pos-emision-panel">
+      <ul>
+        @for (step of emisionSteps(); track step.key) {
+          <li [class]="'step-' + step.status">
+            <span class="step-label">{{ step.label }}</span>
+            @if (step.detail) { <span class="step-detail">{{ step.detail }}</span> }
+          </li>
+        }
+      </ul>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Ingresar otra factura"
+        icon="pi pi-plus-circle"
+        severity="info"
+        [disabled]="emitting()"
+        (onClick)="ingresarOtraFactura()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Cerrar"
+        icon="pi pi-times"
+        severity="secondary"
+        [disabled]="emitting()"
+        (onClick)="cerrarEmisionPanel()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ── LISTADO ── -->
+  @if (!showDetail()) {
+    <header class="pos-list-header">
+      <div class="pos-list-title">
+        <i class="pi pi-shopping-cart"></i>
+        <h1>FAC POS — Punto de Venta</h1>
+      </div>
+
+      <div class="pos-list-toolbar">
+        <p-button label="Nueva Venta" icon="pi pi-plus-circle" severity="info" size="large" (onClick)="openCreate()"></p-button>
+
+        <span class="pos-search-box">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Buscar factura…"
+            [value]="filterText()"
+            (input)="onFilterChange($any($event.target).value)"
+          />
+        </span>
+
+        <div class="pos-date-range">
+          <div class="pos-date-field">
+            <label for="pos-desde">Desde</label>
+            <input id="pos-desde" type="date" [value]="desde()" (change)="onRangeChange('desde', $any($event.target).value, $event.target)" />
+          </div>
+          <div class="pos-date-field">
+            <label for="pos-hasta">Hasta</label>
+            <input id="pos-hasta" type="date" [value]="hasta()" (change)="onRangeChange('hasta', $any($event.target).value, $event.target)" />
+          </div>
+        </div>
+
+        <p-button label="Recargar" icon="pi pi-refresh" [text]="false" severity="secondary" (onClick)="loadMaestro()" [disabled]="loadingList()"></p-button>
+      </div>
+    </header>
+
+    @if (loadingList()) {
+      <div class="pos-loading"><p-progressSpinner></p-progressSpinner></div>
+    } @else {
+      <div class="pos-ventas-grid">
+        @for (item of filteredFacturas(); track item.iddoc) {
+          <button type="button" class="pos-venta-card" [attr.data-tipo-factura]="(item.Tipo_Factura || '').toUpperCase()" (click)="openEdit(item)">
+            <div class="pos-venta-card-top">
+              <span class="pos-venta-num">{{ item.Prefijo }}-{{ item.Factura }}</span>
+              <span class="pos-venta-estado" [attr.data-estado]="estadoVisualKey(item.ESTADO, item.SelloRecepcion)">
+                {{ estadoVisualLabel(item.ESTADO, item.SelloRecepcion) }}
+              </span>
+            </div>
+            <div class="pos-venta-cliente">{{ item.FACTURAR_A || item.CLIENTE }}</div>
+            <div class="pos-venta-bottom">
+              <span class="pos-venta-fecha">{{ formatDateDisplay(item.FECHA) }}</span>
+              <span class="pos-venta-total">{{ formatCurrency(item.TOTAL) }}</span>
+            </div>
+            <div class="pos-venta-tipo">
+              <span class="pos-venta-tipo-desc">{{ resolveTipoFacturaLabel(item.Tipo_Factura) }}</span>
+              @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                <button
+                  type="button"
+                  class="pos-venta-pago-btn"
+                  title="Registrar pago recibido"
+                  (click)="$event.stopPropagation(); registrarPago(item)"
+                >
+                  <i class="pi pi-dollar"></i>
+                </button>
+              }
+            </div>
+          </button>
+        } @empty {
+          <div class="pos-ventas-empty">
+            <i class="pi pi-inbox"></i>
+            <span>Sin ventas en el rango seleccionado.</span>
+          </div>
+        }
+      </div>
+    }
+  }
+
+  <!-- ── DETALLE / CAPTURA POS ── -->
+  @if (showDetail()) {
+    <div class="pos-detail-top" [formGroup]="facForm">
+      <div class="pos-doc-header">
+        <p-button type="button" icon="pi pi-arrow-left" label="Listado" severity="secondary" styleClass="pos-back-btn" ariaLabel="Volver al listado" (onClick)="closeDetail()"></p-button>
+        <div class="pos-doc-actions">
+          @if (currentEstadoVisualKey() === 'EMITIDO' && emiteDte()) {
+            <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger"
+              [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
+          }
+          @if (currentEstadoVisualKey() === 'PENDIENTE_EMITIR' || currentEstadoVisualKey() === 'ELABORACION') {
+            <p-button type="button" label="Eliminar" icon="pi pi-trash" severity="danger"
+              [disabled]="!canEliminarFactura()" (onClick)="solicitarEliminarFactura()"></p-button>
+          }
+          <p-button type="button" icon="pi pi-print" severity="contrast" [text]="true" [loading]="previewLoading()" [disabled]="previewLoading() || !canVistaPrevia()"
+            ariaLabel="Vista previa" (onClick)="vistaPrevia()"></p-button>
+
+          <div class="pos-doc-tipo-badge" [attr.data-tipo-factura]="tipoFacturaActual()">
+            <span>Comprobante de {{ tipoFacturaActual() === 'CCF' ? 'Crédito Fiscal' : 'Consumidor Final' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pos-capture-layout" [formGroup]="facForm">
+
+      <!-- ══ COLUMNA IZQUIERDA: captura + carrito ══ -->
+      <div class="pos-left">
+
+        <!-- ── VER MÁS INFO (sólo móvil) ── -->
+        <div class="pos-right-section pos-more-section pos-more-section-mobile-only">
+          <p-button
+            type="button"
+            label="Ver más información"
+            icon="pi pi-info-circle"
+            severity="secondary"
+            [text]="true"
+            (onClick)="abrirMasInformacionDialog()"
+          ></p-button>
+        </div>
+
+        <!-- ── BUSCADOR DE ARTÍCULO (zona principal táctil) ── -->
+        <div class="pos-scanner-zone">
+          <div class="pos-view-toolbar">
+            <div class="pos-view-toggle" role="group" aria-label="Tipo de vista de productos">
+              <button
+                type="button"
+                class="pos-view-toggle-btn"
+                [class.pos-view-toggle-btn-active]="articleViewMode() === 'listado'"
+                (click)="setArticleViewMode('listado')"
+              >
+                Listado
+              </button>
+              <button
+                type="button"
+                class="pos-view-toggle-btn"
+                [class.pos-view-toggle-btn-active]="articleViewMode() === 'imagenes'"
+                (click)="setArticleViewMode('imagenes')"
+              >
+                Imágenes
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="pos-scan-trigger"
+              aria-label="Escanear código de barra o QR"
+              [disabled]="isReadOnlyField() || scannerBusy()"
+              (click)="openScannerDialog()"
+            >
+              <i class="pi pi-barcode" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          @if (articleViewMode() === 'listado') {
+            <div class="pos-articulo-search-row">
+              <p-autocomplete
+                inputId="pos-articulo"
+                [suggestions]="articuloSuggestions()"
+                [dropdown]="true"
+                [forceSelection]="true"
+                [minLength]="0"
+                [delay]="0"
+                [dropdownMode]="'blank'"
+                [completeOnFocus]="true"
+                (completeMethod)="onArticuloComplete($event.query)"
+                (onSelect)="onArticuloSelect($event.value)"
+                formControlName="LineaArticuloDisplay"
+                [readonly]="isReadOnlyField() || shouldSuppressMobileKeyboard()"
+                placeholder="Código o nombre del artículo…"
+                styleClass="pos-articulo-input"
+              ></p-autocomplete>
+              <button pButton type="button" icon="pi pi-refresh" class="p-button-text p-button-sm" (click)="refreshArticulos()" title="Refrescar catálogo de artículos"></button>
+            </div>
+          } @else {
+            <div class="pos-image-search">
+              <i class="pi pi-search" aria-hidden="true"></i>
+              <input
+                pInputText
+                type="text"
+                [value]="articuloCardSearch()"
+                (input)="onArticuloCardSearch($any($event.target).value)"
+                placeholder="Buscar por código o descripción"
+                [readonly]="isReadOnlyField()"
+              />
+            </div>
+
+            <div class="pos-articulos-grid" [class.pos-articulos-grid-readonly]="isReadOnlyField()">
+              @for (art of visibleArticuloCards(); track art.ARTICULO) {
+                <button
+                  type="button"
+                  class="pos-articulo-card"
+                  [disabled]="isReadOnlyField()"
+                  (click)="selectArticuloCard(art)"
+                >
+                  <div class="pos-articulo-card-thumb-wrap">
+                    @if (articuloImagenUrl(art.ARTICULO)) {
+                      <img [src]="articuloImagenUrl(art.ARTICULO)!" [alt]="art.DESCRIPCION" class="pos-articulo-card-thumb" />
+                    } @else {
+                      <i class="pi pi-box"></i>
+                    }
+                  </div>
+                  <span class="pos-articulo-card-code">{{ art.ARTICULO }}</span>
+                  <span class="pos-articulo-card-desc">{{ art.DESCRIPCION }}</span>
+                </button>
+              } @empty {
+                <div class="pos-articulos-grid-empty">
+                  <i class="pi pi-search"></i>
+                  <span>Sin coincidencias</span>
+                </div>
+              }
+            </div>
+
+            @if (articuloCardsRemaining() > 0) {
+              <div class="pos-articulos-grid-more">
+                <button
+                  type="button"
+                  class="pos-articulos-grid-more-btn"
+                  [disabled]="isReadOnlyField()"
+                  (click)="loadMoreArticuloCards()"
+                >
+                  Mostrar más ({{ articuloCardsRemaining() }})
+                </button>
+              </div>
+            }
+          }
+
+          @if (articleViewMode() === 'listado') {
+          <div class="pos-line-row">
+            <div class="pos-line-field pos-line-desc">
+              <label for="pos-desc">Descripción</label>
+              <input pInputText id="pos-desc" formControlName="LineaDescripcion" [readonly]="isReadOnlyField()" />
+            </div>
+            <div class="pos-line-field pos-line-qty">
+              <label for="pos-qty">Cant.</label>
+              <input pInputText id="pos-qty" type="number" min="0" step="0.01" inputmode="decimal"
+                formControlName="LineaCantidad" [readonly]="isReadOnlyField()"
+                (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+            </div>
+            <div class="pos-line-field pos-line-price">
+              <label for="pos-price">P. unitario</label>
+              <input pInputText id="pos-price" type="number" min="0" step="0.01" inputmode="decimal"
+                formControlName="LineaPrecio" [readonly]="isReadOnlyField() || !canEditPrecioLinea()"
+                (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+            </div>
+            <div class="pos-line-field pos-line-price">
+              <label for="pos-price">P. mayoreo minimo {{ facForm.get('LineaCantidadMinimaMayoreo')?.value }} unds</label>
+              <input pInputText id="pos-price" type="number" min="0" step="0.01" inputmode="decimal"
+                formControlName="LineaPrecioMayoreo" [readonly]="isReadOnlyField() || !canEditPrecioLinea()"
+                (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+            </div>
+            <div class="pos-line-iva">
+              <label for="pos-iva">IVA inc.</label>
+              <input [disabled]="false" id="pos-iva" type="checkbox" formControlName="IncluyeIVA"
+                (change)="onIncluyeIvaChange($any($event.target).checked)" />
+            </div>
+            <p-button type="button" icon="pi pi-plus" label="Agregar"
+              severity="info" size="large"
+              [disabled]="isReadOnlyField() || saving()" (onClick)="agregarDetalleManual()"></p-button>
+          </div>
+          }
+        </div>
+
+        <!-- ── CARRITO ── -->
+        @if (loadingDetail()) {
+          <div class="pos-loading"><p-progressSpinner></p-progressSpinner></div>
+        } @else {
+          <div class="pos-cart" [class.pos-cart-image-mode]="articleViewMode() === 'imagenes'">
+            @for (item of detalleRows(); track item.LINEA) {
+              <div class="pos-cart-item">
+                <div class="pos-cart-item-main">
+                  <span class="pos-cart-linea">#{{ item.LINEA }}</span>
+                  @if (articleViewMode() === 'imagenes') {
+                    <div class="pos-cart-thumb-wrap">
+                      @if (articuloImagenUrl(item.ARTICULO)) {
+                        <img [src]="articuloImagenUrl(item.ARTICULO)!" [alt]="item.DESCRIPCION" class="pos-cart-thumb" />
+                      } @else {
+                        <i class="pi pi-box"></i>
+                      }
+                    </div>
+                  }
+                  <div class="pos-cart-info">
+                    <span class="pos-cart-articulo">{{ item.ARTICULO }}</span>
+                    <span class="pos-cart-desc">{{ item.DESCRIPCION }}</span>
+                  </div>
+                </div>
+                <div class="pos-cart-item-nums">
+                  <span class="pos-cart-qty">{{ item.CANTIDAD | number:'1.0-2' }}</span>
+                  <span class="pos-cart-sep">×</span>
+                  <span class="pos-cart-price">{{ item.PRECIO_UNITARIO | currency:'USD':'symbol':'1.2-2' }}</span>
+                  <span class="pos-cart-total">{{ (item.TotalVenta || item.TOTAL) | currency:'USD':'symbol':'1.2-2' }}</span>
+                  <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger"
+                    [disabled]="isReadOnlyField()" ariaLabel="Eliminar línea"
+                    (onClick)="eliminarDetalle(item.LINEA)"></p-button>
+                </div>
+              </div>
+            } @empty {
+              <div class="pos-cart-empty">
+                <i class="pi pi-shopping-cart"></i>
+                <span>Sin artículos — busca para comenzar</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- ══ COLUMNA DERECHA: resumen y acciones ══ -->
+      <div class="pos-right">
+
+        <div class="pos-right-section pos-more-section pos-more-section-desktop-only">
+          <p-button
+            type="button"
+            label="Ver más información"
+            icon="pi pi-info-circle"
+            severity="secondary"
+            [text]="true"
+            (onClick)="abrirMasInformacionDialog()"
+          ></p-button>
+        </div>
+
+        <!-- Totales + Cobro -->
+        <div class="pos-right-section pos-totals-section">
+          <div class="pos-right-section-title">
+            <i class="pi pi-calculator"></i>
+            <span>Totales y factura</span>
+          </div>
+
+          <div class="pos-total-row">
+            <span>Sumas</span>
+            <strong>{{ formatCurrency(facForm.controls.Sumas.value) }}</strong>
+          </div>
+          <div class="pos-total-row">
+            <span>Descuentos</span>
+            <strong>{{ formatCurrency(displayDescuentoNegativo()) }}</strong>
+          </div>
+          <div class="pos-total-row">
+            <span>IVA</span>
+            <strong>{{ formatCurrency(facForm.controls.TotalImpuesto1.value) }}</strong>
+          </div>
+          @if (loadingTotals()) {
+            <div class="pos-total-row">
+              <span>Actualizando totales...</span>
+              <strong><i class="pi pi-spin pi-spinner" aria-hidden="true"></i></strong>
+            </div>
+          }
+
+          <div class="pos-retencion-inline">
+            <div class="pos-retencion-inline-left">
+              <span class="pos-retencion-inline-label">(-) IVA retenido</span>
+              <select
+                id="pos-retencion-iva"
+                formControlName="RetencionIvaCodigo"
+                [disabled]="isReadOnlyField() || isNewUnsaved() || loadingTotals()"
+                (change)="onRetencionChange($any($event.target).value)"
+              >
+                <option value="">Seleccione una retención</option>
+                @for (item of retencionesOptions(); track item.RETENCION) {
+                  <option [value]="item.RETENCION">{{ item.DESCRIPCION }}</option>
+                }
+              </select>
+            </div>
+            <strong class="pos-retencion-inline-amount">{{ formatCurrency(facForm.controls.IvaRetenido.value) }}</strong>
+          </div>
+
+          <div class="pos-total-highlight pos-total-highlight-bottom">
+            <span>Total de factura</span>
+            <strong>{{ formatCurrency(facForm.controls.TotalFactura.value) }}</strong>
+          </div>
+
+          <div class="pos-process-payment-wrap">
+            <button
+              type="button"
+              class="pos-process-payment-btn"
+              [disabled]="!canApply()"
+              (click)="aplicar()"
+            >
+              <i class="pi pi-check-circle" aria-hidden="true"></i>
+              <span>Procesar pago</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  }
+</section>

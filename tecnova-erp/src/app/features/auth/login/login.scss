@@ -1,0 +1,219 @@
+.login-container {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+    background: linear-gradient(180deg, #f5f8ff 0%, #eef4ff 100%);
+}
+
+.login-card {
+    width: min(520px, 100%);
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: var(--overlay-shadow);
+    transform: translateY(-4px);
+}
+
+.login-brand-panel {
+    display: flex;
+    align-items: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, var(--p-primary-50) 0%, #ffffff 100%);
+    border-bottom: 1px solid var(--surface-border);
+}
+
+.brand-content {
+    display: grid;
+    gap: 1rem;
+}
+
+.brand-logo {
+    width: min(280px, 100%);
+    height: auto;
+    object-fit: contain;
+}
+
+.brand-chip {
+    width: fit-content;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--contask-accent-500) 18%, white);
+    color: #0f56ad;
+    font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--contask-accent-600) 40%, white);
+}
+
+.login-form-panel {
+    display: grid;
+    align-content: center;
+    gap: 1.5rem;
+    padding: 2rem;
+}
+
+.panel-header {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.panel-title {
+    margin: 0;
+    color: var(--p-primary-700);
+    font-size: 1.5rem;
+}
+
+.panel-subtitle {
+    margin: 0;
+    color: var(--text-color-secondary);
+}
+
+.login-form,
+.company-step {
+    display: grid;
+    gap: 1rem;
+}
+
+.company-step-header {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.field-group {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.field-group label {
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.actions-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+@media (max-width: 960px) {
+    .login-brand-panel {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--surface-border);
+    }
+
+    .brand-logo {
+        width: min(240px, 100%);
+    }
+}
+
+@media (max-width: 640px) {
+    .login-container {
+        padding: 0.75rem;
+    }
+
+    .login-form-panel {
+        padding: 1.25rem;
+    }
+
+    .actions-row {
+        grid-template-columns: 1fr;
+    }
+}
+/* Estilos para la nueva acción auxiliar */
+.actions-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+
+    .main-action {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .aux-action-wrapper {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        font-size: 0.9rem; /* Un poco más pequeño que el texto normal */
+
+        .aux-link {
+            color: var(--text-color-secondary); /* Color sutil */
+            cursor: pointer;
+            text-decoration: underline;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+
+            &:hover {
+                color: var(--primary-color); /* Color de la empresa al pasar el mouse */
+            }
+
+            i {
+                font-size: 1rem;
+            }
+
+            // Estilo para cuando está deshabilitado
+            &.disabled {
+                color: #b0bec5;
+                cursor: not-allowed;
+                text-decoration: none;
+                pointer-events: none; /* No clickable */
+            }
+        }
+
+        .aux-loading {
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+
+            i {
+                font-size: 1rem;
+            }
+        }
+    }
+}
+/* Alineación sutil a la derecha debajo de contraseña */
+.aux-action-container {
+    display: flex;
+    justify-content: flex-end; /* Alineado a la derecha */
+    margin-top: 0.25rem;
+    width: 100%;
+
+    .aux-link {
+        font-size: 0.85rem;
+        color: var(--text-color-secondary);
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+
+        &:hover {
+            color: var(--p-primary-500);
+            text-decoration: underline;
+        }
+
+        i {
+            font-size: 0.9rem;
+        }
+
+        &.disabled {
+            color: #ccc;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+    }
+
+    .aux-loading {
+        font-size: 0.85rem;
+        color: var(--p-primary-500);
+        display: flex;
+        align-items: center;
+        font-weight: 500;
+    }
+}

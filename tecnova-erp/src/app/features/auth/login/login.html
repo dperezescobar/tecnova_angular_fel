@@ -1,0 +1,113 @@
+<div class="login-container">
+    <div class="login-card shadow-4" role="region" aria-label="Acceso a Constak Cloud">
+        <aside class="login-brand-panel" aria-hidden="true">
+            <div class="brand-content">
+                <span class="brand-chip">Constak Cloud</span>
+                <img
+                    src="https://www.tecnovasv.com/img/ConTask%20Logo.png"
+                    alt="ConTask Logo"
+                    class="brand-logo"
+                />
+            </div>
+        </aside>
+
+        <section class="login-form-panel">
+            @if (step() === 1) {
+                <header class="panel-header">
+                    <h2 class="panel-title">Iniciar sesión</h2>
+                    <p class="panel-subtitle">Ingresa tus credenciales para continuar</p>
+                </header>
+            }
+
+            @if (step() === 1) {
+                <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form" novalidate>
+                    <div class="field-group">
+                        <label for="username">Usuario</label>
+                        <input
+                            pInputText
+                            id="username"
+                            formControlName="user"
+                            placeholder="Ej. correo@gmail.com"
+                            autocomplete="username"
+                            class="w-full"
+                        />
+                    </div>
+
+                    <div class="field-group">
+                        <label for="password">Contraseña</label>
+                        <p-password
+                            id="password"
+                            formControlName="pass"
+                            [feedback]="false"
+                            [toggleMask]="true"
+                            placeholder="******"
+                            autocomplete="current-password"
+                            class="w-full"
+                            [inputStyle]="{ width: '100%' }"
+                        ></p-password>
+                        
+                        <div class="aux-action-container">
+                            @if (!accessCodeLoading()) {
+                                <a
+                                    (click)="onRequestAccessCode()"
+                                    class="aux-link"
+                                    [class.disabled]="loginForm.get('user')?.invalid || loading()"
+                                >
+                                    <i class="pi pi-envelope mr-1"></i>
+                                    Obtener código de acceso por correo
+                                </a>
+                            } @else {
+                                <span class="aux-loading">
+                                    <i class="pi pi-spin pi-spinner mr-1"></i>
+                                    Enviando código...
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    @if (messageText()) {
+                        <p-message [severity]="messageSeverity()" [text]="messageText()" class="w-full"></p-message>
+                    }
+
+                    <p-button
+                        label="Continuar"
+                        icon="pi pi-arrow-right"
+                        type="submit"
+                        [loading]="loading()"
+                        [disabled]="loginForm.invalid || loading() || accessCodeLoading()"
+                        class="w-full"
+                    ></p-button>
+                </form>
+            } @else {
+                <div class="company-step">
+                    <div class="company-step-header">
+                        <h3 class="mb-1">Bienvenido, <span class="font-bold">{{ loginForm.get('user')?.value }}</span></h3>
+                        <p class="panel-subtitle">Selecciona la empresa para trabajar</p>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="empresa">Empresa</label>
+                        <p-select
+                            inputId="empresa"
+                            [options]="empresas()"
+                            [(ngModel)]="selectedEmpresaId"
+                            optionLabel="nombreComercial"
+                            optionValue="idEmpresa"
+                            placeholder="Seleccione una empresa"
+                            class="w-full"
+                        ></p-select>
+                    </div>
+
+                    @if (messageText()) {
+                        <p-message [severity]="messageSeverity()" [text]="messageText()" class="w-full"></p-message>
+                    }
+
+                    <div class="actions-row">
+                        <p-button label="Atrás" severity="secondary" (onClick)="goBack()" class="w-full"></p-button>
+                        <p-button label="Ingresar" (onClick)="onConfirmarEmpresa()" [disabled]="!selectedEmpresaId()" class="w-full"></p-button>
+                    </div>
+                </div>
+            }
+        </section>
+    </div>
+</div>

@@ -1,0 +1,271 @@
+/* You can add global styles to this file, and also import other style files */
+/* 1. Importar Bootstrap Icons */
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+/* 2. Tus variables originales de Blazor */
+:root {
+    --contask-blue: #0b63f3;
+    --contask-accent-500: #2b7bdc;
+    --contask-accent-600: #1668cc;
+    --contask-accent-700: #0f56ad;
+    --contask-accent-800: #0b458f;
+    --contask-neutral-500: #64748b;
+    --contask-neutral-600: #475569;
+    --contask-neutral-700: #334155;
+    --contask-dark-bg: #2c3e50;
+    --contask-header: #1a252f;
+    --contask-text-muted: #cbd5e0;
+
+    /* Escala azul estándar del sitio (ConTask) */
+    --p-primary-50: #eef4ff;
+    --p-primary-100: #dbe8ff;
+    --p-primary-200: #bfd5ff;
+    --p-primary-300: #93b8ff;
+    --p-primary-400: #5f92ff;
+    --p-primary-500: #0b63f3;
+    --p-primary-600: #0a56d8;
+    --p-primary-700: #0948b4;
+    --p-primary-800: #083b91;
+    --p-primary-900: #072f75;
+    --p-primary-950: #041d4a;
+
+    /* Tokens semánticos PrimeNG */
+    --p-primary-color: var(--p-primary-500);
+    --p-primary-contrast-color: #ffffff;
+    --p-highlight-background: var(--p-primary-50);
+    --p-highlight-color: var(--p-primary-700);
+    --p-focus-ring-color: rgba(11, 99, 243, 0.35);
+
+    /* Semánticos armonizados al azul ConTask */
+    --p-success-color: var(--p-primary-600);
+    --p-success-contrast-color: #ffffff;
+    --p-success-hover-color: var(--p-primary-700);
+    --p-info-color: var(--p-primary-600);
+    --p-info-contrast-color: #ffffff;
+    --p-info-hover-color: var(--p-primary-700);
+
+    /* Tokens de botón primario PrimeNG (forzar azul en estado normal/hover) */
+    --p-button-primary-background: var(--contask-accent-600);
+    --p-button-primary-border-color: var(--contask-accent-600);
+    --p-button-primary-color: #ffffff;
+    --p-button-primary-hover-background: var(--contask-accent-800);
+    --p-button-primary-hover-border-color: var(--contask-accent-800);
+
+    --p-button-secondary-background: var(--contask-neutral-600);
+    --p-button-secondary-border-color: var(--contask-neutral-600);
+    --p-button-secondary-color: #ffffff;
+    --p-button-secondary-hover-background: var(--contask-neutral-700);
+    --p-button-secondary-hover-border-color: var(--contask-neutral-700);
+
+    /* Alias legacy para componentes existentes */
+    --primary-color: var(--p-primary-color);
+    --highlight-bg: var(--p-highlight-background);
+}
+
+/* 3. Ajustes globales */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+}
+
+.p-button:not(.p-button-text):not(.p-button-outlined),
+.p-button.p-button-info:not(.p-button-text):not(.p-button-outlined),
+.p-button.p-button-success:not(.p-button-text):not(.p-button-outlined) {
+    background: var(--contask-accent-600);
+    border-color: var(--contask-accent-600);
+    color: #ffffff;
+}
+
+.p-button.p-button-primary:not(.p-button-text):not(.p-button-outlined) {
+    background: var(--contask-accent-600) !important;
+    border-color: var(--contask-accent-600) !important;
+    color: #ffffff !important;
+}
+
+.p-button.p-button-secondary:not(.p-button-text):not(.p-button-outlined) {
+    background: var(--contask-neutral-600) !important;
+    border-color: var(--contask-neutral-600) !important;
+    color: #ffffff !important;
+}
+
+/* ── Autocomplete overlay panels (appended to body) ─────────────── */
+.giro-autocomplete-panel {
+  z-index: 1400 !important;
+  min-width: 18rem;
+  max-width: min(48rem, calc(100vw - 1.5rem)) !important;
+  width: auto !important;
+
+  /* Contenedor de lista */
+  .p-autocomplete-list,
+  ul {
+    max-height: min(22rem, 55vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.3rem 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  /*
+   * Cubrir todos los selectores de ítem que PrimeNG puede emitir
+   * según la versión (option, item, li, span…) y forzar word-wrap
+   * con alta especificidad para vencer estilos internos del tema.
+   */
+  .p-autocomplete-option,
+  .p-autocomplete-item,
+  li.p-autocomplete-option,
+  li.p-autocomplete-item,
+  ul > li {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    line-height: 1.5;
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    display: block !important;
+    width: 100%;
+    box-sizing: border-box;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover,
+    &.p-focus,
+    &.p-highlight,
+    &[aria-selected="true"] {
+      background: var(--p-highlight-background, #eef4ff);
+      color: var(--p-highlight-color, #0948b4);
+    }
+  }
+
+  /* ── Estilo card en móvil ── */
+  @media (max-width: 600px) {
+    /* Anclar al viewport, nunca fuera de pantalla */
+    position: fixed !important;
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+
+    .p-autocomplete-list,
+    ul {
+      max-height: 50vh;
+      padding: 0.4rem;
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    .p-autocomplete-option,
+    .p-autocomplete-item,
+    li.p-autocomplete-option,
+    li.p-autocomplete-item,
+    ul > li {
+      border: 1px solid #e2e8f0 !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      border-radius: 0.55rem;
+      background: #fff;
+      padding: 0.65rem 0.85rem;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+      font-size: 0.88rem;
+
+      &:hover,
+      &.p-focus,
+      &.p-highlight,
+      &[aria-selected="true"] {
+        border-color: var(--contask-blue, #0b63f3) !important;
+        background: var(--p-highlight-background, #eef4ff);
+      }
+    }
+  }
+}
+
+.p-button.p-button-danger:not(.p-button-text):not(.p-button-outlined) {
+    background: #c81e1e !important;
+    border-color: #c81e1e !important;
+    color: #ffffff !important;
+}
+
+.p-button:not(.p-button-text):not(.p-button-outlined):hover,
+.p-button:not(.p-button-text):not(.p-button-outlined):enabled:hover,
+.p-button.p-button-primary:not(.p-button-text):not(.p-button-outlined):enabled:hover,
+.p-button.p-button-info:not(.p-button-text):not(.p-button-outlined):hover,
+.p-button.p-button-success:not(.p-button-text):not(.p-button-outlined):hover {
+    background: var(--contask-accent-800);
+    border-color: var(--contask-accent-800);
+}
+
+.p-button.p-button-secondary:not(.p-button-text):not(.p-button-outlined):enabled:hover {
+    background: var(--contask-neutral-700) !important;
+    border-color: var(--contask-neutral-700) !important;
+}
+
+.p-button.p-button-danger:not(.p-button-text):not(.p-button-outlined):enabled:hover {
+    background: #a61b1b !important;
+    border-color: #a61b1b !important;
+}
+
+.p-button.p-button-text,
+.p-button.p-button-outlined {
+    color: var(--contask-accent-600);
+}
+
+.action-icon-btn.p-button {
+    min-width: 1.6rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.action-icon-btn .p-button-icon {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.action-edit.p-button {
+    color: var(--contask-accent-700) !important;
+}
+
+.action-delete.p-button {
+    color: #c81e1e !important;
+}
+
+.action-icon-btn.p-button:enabled:hover {
+    background: rgba(15, 86, 173, 0.1) !important;
+}
+
+.action-delete.p-button:enabled:hover {
+    background: rgba(200, 30, 30, 0.1) !important;
+}
+
+.p-checkbox.p-checkbox-checked .p-checkbox-box,
+.p-radiobutton.p-radiobutton-checked .p-radiobutton-box,
+.p-inputswitch.p-inputswitch-checked .p-inputswitch-slider {
+    background: var(--p-primary-600);
+    border-color: var(--p-primary-600);
+}
+
+.p-checkbox:not(.p-disabled):has(input:focus-visible) .p-checkbox-box,
+.p-radiobutton:not(.p-disabled):has(input:focus-visible) .p-radiobutton-box,
+.p-button:focus-visible,
+.p-select:focus-within,
+input.p-inputtext:focus {
+    box-shadow: 0 0 0 0.2rem rgba(11, 99, 243, 0.22);
+}
+
+.p-message.p-message-success {
+    background: color-mix(in srgb, var(--p-primary-50) 85%, white);
+    border-color: var(--p-primary-200);
+    color: var(--p-primary-700);
+}
+
+/* Utilitarios que usabas en Blazor */
+.text-xs { font-size: .75rem; }
+.cursor-pointer { cursor: pointer; }

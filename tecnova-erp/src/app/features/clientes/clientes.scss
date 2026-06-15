@@ -1,0 +1,339 @@
+.clientes-page {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.clientes-header {
+  display: grid;
+  gap: 0.75rem;
+
+  h1 {
+    margin: 0;
+    color: var(--text-color, #1f2937);
+    font-size: clamp(1.25rem, 2vw, 1.7rem);
+  }
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+
+  .search-box {
+    flex: 1 1 340px;
+    min-width: 240px;
+    position: relative;
+    display: block;
+    width: 100%;
+
+    > i {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-color-secondary, #64748b);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    input {
+      width: 100%;
+      padding-left: 2rem;
+    }
+  }
+}
+
+.header-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.loading-box {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--surface-border, #d1d5db);
+  border-radius: 0.8rem;
+  background: var(--surface-card, #ffffff);
+}
+
+/* --- VISTA MÓVIL (Por defecto oculta en escritorio) --- */
+.list-mobile-cards {
+  display: none;
+}
+
+.list-mobile-card {
+  border: 1px solid var(--surface-border, #d1d5db);
+  border-radius: 0.65rem;
+  background: var(--surface-card, #ffffff);
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.35rem;
+
+  .card-row {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 0.35rem;
+    align-items: start;
+  }
+
+  .card-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-color-secondary, #64748b);
+  }
+
+  .card-value {
+    font-size: 0.82rem;
+    color: var(--text-color, #1f2937);
+    word-break: break-word;
+  }
+
+  .card-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+.mobile-empty {
+  font-size: 0.82rem;
+  color: var(--text-color-secondary, #6b7280);
+  padding: 0.2rem 0;
+}
+
+/* --- TABLA DE ESCRITORIO --- */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--surface-card);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+
+  .clientes-table {
+    width: 100%;
+    min-width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+
+    th, td {
+      padding: 0.75rem 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid var(--surface-border);
+      white-space: normal !important; 
+      word-break: break-word;
+      font-size: 0.85rem;
+    }
+
+    th:nth-child(2), td:nth-child(2) { width: 100px; }
+    th:nth-child(3), td:nth-child(3) { min-width: 200px; }
+  }
+}
+
+.actions-col {
+  width: 100px;
+  white-space: nowrap;
+}
+
+/* --- FORMULARIO DE CLIENTE --- */
+.form-panel {
+  margin-top: 0.5rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.cliente-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+
+  small {
+    color: var(--text-color-secondary, #64748b);
+    font-weight: 600;
+  }
+}
+
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-color, #0b63f3);
+  background: color-mix(in srgb, var(--primary-color, #0b63f3) 12%, transparent);
+
+  &.mode-edit {
+    color: var(--p-primary-700, #0948b4);
+    background: color-mix(in srgb, var(--p-primary-300, #93b8ff) 22%, transparent);
+  }
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.field-item {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+
+  label {
+    font-weight: 600;
+    color: var(--text-color, #1f2937);
+    font-size: 0.9rem;
+  }
+
+  input, p-select, p-autocomplete {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+.field-wide {
+  grid-column: span 2;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+/* --- SECCIÓN CLIENTE PREFERENCIAL --- */
+.preferencia-switch-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  .switch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: nowrap;
+    
+    ::ng-deep p-inputswitch {
+      flex-shrink: 0 !important;
+      transform: scale(0.85);
+      transform-origin: left center;
+    }
+
+    label {
+      margin: 0;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+  }
+
+  .compact-field-qty {
+    background-color: var(--surface-100, #f3f4f6);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color, #0b63f3);
+    animation: fadeIn 0.25s ease-out;
+
+    ::ng-deep p-inputnumber {
+      display: inline-flex;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================
+   MEDIA QUERIES (RESPONSIVIDAD MÓVIL)
+   ========================================= */
+
+@media (max-width: 1024px) {
+  .header-actions .search-box {
+    flex-basis: 100%;
+  }
+
+  .header-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 992px) {
+  .clientes-page {
+    padding-left: 0;
+  }
+
+  .header-actions,
+  .header-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .header-actions .search-box,
+  .header-buttons .p-button {
+    width: 100%;
+  }
+
+  .detail-actions {
+    width: 100%;
+    .p-button {
+      width: 100%;
+    }
+  }
+
+  /* AQUÍ OCURRÍA EL ERROR: Ocultar tabla y mostrar cards en móvil */
+  .maestro-section .clientes-table {
+    display: none;
+  }
+
+  .maestro-section .table-wrap {
+    overflow-x: visible;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .maestro-section .list-mobile-cards {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-wide {
+    grid-column: span 1;
+  }
+
+  .form-actions {
+    justify-content: stretch;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mode-indicator {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

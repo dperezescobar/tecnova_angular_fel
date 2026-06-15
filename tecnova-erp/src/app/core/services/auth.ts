@@ -1,0 +1,491 @@
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { Observable, catchError, finalize, map, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { AuthResponse, Empresa, UserSession } from '../models/auth.models';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  private apiUrl = environment.apiUrl;
+  private readonly systemId = 2;
+  private empresaSessionHydrationTried = false;
+  private refreshTokenRequest$: Observable<AuthResponse> | null = null;
+  private restoreEmpresaSessionRequest$: Observable<void> | null = null;
+  private recoverSessionRequest$: Observable<string> | null = null;
+  private refreshTimer: any;
+
+  // Signal reactivo para toda la app
+  currentUser = signal<UserSession | null>(null);
+
+  constructor() {
+    this.restoreSession();
+  }
+
+  private normalizeAuthResponse(response: Partial<AuthResponse> & {
+    Token?: string;
+    RefreshToken?: string;
+    Username?: string;
+    Expiration?: string;
+    fechaActual?: string;
+    FechaActual?: string;
+    DUI?: string;
+    dui?: string;
+    NombreUsuario?: string;
+    nombreUsuario?: string;
+    TipoUsuario?: string;
+    tipoUsuario?: string;
+    Bloqueado?: boolean | string | number;
+    bloqueado?: boolean | string | number;
+  }): AuthResponse {
+    const token = response.token ?? response.Token;
+    const refreshToken = response.refreshToken ?? response.RefreshToken;
+    const username = response.username ?? response.Username ?? '';
+    const expiration = response.expiration ?? response.Expiration ?? new Date().toISOString();
+    const fechaActual = String(response.fechaActual ?? response.FechaActual ?? '').trim() || undefined;
+    const dui = String(response.dui ?? response.DUI ?? '').trim() || undefined;
+    const nombreUsuario = String(response.nombreUsuario ?? response.NombreUsuario ?? '').trim() || undefined;
+    const tipoUsuario = String(response.tipoUsuario ?? response.TipoUsuario ?? '').trim() || undefined;
+    const bloqueadoRaw = response.bloqueado ?? response.Bloqueado;
+    const bloqueado =
+      typeof bloqueadoRaw === 'boolean'
+        ? bloqueadoRaw
+        : ['1', 'true', 'si', 'sí'].includes(String(bloqueadoRaw ?? '').trim().toLowerCase());
+
+    if (!token || !refreshToken) {
+      throw new Error('Respuesta de autenticación inválida: faltan token o refreshToken');
+    }
+
+    return {
+      token,
+      refreshToken,
+      username,
+      expiration,
+      fechaActual,
+      dui,
+      nombreUsuario,
+      tipoUsuario,
+      bloqueado
+    };
+  }
+
+  private normalizeEmpresa(raw: Partial<Empresa> & { [key: string]: unknown }): Empresa {
+    const dbName = String(
+      raw.dbName ??
+      raw['DbName'] ??
+      raw['baseDatos'] ??
+      raw['BaseDatos'] ??
+      raw['baseDeDatos'] ??
+      raw['BaseDeDatos'] ??
+      raw['database'] ??
+      raw['Database'] ??
+      raw['db'] ??
+      raw['DB'] ??
+      ''
+    );
+
+    const urlApi = String(
+      raw['urlApi'] ??
+      raw['UrlAPI'] ??
+      raw['URLAPI'] ??
+      raw['urlAPI'] ??
+      raw['UrlApi'] ??
+      raw['urlServicio'] ??
+      raw['UrlServicio'] ??
+      ''
+    );
+
+    return {
+      idEmpresa: Number(raw.idEmpresa ?? raw['IdEmpresa'] ?? 0),
+      nombreComercial: String(raw.nombreComercial ?? raw['NombreComercial'] ?? ''),
+      nombre: String(raw.nombre ?? raw['Nombre'] ?? ''),
+      nit: String(raw.nit ?? raw['NIT'] ?? ''),
+      nrc: String(raw.nrc ?? raw['NRC'] ?? ''),
+      urlServicio: String(raw.urlServicio ?? raw['UrlServicio'] ?? urlApi),
+      urlApi,
+      logo: String(raw.logo ?? raw['Logo'] ?? ''),
+      ambienteEmision: Number(raw.ambienteEmision ?? raw['AmbienteEmision'] ?? 0),
+      dbName
+    };
+  }
+
+  private shouldUseLocalEmissionProxy(base: string): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    const hostname = window.location.hostname.toLowerCase();
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+    if (!isLocalhost) {
+      return false;
+    }
+
+    try {
+      const emissionUrl = new URL(base);
+      return emissionUrl.origin.toLowerCase() !== window.location.origin.toLowerCase();
+    } catch {
+      return false;
+    }
+  }
+
+  getEmissionApiBaseUrl(): string {
+    const empresa = this.currentUser()?.selectedEmpresa;
+    const base = String(empresa?.urlApi ?? empresa?.urlServicio ?? '').trim();
+
+    if (!base) {
+      return '';
+    }
+
+    if (this.shouldUseLocalEmissionProxy(base)) {
+      return '/dte-proxy/';
+    }
+
+    return base.endsWith('/') ? base : `${base}/`;
+  }
+
+  private saveSession(
+    token: string,
+    refreshToken: string,
+    username: string,
+    empresa: Empresa,
+    authData?: Partial<AuthResponse>
+  ) {
+    const previous = this.currentUser();
+
+    const session: UserSession = {
+      token,
+      refreshToken,
+      username,
+      expiration: authData?.expiration ?? previous?.expiration,
+      fechaActual: authData?.fechaActual ?? previous?.fechaActual,
+      dui: authData?.dui ?? previous?.dui,
+      nombreUsuario: authData?.nombreUsuario ?? previous?.nombreUsuario,
+      tipoUsuario: authData?.tipoUsuario ?? previous?.tipoUsuario,
+      bloqueado: authData?.bloqueado ?? previous?.bloqueado,
+      selectedEmpresa: empresa
+    };
+
+    localStorage.setItem('contask_session', JSON.stringify(session));
+    this.currentUser.set(session);
+    this.scheduleTokenRefresh(session.expiration);
+  }
+
+  getCurrentNombreUsuario(): string {
+    return String(this.currentUser()?.nombreUsuario ?? '').trim();
+  }
+
+  getCurrentDui(): string {
+    return String(this.currentUser()?.dui ?? '').trim();
+  }
+
+  isCurrentUserBlocked(): boolean {
+    return !!this.currentUser()?.bloqueado;
+  }
+
+  // Paso 1: Obtener Token
+  login(user: string, pass: string, idsistema: number = this.systemId): Observable<AuthResponse> {
+    return this.http
+      .post<Partial<AuthResponse> & { Token?: string; RefreshToken?: string; Username?: string; Expiration?: string }>(
+        `${this.apiUrl}/Auth/PostToken`,
+        { user, pass, idsistema }
+      )
+      .pipe(map((response) => this.normalizeAuthResponse(response)));
+  }
+// NUEVO: Solicitar código de acceso por correo
+  requestAccessCode(user: string): Observable<void> {
+    const url = `https://maildte.kulstoresv.com/api/Util/AccessCode?user=${encodeURIComponent(user)}`;
+    // Es un POST con query param, enviamos un body vacío {}
+    return this.http.post<void>(url, {});
+  }
+  // Paso 2: Obtener Empresas
+  getEmpresas(usuario: string, token?: string, idsistema: number = this.systemId): Observable<Empresa[]> {
+    const usuarioEncoded = encodeURIComponent(usuario);
+    const options = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+    return this.http
+      .get<Array<Partial<Empresa> & { [key: string]: unknown }>>(
+        `${this.apiUrl}/Data/getempresas?usuario=${usuarioEncoded}&idsistema=${idsistema}`,
+        options
+      )
+      .pipe(
+        map((empresas) => empresas.map((empresa) => this.normalizeEmpresa(empresa))),
+        catchError((error) => {
+          if (error?.status === 404) {
+            return of([]);
+          }
+          return throwError(() => error);
+        })
+      );
+  }
+
+  createEmpresaSession(token: string, username: string, empresa: Empresa): Observable<void> {
+    const payload = {
+      Token: token,
+      Username: username,
+      IdEmpresa: empresa.idEmpresa
+    };
+
+    return this.http
+      .post(`${this.apiUrl}/Auth/SetEmpresaSession`, payload)
+      .pipe(map(() => void 0));
+  }
+
+  restoreEmpresaSession(): Observable<void> {
+    if (this.restoreEmpresaSessionRequest$) {
+      return this.restoreEmpresaSessionRequest$;
+    }
+
+    const user = this.currentUser();
+    if (!user?.token || !user?.username || !user?.selectedEmpresa) {
+      return throwError(() => new Error('No hay sesión de empresa para restaurar.'));
+    }
+
+    const request$ = this.createEmpresaSession(user.token, user.username, user.selectedEmpresa).pipe(
+      tap(() => {
+        this.empresaSessionHydrationTried = true;
+      }),
+      catchError((error) => {
+        this.empresaSessionHydrationTried = false;
+        return throwError(() => error);
+      }),
+      finalize(() => {
+        this.restoreEmpresaSessionRequest$ = null;
+      }),
+      shareReplay(1)
+    );
+
+    this.restoreEmpresaSessionRequest$ = request$;
+    return request$;
+  }
+
+  shouldHydrateEmpresaSession(): boolean {
+    const user = this.currentUser();
+    return !this.empresaSessionHydrationTried && !!user?.token && !!user?.username && !!user?.selectedEmpresa;
+  }
+
+  recoverSession(): Observable<string> {
+    if (this.recoverSessionRequest$) {
+      return this.recoverSessionRequest$;
+    }
+
+    const user = this.currentUser();
+    if (!user?.token) {
+      return throwError(() => new Error('No hay sesión activa para recuperar.'));
+    }
+
+    const request$ = this.refreshToken().pipe(
+      map((response) => response.token),
+      catchError(() => this.restoreEmpresaSession().pipe(map(() => this.getAccessToken() ?? ''))),
+      switchMap((token) => {
+        const resolvedToken = String(token ?? '').trim() || String(this.getAccessToken() ?? '').trim();
+        if (!resolvedToken) {
+          return throwError(() => new Error('No se pudo recuperar token de sesión.'));
+        }
+        return of(resolvedToken);
+      }),
+      finalize(() => {
+        this.recoverSessionRequest$ = null;
+      }),
+      shareReplay(1)
+    );
+
+    this.recoverSessionRequest$ = request$;
+    return request$;
+  }
+
+  // Finalizar sesión completa: registrar EmpresaSession y navegar
+  completeLogin(
+    token: string,
+    refreshToken: string,
+    username: string,
+    empresa: Empresa,
+    authData?: Partial<AuthResponse>
+  ): Observable<void> {
+    this.saveSession(token, refreshToken, username, empresa, authData);
+    this.empresaSessionHydrationTried = false;
+
+    this.router.navigate(['/inicio']);
+
+    this.createEmpresaSession(token, username, empresa).subscribe({
+      next: () => {
+        this.empresaSessionHydrationTried = true;
+      },
+      error: () => {
+        this.empresaSessionHydrationTried = false;
+      }
+    });
+
+    return of(void 0);
+  }
+
+  // Obtener el token de acceso actual
+  getAccessToken(): string | null {
+    const user = this.currentUser();
+    return user?.token || null;
+  }
+
+  // Refrescar el token
+  refreshToken(): Observable<AuthResponse> {
+    if (this.refreshTokenRequest$) {
+      return this.refreshTokenRequest$;
+    }
+
+    const user = this.currentUser();
+    if (!user?.refreshToken || !user?.token) {
+      return throwError(() => new Error('No refresh token available'));
+    }
+
+    const nowIso = new Date().toISOString();
+    const refreshPayload = {
+  Token: user.token,
+  RefreshToken: user.refreshToken,
+  Username: user.username
+};
+    // const refreshPayload = {
+    //   Token: user.token,
+    //   RefreshToken: user.refreshToken,
+    //   Username: user.username,
+    //   Expiration: nowIso,
+    //   fechaActual: nowIso,
+    //   token: user.token,
+    //   refreshToken: user.refreshToken,
+    //   username: user.username,
+    //   expiration: nowIso,
+    //   DUI: user.dui,
+    //   NombreUsuario: user.nombreUsuario,
+    //   TipoUsuario: user.tipoUsuario
+    // };
+    
+    const request$ = this.http
+      .post<Partial<AuthResponse> & { Token?: string; RefreshToken?: string; Username?: string; Expiration?: string }>(
+        `${this.apiUrl}/Auth/RefreshToken`,
+        refreshPayload
+      )
+      .pipe(
+        map((response) => this.normalizeAuthResponse(response)),
+        switchMap((response) => {
+          if (!user.selectedEmpresa) {
+            const updatedSession: UserSession = {
+              token: response.token,
+              refreshToken: response.refreshToken,
+              username: response.username || user.username,
+              fechaActual: response.fechaActual ?? user.fechaActual,
+              dui: response.dui ?? user.dui,
+              nombreUsuario: response.nombreUsuario ?? user.nombreUsuario,
+              tipoUsuario: response.tipoUsuario ?? user.tipoUsuario,
+              bloqueado: response.bloqueado ?? user.bloqueado,
+              selectedEmpresa: null
+            };
+            localStorage.setItem('contask_session', JSON.stringify(updatedSession));
+            this.currentUser.set(updatedSession);
+            return of(response);
+          }
+
+          this.saveSession(
+            response.token,
+            response.refreshToken,
+            response.username || user.username,
+            user.selectedEmpresa,
+            response
+          );
+          this.empresaSessionHydrationTried = false;
+
+          return this.createEmpresaSession(response.token, response.username || user.username, user.selectedEmpresa).pipe(
+            tap(() => {
+              this.empresaSessionHydrationTried = true;
+            }),
+            map(() => response)
+          );
+        }),
+        finalize(() => {
+          this.refreshTokenRequest$ = null;
+        }),
+        shareReplay(1)
+      );
+
+    this.refreshTokenRequest$ = request$;
+    return request$;
+  }
+
+  logout() {
+    this.clearRefreshTimer();
+    localStorage.removeItem('contask_session');
+    this.currentUser.set(null);
+    this.router.navigate(['/login']);
+  }
+
+  private clearRefreshTimer() {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+
+  private scheduleTokenRefresh(expirationIso?: string) {
+    this.clearRefreshTimer();
+
+    if (!expirationIso) return;
+
+    try {
+      const expirationDate = new Date(expirationIso).getTime();
+      const now = new Date().getTime();
+
+      // Refrescar 5 minutos antes de expirar (300,000 ms)
+      const refreshBuffer = 5 * 60 * 1000;
+      const delay = expirationDate - now - refreshBuffer;
+
+      // Si el tiempo para refrescar es positivo, programamos el temporizador
+      if (delay > 0) {
+        //console.log(`[AuthService] Refresh proactivo programado en ${Math.round(delay / 1000 / 60)} min.`);
+        this.refreshTimer = setTimeout(() => {
+          this.refreshToken().subscribe({
+            //next: () => console.log('[AuthService] Refresh proactivo exitoso.'),
+            error: (err) => console.error('[AuthService] Error en refresh proactivo:', err)
+          });
+        }, delay);
+      } else {
+        // Si ya pasó el tiempo o falta muy poco, refrescamos de inmediato (siempre que el token no haya expirado ya)
+        if (expirationDate > now) {
+         // console.warn('[AuthService] El token está por expirar pronto. Refrescando de inmediato.');
+          this.refreshToken().subscribe();
+        }
+      }
+    } catch (e) {
+      console.error('[AuthService] Error al programar el refresh de token:', e);
+    }
+  }
+
+  private restoreSession() {
+    const data = localStorage.getItem('contask_session');
+    if (!data) {
+      return;
+    }
+
+    try {
+      const session = JSON.parse(data) as UserSession;
+      this.currentUser.set(session);
+      this.empresaSessionHydrationTried = false;
+
+      // Programar el refresh proactivo si hay una sesión válida restaurada
+      if (session.expiration) {
+        this.scheduleTokenRefresh(session.expiration);
+      }
+
+      if (session?.token && session?.username && session?.selectedEmpresa) {
+        this.createEmpresaSession(session.token, session.username, session.selectedEmpresa).subscribe({
+          next: () => {
+            this.empresaSessionHydrationTried = true;
+          },
+          error: () => {
+            // Si la API está caída al arrancar, no forzamos logout.
+            // El interceptor reintentará restaurar la sesión de empresa en la primera petición 401.
+            this.empresaSessionHydrationTried = false;
+          }
+        });
+      }
+    } catch {
+      this.logout();
+    }
+  }
+}

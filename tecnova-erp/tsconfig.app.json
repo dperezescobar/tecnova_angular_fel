@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "rootDir": "./src",
+    "types": [],
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts"
+  ]
+}

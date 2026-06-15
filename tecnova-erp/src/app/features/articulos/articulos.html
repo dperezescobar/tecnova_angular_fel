@@ -1,0 +1,467 @@
+<section class="articulos-page">
+  <p-toast position="top-right"></p-toast>
+
+  <header class="articulos-header">
+    <div>
+      <h1>Catálogo de Artículos</h1>
+    </div>
+
+    <div class="header-actions">
+      @if (!showDetail()) {
+        <span class="search-box">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Buscar por código, descripción o tipo"
+            [value]="filterText()"
+            (input)="onFilterChange($any($event.target).value)"
+          />
+        </span>
+
+        <p-button label="Recargar" icon="pi pi-refresh" (onClick)="loadArticulos()" [disabled]="loadingList()"></p-button>
+        <p-button label="Nuevo Artículo" icon="pi pi-plus" severity="info" (onClick)="openCreate()"></p-button>
+      } @else {
+        <div class="detail-actions">
+          <p-button type="button" label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeDetail()"></p-button>
+        </div>
+      }
+    </div>
+  </header>
+
+  @if (!showDetail()) {
+    <section class="maestro-section">
+      @if (loadingList()) {
+        <div class="loading-box" role="status" aria-live="polite">
+          <p-progressSpinner></p-progressSpinner>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="articulos-table" aria-label="Listado de artículos">
+            <thead>
+              <tr>
+                <th class="actions-col">Acciones</th>
+                <th>Artículo</th>
+                <th>Descripción</th>
+                <th>Tipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of filteredArticulos(); track item.Articulo) {
+                <tr>
+                  <td class="actions-col">
+                    <p-button
+                      icon="pi pi-pencil"
+                      [text]="true"
+                      severity="info"
+                      styleClass="action-icon-btn action-edit"
+                      ariaLabel="Editar artículo"
+                      (onClick)="openEdit(item)"
+                    ></p-button>
+                    <p-button
+                      icon="pi pi-trash"
+                      [text]="true"
+                      severity="danger"
+                      styleClass="action-icon-btn action-delete"
+                      ariaLabel="Eliminar artículo"
+                      (onClick)="deleteArticulo(item)"
+                    ></p-button>
+                  </td>
+                  <td>{{ item.Articulo }}</td>
+                  <td>{{ item.Descripcion }}</td>
+                  <td>{{ item.TipoArticulo }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="4">No se encontraron artículos con el filtro actual.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          <div class="list-mobile-cards" aria-label="Listado de artículos en móvil">
+            @for (item of filteredArticulos(); track item.Articulo) {
+              <article class="list-mobile-card">
+                <div class="card-row">
+                  <span class="card-label">Artículo</span>
+                  <span class="card-value">{{ item.Articulo }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Descripción</span>
+                  <span class="card-value">{{ item.Descripcion }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Tipo</span>
+                  <span class="card-value">{{ item.TipoArticulo }}</span>
+                </div>
+                <div class="card-actions">
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="info"
+                    styleClass="action-icon-btn action-edit"
+                    ariaLabel="Editar artículo"
+                    (onClick)="openEdit(item)"
+                  ></p-button>
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    styleClass="action-icon-btn action-delete"
+                    ariaLabel="Eliminar artículo"
+                    (onClick)="deleteArticulo(item)"
+                  ></p-button>
+                </div>
+              </article>
+            } @empty {
+              <div class="mobile-empty">No se encontraron artículos con el filtro actual.</div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+
+  @if (showDetail()) {
+    <section class="detalle-section">
+      <p-card>
+        <ng-template pTemplate="title">{{ detailTitle() }}</ng-template>
+        <div class="mode-indicator" aria-live="polite">
+          <span class="mode-chip" [class.mode-edit]="isModoEdicion()">
+            Modo: {{ modoMttoTexto() }}
+          </span>
+        </div>
+
+        @if (loadingDetail()) {
+          <div class="loading-box" role="status" aria-live="polite">
+            <p-progressSpinner></p-progressSpinner>
+          </div>
+        } @else {
+          <form [formGroup]="articuloForm" (ngSubmit)="saveArticulo()" class="detalle-form">
+            <div class="sections-grid">
+              <section class="section-card">
+                <h3>Información general</h3>
+                <div class="field-grid general-grid">
+                  <div class="field-item">
+                    <label for="tipo-articulo">Tipo de artículo</label>
+                    <p-select
+                      inputId="tipo-articulo"
+                      [options]="tipoArticuloOptions()"
+                      optionLabel="label"
+                      optionValue="value"
+                      formControlName="TipoArticulo"
+                      (onChange)="tryAutogenerarCodigo()"
+                    ></p-select>
+                  </div>
+
+                  <div class="field-item check-item">
+                    <label for="activo">Activo</label>
+                    <p-checkbox inputId="activo" [binary]="true" formControlName="Activo"></p-checkbox>
+                  </div>
+
+                  <div class="field-item">
+                    <label for="grupo1">Grupo</label>
+                    <div class="select-with-action">
+                      <p-select
+                        inputId="grupo1"
+                        [options]="grupoInventarioOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="GrupoInventario1"
+                        (onChange)="tryAutogenerarCodigo()"
+                      ></p-select>
+                      <p-button
+                        type="button"
+                        icon="pi pi-pencil"
+                        severity="secondary"
+                        [text]="true"
+                        [rounded]="true"
+                        styleClass="inline-icon-btn"
+                        ariaLabel="Gestionar grupo"
+                        title="Gestionar grupo"
+                        (onClick)="openGrupoInventarioDialog(1)"
+                      ></p-button>
+                    </div>
+                  </div>
+
+                  <div class="field-item code-field">
+                    <label for="articulo">Código único</label>
+                    <div id="articulo" class="codigo-vineta" role="status" aria-live="polite">
+                      <span class="codigo-vineta-label">Código</span>
+                      <span class="codigo-vineta-value">{{ articuloForm.controls.Articulo.value || 'Autogenerado' }}</span>
+                    </div>
+                  </div>
+
+                  <div class="field-item field-wide">
+                    <label for="descripcion">Nombre / Descripción</label>
+                    <input pInputText id="descripcion" formControlName="Descripcion" />
+                  </div>
+
+                  <!-- <div class="field-item">
+                    <label for="precio-venta">Precio de venta</label>
+                    <p-inputNumber
+                      inputId="precio-venta"
+                      formControlName="UltimoPrecio"
+                      mode="currency"
+                      currency="USD"
+                      locale="es-SV"
+                      [min]="0"
+                      [minFractionDigits]="2"
+                      [maxFractionDigits]="2"
+                      [disabled]="!canEditPrecioVenta()"
+                    ></p-inputNumber>
+                  </div> -->
+
+                  <div class="field-item">
+                    <label for="unidad">Unidad de medida</label>
+                    <p-select
+                      inputId="unidad"
+                      [options]="unidadMedidaOptions()"
+                      optionLabel="label"
+                      optionValue="value"
+                      formControlName="UnidadMedida"
+                    ></p-select>
+                  </div>
+
+                  <div class="field-item field-wide impuesto-inline-block">
+                    <label for="impuesto">Impuesto</label>
+                    <div class="impuesto-token-list" aria-label="Impuestos del artículo">
+                      @for (item of impuestoTokenOptions(); track item.value) {
+                        <span class="impuesto-token">
+                          <span class="impuesto-token-code">{{ item.value }}</span>
+                          @if (isImpuestoSelected(item.value)) {
+                            <button
+                              type="button"
+                              class="impuesto-token-remove"
+                              aria-label="Eliminar impuesto {{ item.value }}"
+                              (click)="removeImpuesto(item.value)"
+                            >
+                              <i class="pi pi-times"></i>
+                            </button>
+                          } @else {
+                            <input
+                              type="checkbox"
+                              class="impuesto-token-check"
+                              aria-label="Agregar impuesto {{ item.value }}"
+                              (change)="onImpuestoTokenToggle(item.value, $any($event.target).checked)"
+                            />
+                          }
+                        </span>
+                      } @empty {
+                        <span class="impuesto-token-empty">Sin impuestos configurados.</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <section class="section-card imagen-card">
+                <div class="imagen-card-header">
+                  <h3>Fotografía del producto</h3>
+                </div>
+                <div class="imagen-section">
+
+                  <!-- Vista previa -->
+                  <div
+                    class="imagen-preview-wrap"
+                    [attr.aria-label]="imagenPreview() ? 'Fotografía actual del producto' : 'Sin fotografía del producto'"
+                  >
+                    @if (imagenPreview()) {
+                      <img
+                        [src]="imagenPreview()"
+                        alt="Fotografía del producto"
+                        class="imagen-preview"
+                        loading="lazy"
+                        width="800"
+                        height="800"
+                      />
+                    } @else {
+                      <div class="imagen-placeholder" aria-hidden="true">
+                        <i class="pi pi-image"></i>
+                        <span>Sin fotografía</span>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Controles -->
+                  <div class="imagen-controls">
+                    <div class="imagen-buttons">
+                      <p-button
+                        type="button"
+                        icon="pi pi-folder-open"
+                        label="Adjuntar foto"
+                        severity="secondary"
+                        ariaLabel="Seleccionar imagen de la galería"
+                        (onClick)="triggerGallery()"
+                        [disabled]="uploadingImagen()"
+                      ></p-button>
+                      <p-button
+                        type="button"
+                        icon="pi pi-camera"
+                        label="Tomar foto"
+                        severity="secondary"
+                        ariaLabel="Tomar fotografía con la cámara del dispositivo"
+                        (onClick)="triggerCamera()"
+                        [disabled]="uploadingImagen()"
+                      ></p-button>
+                      @if (imagenPreview()) {
+                        <p-button
+                          type="button"
+                          icon="pi pi-times"
+                          label="Quitar"
+                          severity="danger"
+                          [text]="true"
+                          ariaLabel="Quitar fotografía seleccionada"
+                          (onClick)="clearImagen()"
+                          [disabled]="uploadingImagen()"
+                        ></p-button>
+                      }
+                      @if (imagenPendiente() && isModoEdicion()) {
+                        <p-button
+                          type="button"
+                          icon="pi pi-upload"
+                          label="Subir fotografía"
+                          severity="success"
+                          ariaLabel="Subir fotografía al servidor"
+                          [loading]="uploadingImagen()"
+                          (onClick)="uploadImagen()"
+                        ></p-button>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Inputs ocultos: galería y cámara -->
+                  <input
+                    #fileInputGallery
+                    type="file"
+                    accept="image/*"
+                    style="display:none"
+                    aria-hidden="true"
+                    tabindex="-1"
+                    (change)="onFileSelected($event)"
+                  />
+                  <input
+                    #fileInputCamera
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style="display:none"
+                    aria-hidden="true"
+                    tabindex="-1"
+                    (change)="onFileSelected($event)"
+                  />
+                </div>
+              </section>
+
+            </div>
+
+            <div class="form-actions">
+              <p-button type="submit" [label]="accionGuardarTexto()" icon="pi pi-save" [loading]="saving()"></p-button>
+            </div>
+          </form>
+        }
+      </p-card>
+    </section>
+  }
+
+  <p-dialog
+    [visible]="showGrupoDialog()"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [closable]="true"
+    [style]="{ width: 'min(860px, 95vw)' }"
+    [header]="grupoDialogTitle()"
+    (onHide)="closeGrupoInventarioDialog()"
+  >
+    <div class="grupo-dialog-content">
+      <form class="grupo-dialog-form" [formGroup]="grupoDialogForm" (ngSubmit)="saveGrupoInventarioDialog()">
+        <div class="field-grid grupo-dialog-grid">
+          <div class="field-item">
+            <label for="dlg-gpo">Código</label>
+            <input pInputText id="dlg-gpo" formControlName="GpoInventario" maxlength="20" />
+          </div>
+          <div class="field-item field-wide">
+            <label for="dlg-desc">Descripción</label>
+            <input pInputText id="dlg-desc" formControlName="Descripcion" maxlength="100" />
+          </div>
+        </div>
+
+        <div class="grupo-dialog-actions">
+          <p-button
+            type="button"
+            label="Nuevo"
+            icon="pi pi-plus"
+            severity="secondary"
+            [text]="true"
+            (onClick)="newGrupoInventarioDialog()"
+          ></p-button>
+          <p-button
+            type="submit"
+            label="Guardar"
+            icon="pi pi-save"
+            [loading]="grupoDialogSaving()"
+          ></p-button>
+        </div>
+      </form>
+
+      @if (grupoDialogLoading()) {
+        <div class="loading-box" role="status" aria-live="polite">
+          <p-progressSpinner></p-progressSpinner>
+        </div>
+      } @else {
+        <div class="table-wrap compact">
+          <table class="nested-table" aria-label="Listado de grupos y subgrupos">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th class="actions-col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of grupoDialogRows(); track item.GrupoInventario) {
+                <tr [class.is-selected]="grupoDialogSelectedCode() === item.GrupoInventario">
+                  <td>{{ item.GrupoInventario }}</td>
+                  <td>{{ item.Descripcion }}</td>
+                  <td class="actions-col">
+                    <p-button
+                      type="button"
+                      icon="pi pi-pencil"
+                      [text]="true"
+                      severity="info"
+                      styleClass="action-icon-btn action-edit"
+                      ariaLabel="Editar grupo"
+                      (onClick)="selectGrupoInventarioDialogRow(item)"
+                    ></p-button>
+                    <p-button
+                      type="button"
+                      icon="pi pi-trash"
+                      [text]="true"
+                      severity="danger"
+                      styleClass="action-icon-btn action-delete"
+                      ariaLabel="Eliminar grupo"
+                      (onClick)="deleteGrupoInventarioDialog(item)"
+                    ></p-button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="3">No hay registros para este nivel.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        type="button"
+        label="Cerrar"
+        severity="secondary"
+        (onClick)="closeGrupoInventarioDialog()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+</section>

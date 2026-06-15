@@ -1,0 +1,5 @@
+﻿d1efeae 0803261500 Facturacion Correcta FAC/CCF
+M	src/app/features/facturacion/fac-pos/fac-pos.html
+M	src/app/features/facturacion/fac-pos/fac-pos.ts
+M	src/app/features/facturacion/fac/fac.html
+M	src/app/features/facturacion/fac/fac.ts
