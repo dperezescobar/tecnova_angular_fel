@@ -951,11 +951,25 @@
             <strong>{{ formatCurrency(facForm.controls.TotalFactura.value) }}</strong>
           </div>
 
+          @if (currentEstadoVisualKey() === 'EMITIDO') {
+            <div class="pos-formas-pago-emitido">
+              <span class="pos-formas-pago-title">Formas de pago</span>
+              @for (pago of formasPagoDetalle(); track $index) {
+                <div class="pos-formas-pago-item">
+                  <span>{{ pago.descripcion }}</span>
+                  <strong>{{ formatCurrency(pago.monto) }}</strong>
+                </div>
+              } @empty {
+                <span class="pos-formas-pago-empty">Sin formas de pago registradas.</span>
+              }
+            </div>
+          }
+
           <div class="pos-process-payment-wrap">
             <button
               type="button"
               class="pos-process-payment-btn"
-              [disabled]="!canApply()"
+              [disabled]="!canApply() || currentEstadoVisualKey() === 'EMITIDO'"
               (click)="aplicar()"
             >
               <i class="pi pi-check-circle" aria-hidden="true"></i>
