@@ -1,0 +1,369 @@
+.proveedores-page {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.proveedores-header {
+  display: grid;
+  gap: 0.75rem;
+
+  h1 {
+    margin: 0;
+    color: var(--text-color, #1f2937);
+    font-size: clamp(1.25rem, 2vw, 1.7rem);
+  }
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+
+  .search-box {
+    flex: 1 1 340px;
+    min-width: 240px;
+    position: relative;
+    display: block;
+    width: 100%;
+
+    > i {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-color-secondary, #64748b);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    input {
+      width: 100%;
+      padding-left: 2rem;
+    }
+  }
+}
+
+.header-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.loading-box {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--surface-border, #d1d5db);
+  border-radius: 0.8rem;
+  background: var(--surface-card, #ffffff);
+}
+
+/* --- VISTA MÓVIL --- */
+.list-mobile-cards {
+  display: none;
+}
+
+.list-mobile-card {
+  border: 1px solid var(--surface-border, #d1d5db);
+  border-radius: 0.65rem;
+  background: var(--surface-card, #ffffff);
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.35rem;
+
+  .card-row {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 0.35rem;
+    align-items: start;
+  }
+
+  .card-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-color-secondary, #64748b);
+  }
+
+  .card-value {
+    font-size: 0.82rem;
+    color: var(--text-color, #1f2937);
+    word-break: break-word;
+  }
+
+  .card-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+.mobile-empty {
+  font-size: 0.82rem;
+  color: var(--text-color-secondary, #6b7280);
+  padding: 0.2rem 0;
+}
+
+/* --- TABLA DE ESCRITORIO --- */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--surface-card);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  .proveedores-table {
+    width: 100%;
+    min-width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+
+    th,
+    td {
+      padding: 0.75rem 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid var(--surface-border);
+      white-space: normal !important;
+      word-break: break-word;
+      font-size: 0.85rem;
+    }
+
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 110px;
+    }
+
+    th:nth-child(3),
+    td:nth-child(3) {
+      min-width: 200px;
+    }
+  }
+}
+
+.actions-col {
+  width: 100px;
+  white-space: nowrap;
+}
+
+/* --- VALIDACIÓN DE CAMPOS --- */
+.field-item input.ng-invalid.ng-touched {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+}
+
+:host ::ng-deep {
+  p-select.ng-invalid.ng-touched .p-select {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+  }
+
+  p-autocomplete.ng-invalid.ng-touched .p-autocomplete-input {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+  }
+}
+
+/* --- FORMULARIO --- */
+.form-panel {
+  margin-top: 0.5rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.proveedor-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-color, #0b63f3);
+  background: color-mix(in srgb, var(--primary-color, #0b63f3) 12%, transparent);
+
+  &.mode-edit {
+    color: var(--p-primary-700, #0948b4);
+    background: color-mix(in srgb, var(--p-primary-300, #93b8ff) 22%, transparent);
+  }
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.field-item {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+
+  label {
+    font-weight: 600;
+    color: var(--text-color, #1f2937);
+    font-size: 0.9rem;
+  }
+
+  input,
+  p-select,
+  p-autocomplete {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+.field-wide {
+  grid-column: span 2;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--surface-border, #e5e7eb);
+}
+
+/* --- RETENCIONES --- */
+.retenciones-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  margin-top: 1rem;
+  background: color-mix(in srgb, var(--p-blue-500, #3b82f6) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--p-blue-500, #3b82f6) 25%, transparent);
+  border-radius: 0.5rem;
+  color: var(--text-color-secondary, #64748b);
+  font-size: 0.9rem;
+
+  i {
+    color: var(--p-blue-500, #3b82f6);
+    flex-shrink: 0;
+  }
+}
+
+.retenciones-form-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding-top: 1rem;
+  margin-bottom: 1rem;
+
+  p-select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.retenciones-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 0.6rem 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--surface-border);
+    font-size: 0.85rem;
+  }
+
+  tbody tr:hover {
+    background: var(--surface-hover, #f8fafc);
+  }
+}
+
+/* =========================================
+   MEDIA QUERIES
+   ========================================= */
+
+@media (max-width: 1024px) {
+  .header-actions .search-box {
+    flex-basis: 100%;
+  }
+
+  .header-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 992px) {
+  .proveedores-page {
+    padding-left: 0;
+  }
+
+  .header-actions,
+  .header-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .header-actions .search-box,
+  .header-buttons .p-button {
+    width: 100%;
+  }
+
+  .detail-actions {
+    width: 100%;
+
+    .p-button {
+      width: 100%;
+    }
+  }
+
+  .maestro-section .proveedores-table {
+    display: none;
+  }
+
+  .maestro-section .table-wrap {
+    overflow-x: visible;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .maestro-section .list-mobile-cards {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-wide {
+    grid-column: span 1;
+  }
+
+  .form-actions {
+    justify-content: stretch;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .retenciones-form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

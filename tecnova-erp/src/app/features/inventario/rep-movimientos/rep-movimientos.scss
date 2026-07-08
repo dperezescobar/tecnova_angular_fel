@@ -1,0 +1,201 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.rep-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem 0 1.5rem;
+  min-height: 100%;
+}
+
+.rep-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+
+  &-left { display: flex; align-items: center; gap: 0.75rem; }
+  &-icon { font-size: 1.6rem; color: var(--p-primary-500); flex-shrink: 0; }
+}
+
+.rep-title { font-size: 1.2rem; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.2; }
+.rep-subtitle { font-size: 0.8rem; color: #64748b; margin: 0; margin-top: 2px; }
+
+.filter-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.filter-grid { display: flex; flex-wrap: wrap; gap: 0.85rem; align-items: flex-end; }
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 180px;
+  flex: 1 1 180px;
+
+  &--articulo { flex: 2 1 260px; }
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+
+  i { font-size: 0.78rem; color: var(--p-primary-400); }
+}
+
+.date-input {
+  height: 2.375rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.45rem;
+  padding: 0 0.7rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background: #fff;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+
+  &:focus { border-color: var(--p-primary-400); }
+}
+
+::ng-deep .filter-select {
+  width: 100%;
+  .p-select { width: 100%; height: 2.375rem; }
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+
+  ::ng-deep .p-button { height: 2.375rem; white-space: nowrap; }
+}
+
+.summary-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+.stat-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 140px;
+  min-width: 140px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--p-primary-600, #4f46e5);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.stat-label { font-size: 0.72rem; color: #64748b; font-weight: 500; }
+
+.results-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  flex: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.state-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  gap: 1rem;
+  text-align: center;
+}
+
+.state-icon {
+  font-size: 2.75rem;
+  &--idle  { color: #94a3b8; }
+  &--empty { color: #cbd5e1; }
+}
+
+.state-text { font-size: 0.9rem; color: #64748b; max-width: 360px; line-height: 1.5; margin: 0; }
+
+::ng-deep .state-spinner { width: 40px !important; height: 40px !important; }
+
+::ng-deep .existencias-table {
+  .p-datatable-thead th {
+    background: #f8fafc;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .p-datatable-tbody td {
+    font-size: 0.875rem;
+    vertical-align: middle;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .p-datatable-tbody tr:hover td { background: #f1f5f9; }
+}
+
+.col-num { text-align: right; width: 130px; }
+
+.codigo-badge {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 6px;
+  letter-spacing: 0.02em;
+}
+
+.mov-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+
+  &--in  { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+  &--out { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+}
+
+@media (max-width: 768px) {
+  .filter-grid { flex-direction: column; }
+  .filter-field,
+  .filter-field--articulo { flex: 1 1 auto; min-width: 0; width: 100%; }
+  .filter-actions { width: 100%; ::ng-deep .p-button:first-child { flex: 1; } }
+  .summary-row { gap: 0.5rem; }
+
+  ::ng-deep .existencias-table {
+    .p-datatable-thead th,
+    .p-datatable-tbody td { font-size: 0.78rem; padding: 0.45rem 0.5rem; }
+  }
+}

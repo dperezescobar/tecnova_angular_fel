@@ -1,6 +1,6 @@
 {
   "/dte-proxy": {
-    "target": "https://apitecf-v2.tecnovasv.com",
+    "target": "http://localhost:28801",
     "secure": false,
     "changeOrigin": true,
     "pathRewrite": {

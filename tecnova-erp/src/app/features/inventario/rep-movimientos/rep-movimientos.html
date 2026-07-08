@@ -1,0 +1,135 @@
+<p-toast position="top-right" />
+
+<div class="rep-wrapper animate-fadein">
+
+  <div class="rep-header">
+    <div class="rep-header-left">
+      <i class="pi pi-arrow-right-arrow-left rep-header-icon"></i>
+      <div>
+        <h1 class="rep-title">Movimientos de artículo</h1>
+        <p class="rep-subtitle">Ingresos y salidas de un artículo en orden cronológico</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-card">
+    <div class="filter-grid">
+
+      <div class="filter-field filter-field--articulo">
+        <label class="filter-label">
+          <i class="pi pi-tag"></i> Artículo
+        </label>
+        <p-select
+          [options]="articulos()"
+          [ngModel]="articuloSeleccionado()"
+          (ngModelChange)="articuloSeleccionado.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Selecciona un artículo"
+          [filter]="true"
+          filterBy="label"
+          styleClass="filter-select"
+        />
+      </div>
+
+      <div class="filter-field">
+        <label class="filter-label"><i class="pi pi-calendar"></i> Desde</label>
+        <input type="date" class="date-input" [ngModel]="fechaDesde()" (ngModelChange)="fechaDesde.set($event)" />
+      </div>
+
+      <div class="filter-field">
+        <label class="filter-label"><i class="pi pi-calendar"></i> Hasta</label>
+        <input type="date" class="date-input" [ngModel]="fechaHasta()" (ngModelChange)="fechaHasta.set($event)" />
+      </div>
+
+      <div class="filter-actions">
+        <p-button label="Generar" icon="pi pi-search" (onClick)="generarReporte()" [loading]="loading()" [disabled]="cargandoCatalogos()" />
+        <p-button icon="pi pi-refresh" severity="secondary" [outlined]="true" title="Limpiar filtros" (onClick)="limpiar()" [disabled]="loading()" />
+      </div>
+
+    </div>
+  </div>
+
+  @if (hasBuscado() && !loading() && resultados().length > 0) {
+    <div class="summary-row animate-fadein">
+      <div class="stat-card">
+        <span class="stat-value">{{ totalMovimientos() }}</span>
+        <span class="stat-label">Movimientos</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ totalIngresos() | number:'1.0-2' }}</span>
+        <span class="stat-label">Total ingresos</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ totalSalidas() | number:'1.0-2' }}</span>
+        <span class="stat-label">Total salidas</span>
+      </div>
+    </div>
+  }
+
+  <div class="results-card">
+
+    @if (loading()) {
+      <div class="state-center">
+        <p-progressSpinner strokeWidth="3" styleClass="state-spinner" />
+        <p class="state-text">Cargando movimientos…</p>
+      </div>
+    } @else if (hasBuscado() && resultados().length === 0) {
+      <div class="state-center">
+        <i class="pi pi-inbox state-icon state-icon--empty"></i>
+        <p class="state-text">No se encontraron movimientos para el artículo y filtros seleccionados.</p>
+      </div>
+    } @else if (!hasBuscado()) {
+      <div class="state-center">
+        <i class="pi pi-filter state-icon state-icon--idle"></i>
+        <p class="state-text">Selecciona un artículo y presiona <strong>Generar</strong>.</p>
+      </div>
+    } @else {
+      <p-table
+        [value]="resultados()"
+        [paginator]="true"
+        [rows]="50"
+        [rowsPerPageOptions]="[50, 100, 200]"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="{first}–{last} de {totalRecords} movimientos"
+        [scrollable]="true"
+        scrollHeight="flex"
+        styleClass="p-datatable-sm existencias-table"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Artículo</th>
+            <th>Fecha documento</th>
+            <th>Tipo</th>
+            <th>Referencia</th>
+            <th class="col-num">Cantidad</th>
+            <th>Usuario</th>
+            <th>Registrado el</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td><span class="codigo-badge">{{ row.articulo }}</span></td>
+            <td>{{ row.fechaDocumento }}</td>
+            <td>
+              <span class="mov-chip" [class.mov-chip--in]="row.movimiento === 'I'" [class.mov-chip--out]="row.movimiento === 'S'">
+                {{ tipoLabel(row.movimiento) }}
+              </span>
+            </td>
+            <td>{{ row.referencia }}</td>
+            <td class="col-num">{{ row.cantidad | number:'1.0-4' }}</td>
+            <td>{{ row.usuario }}</td>
+            <td>{{ row.registradoEl }}</td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="7" class="text-center p-4">Sin resultados</td></tr>
+        </ng-template>
+      </p-table>
+    }
+
+  </div>
+
+</div>

@@ -46,6 +46,7 @@ export class LoginComponent {
   
   // Almacenar respuesta de autenticación temporalmente
   private authResponse: AuthResponse | null = null;
+  private pendingUsername = '';
 // Helper para facilitar mostrar mensajes
   private showMessage(text: string, severity: 'success' | 'error') {
     this.messageSeverity.set(severity);
@@ -108,6 +109,12 @@ export class LoginComponent {
     pass: ['', [Validators.required]],
     idsistema: [this.systemId]
   });
+
+  passwordChangeForm = this.fb.group({
+    passwordActual: ['', [Validators.required]],
+    passwordNueva: ['', [Validators.required, Validators.minLength(6)]],
+    passwordConfirmar: ['', [Validators.required]]
+  });
 // NUEVO MÉTODO: Ejecuta la llamada a la API
   onRequestAccessCode() {
     const userControl = this.loginForm.get('user');
@@ -137,57 +144,102 @@ export class LoginComponent {
     this.messageText.set('');
 
     const { user, pass, idsistema } = this.loginForm.value;
+    this.pendingUsername = user!;
 
     // Ejecutamos el login inicial para obtener el Token
     this.authService.login(user!, pass!, idsistema ?? this.systemId).subscribe({
       next: (response) => {
-        // Guardamos la respuesta de autenticación
-        this.authResponse = response;
-        
-        // Una vez tenemos token, pedimos las empresas del usuario 
-        this.authService.getEmpresas(user!, this.authResponse.token, idsistema ?? this.systemId).subscribe({
-          next: (listado) => {
-            if (listado.length === 0) {
-              this.showMessage('No se encontraron empresas para este usuario.', 'error');
-              this.loading.set(false);
-              return;
-            }
+        if (response.requierePasswordChange) {
+          this.loading.set(false);
+          this.messageText.set('');
+          this.passwordChangeForm.reset();
+          this.passwordChangeForm.patchValue({ passwordActual: pass });
+          this.step.set(3);
+          return;
+        }
 
-            if (listado.length === 1) {
-              // Flujo automático: Solo 1 empresa [cite: 474]
-              this.authService.completeLogin(
-                this.authResponse!.token,
-                this.authResponse!.refreshToken,
-                this.authResponse!.username,
-                listado[0],
-                this.authResponse!
-              ).subscribe({
-                next: () => {
-                  this.loading.set(false);
-                },
-                error: (err) => {
-                  console.error('Error al establecer sesión (empresa única):', err);
-                  const msg=this.getErrorMessage(err, 'No se pudo establecer la sesión de empresa.');
-                  this.showMessage(msg, 'error');
-                  this.loading.set(false);
-                }
-              });
-            } else {
-              // Flujo manual: Mostrar selector 
-              this.empresas.set(listado);
-              this.step.set(2);
-              this.loading.set(false);
-            }
-          },
-          error: () => {
-            this.showMessage('Error al recuperar empresas.', 'error');
-            this.loading.set(false);
-          }
-        });
+        this.authResponse = response;
+        this.resolverEmpresas(user!, idsistema ?? this.systemId);
       },
       error: () => {
         this.loading.set(false);
         this.messageText.set('Usuario o contraseña incorrectos.');
+      }
+    });
+  }
+
+  // PASO 3: el login detectó una contraseña reiniciada por el administrador.
+  // Al guardar la nueva contraseña, la API devuelve un login completo y continuamos igual que en onSubmit.
+  onSubmitCambioPassword() {
+    if (this.passwordChangeForm.invalid) return;
+
+    const { passwordActual, passwordNueva, passwordConfirmar } = this.passwordChangeForm.value;
+    if (passwordNueva !== passwordConfirmar) {
+      this.showMessage('Las contraseñas no coinciden.', 'error');
+      return;
+    }
+
+    this.loading.set(true);
+    this.messageText.set('');
+
+    this.authService.completarCambioPasswordReiniciado({
+      usuario: this.pendingUsername,
+      passwordActual: passwordActual!,
+      passwordNueva: passwordNueva!,
+      passwordConfirmar: passwordConfirmar!,
+      idSistema: this.systemId
+    }).subscribe({
+      next: (response) => {
+        this.authResponse = response;
+        this.resolverEmpresas(this.pendingUsername, this.systemId);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        const msg = this.getErrorMessage(err, 'No se pudo actualizar la contraseña.');
+        this.showMessage(msg, 'error');
+      }
+    });
+  }
+
+  // Una vez hay token válido (login normal o tras cambio de contraseña forzado), resuelve la empresa.
+  private resolverEmpresas(usuario: string, idsistema: number) {
+    this.authService.getEmpresas(usuario, this.authResponse!.token, idsistema).subscribe({
+      next: (listado) => {
+        if (listado.length === 0) {
+          this.showMessage('No se encontraron empresas para este usuario.', 'error');
+          this.loading.set(false);
+          return;
+        }
+
+        if (listado.length === 1) {
+          // Flujo automático: Solo 1 empresa [cite: 474]
+          this.authService.completeLogin(
+            this.authResponse!.token,
+            this.authResponse!.refreshToken,
+            this.authResponse!.username,
+            listado[0],
+            this.authResponse!
+          ).subscribe({
+            next: () => {
+              this.loading.set(false);
+            },
+            error: (err) => {
+              console.error('Error al establecer sesión (empresa única):', err);
+              const msg = this.getErrorMessage(err, 'No se pudo establecer la sesión de empresa.');
+              this.showMessage(msg, 'error');
+              this.loading.set(false);
+            }
+          });
+        } else {
+          // Flujo manual: Mostrar selector
+          this.empresas.set(listado);
+          this.step.set(2);
+          this.loading.set(false);
+        }
+      },
+      error: () => {
+        this.showMessage('Error al recuperar empresas.', 'error');
+        this.loading.set(false);
       }
     });
   }

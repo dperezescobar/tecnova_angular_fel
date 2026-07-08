@@ -1,0 +1,404 @@
+.cd-page {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.cd-header {
+  display: grid;
+  gap: 0.75rem;
+
+  h1 {
+    margin: 0;
+    color: var(--text-color, #1f2937);
+    font-size: clamp(1.25rem, 2vw, 1.7rem);
+  }
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+
+  input[type="date"] {
+    height: 38px;
+    padding: 0 0.5rem;
+    border: 1px solid var(--surface-border);
+    border-radius: 6px;
+    background: var(--surface-card);
+    color: var(--text-color);
+    font-size: 0.875rem;
+  }
+
+  .search-box {
+    flex: 1 1 240px;
+    min-width: 180px;
+    position: relative;
+
+    > i {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-color-secondary);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    input { width: 100%; padding-left: 2rem; }
+  }
+}
+
+.header-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.detail-actions { display: flex; justify-content: flex-end; }
+
+.loading-box {
+  min-height: 10rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--surface-border);
+  border-radius: 0.8rem;
+  background: var(--surface-card);
+}
+
+.maestro-section { margin-top: 0.25rem; }
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--surface-card);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,.05);
+}
+
+.cd-table {
+  min-width: 960px;
+
+  /* Distribución fija de columnas para que No.Control y Cod.Generación tengan espacio igual */
+  th:nth-child(1) { width: 72px; }   /* Acciones */
+  th:nth-child(2) { width: 110px; }  /* Estado */
+  th:nth-child(3) { width: 95px; }   /* Fecha */
+  th:nth-child(4) { min-width: 160px; } /* Cliente/Donante — flexible */
+  th:nth-child(5) { width: 90px; }   /* Total */
+  th:nth-child(6) { width: 220px; }  /* No. Control */
+  th:nth-child(7) { width: 220px; }  /* Cod. Generación */
+}
+
+.cd-table, .detalle-table, .fp-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    padding: 0.55rem 0.45rem;
+    text-align: left;
+    border-bottom: 2px solid var(--surface-border);
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: var(--surface-ground);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.5rem 0.45rem;
+    text-align: left;
+    border-bottom: 1px solid var(--surface-border);
+    font-size: 0.78rem;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    vertical-align: top;
+  }
+
+  tbody tr:hover { background: var(--surface-hover); }
+}
+
+.actions-col { width: 80px; white-space: nowrap; }
+.col-nowrap { white-space: nowrap !important; }
+
+.col-mono {
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 0.72rem;
+  word-break: break-all;
+  min-width: 160px;
+  color: var(--text-color-secondary);
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--surface-border);
+  background: var(--surface-ground);
+  border-radius: 0 0 8px 8px;
+
+  .pagination-info {
+    font-size: 0.78rem;
+    color: var(--text-color-secondary);
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .page-indicator {
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0 0.5rem;
+    color: var(--text-color);
+    min-width: 60px;
+    text-align: center;
+  }
+}
+
+.form-panel { margin-top: 0.5rem; }
+
+.estado-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.info-chip {
+  font-size: 0.78rem;
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  color: var(--primary-color);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+.total-chip {
+  background: color-mix(in srgb, var(--p-green-500, #22c55e) 12%, transparent);
+  color: var(--p-green-600, #16a34a);
+}
+
+.form-actions-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.enc-form { display: grid; gap: 1rem; }
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+
+.field-item {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+
+  label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-color);
+  }
+
+  input, p-select, p-autocomplete { width: 100%; max-width: 100%; }
+}
+
+.field-wide { grid-column: span 2; }
+
+.ref-section {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
+  border-radius: 8px;
+
+  h3 {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.cliente-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--surface-ground);
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+
+  h3 {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--text-color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+
+  span:first-child { font-weight: 600; color: var(--text-color-secondary); }
+}
+
+.detalle-form {
+  padding: 1rem;
+  background: var(--surface-ground);
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  margin-bottom: 1rem;
+}
+
+.detalle-add-btn { display: flex; justify-content: flex-end; margin-top: 0.75rem; }
+
+.fp-add-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+
+  p-select { flex: 1 1 200px; min-width: 150px; }
+  input { flex: 0 0 120px; }
+}
+
+.anulacion-body { display: grid; gap: 0.75rem; padding: 0.5rem 0; }
+
+@media (max-width: 992px) {
+  .field-grid { grid-template-columns: 1fr; }
+  .field-wide { grid-column: span 1; }
+  .info-grid { grid-template-columns: 1fr; }
+
+  .header-actions { display: grid; grid-template-columns: 1fr; }
+  .header-buttons, .form-actions-top { width: 100%; }
+  .fp-add-form { flex-direction: column; align-items: stretch; }
+}
+
+// ── Cards: listado principal (tablet/mobile) ─────────────────────────────────
+.cd-cards {
+  display: none;
+  gap: 0.65rem;
+}
+
+.cd-list-card {
+  border: 1px solid var(--surface-border);
+  border-radius: 0.7rem;
+  background: var(--surface-card);
+  padding: 0.75rem 0.85rem;
+  display: grid;
+  gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.cd-list-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.cd-list-card-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.cd-list-card-fecha {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.cd-list-card-actions {
+  display: flex;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  margin: -0.4rem -0.4rem 0 0;
+}
+
+.cd-list-card-cliente {
+  font-size: 0.86rem;
+  color: var(--text-color);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.cd-list-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.cd-list-card-total {
+  font-weight: 700;
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+.cd-list-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  color: var(--text-color-secondary);
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--surface-border);
+  word-break: break-all;
+}
+
+.cd-list-cards-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: var(--text-color-secondary);
+  background: var(--surface-ground);
+  border: 1px dashed var(--surface-border);
+  border-radius: 0.9rem;
+
+  .pi { font-size: 2rem; }
+}
+
+// ── Alternancia tabla / cards según ancho de pantalla ────────────────────────
+// Tablets y menores (≤ 991.98px): cards. Desktop: tabla con scroll horizontal.
+@media (max-width: 991.98px) {
+  .cd-cards {
+    display: grid;
+  }
+
+  .table-wrap.compact {
+    display: none;
+  }
+}

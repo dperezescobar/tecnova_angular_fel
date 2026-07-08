@@ -1,5 +1,7 @@
 <section class="pos-page">
   <p-toast position="top-right"></p-toast>
+  <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
+  <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
   <p-dialog
     header="Cliente no seleccionado"
     [(visible)]="confirmClienteDialogVisible"
@@ -22,32 +24,6 @@
         label="Continuar"
         severity="info"
         (onClick)="confirmarGuardarConSrA()"
-      ></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <p-dialog
-    header="Eliminar factura"
-    [(visible)]="confirmDeleteFacturaDialogVisible"
-    [modal]="true"
-    [closable]="false"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: '30rem', maxWidth: '90vw' }"
-  >
-    <p>¿Desea eliminar esta factura?</p>
-    <ng-template pTemplate="footer">
-      <p-button
-        type="button"
-        label="Cancelar"
-        severity="secondary"
-        (onClick)="cancelarEliminarFactura()"
-      ></p-button>
-      <p-button
-        type="button"
-        label="Eliminar"
-        severity="danger"
-        (onClick)="confirmarEliminarFactura()"
       ></p-button>
     </ng-template>
   </p-dialog>
@@ -198,6 +174,18 @@
             />
           </div>
         </div>
+
+        @if (articuloExistencia() !== null) {
+          @if (articuloSinExistencia()) {
+            <div class="pos-existencia-alert pos-existencia-alert--danger">
+              <i class="pi pi-exclamation-triangle"></i> No hay existencia disponible.
+            </div>
+          } @else {
+            <div class="pos-existencia-alert">
+              <i class="pi pi-box"></i> Existencia disponible: {{ articuloExistencia() | number:'1.0-2' }}
+            </div>
+          }
+        }
       </div>
     }
 
@@ -626,7 +614,7 @@
         @for (item of filteredFacturas(); track item.iddoc) {
           <button type="button" class="pos-venta-card" [attr.data-tipo-factura]="(item.Tipo_Factura || '').toUpperCase()" (click)="openEdit(item)">
             <div class="pos-venta-card-top">
-              <span class="pos-venta-num">{{ item.Prefijo }}-{{ item.Factura }}</span>
+              <span class="pos-venta-num">{{ item.Prefijo }}{{ item.Factura }}</span>
               <span class="pos-venta-estado" [attr.data-estado]="estadoVisualKey(item.ESTADO, item.SelloRecepcion)">
                 {{ estadoVisualLabel(item.ESTADO, item.SelloRecepcion) }}
               </span>
@@ -638,16 +626,26 @@
             </div>
             <div class="pos-venta-tipo">
               <span class="pos-venta-tipo-desc">{{ resolveTipoFacturaLabel(item.Tipo_Factura) }}</span>
-              @if ((item.pago || '').toLowerCase() === 'pendiente') {
+              <div class="pos-venta-tipo-actions">
+                @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                  <button
+                    type="button"
+                    class="pos-venta-pago-btn"
+                    title="Registrar pago recibido"
+                    (click)="$event.stopPropagation(); registrarPago(item)"
+                  >
+                    <i class="pi pi-dollar"></i>
+                  </button>
+                }
                 <button
                   type="button"
-                  class="pos-venta-pago-btn"
-                  title="Registrar pago recibido"
-                  (click)="$event.stopPropagation(); registrarPago(item)"
+                  class="pos-venta-correo-btn"
+                  title="Reenviar correo"
+                  (click)="$event.stopPropagation(); onReenviarCorreo(item)"
                 >
-                  <i class="pi pi-dollar"></i>
+                  <i class="pi pi-envelope"></i>
                 </button>
-              }
+              </div>
             </div>
           </button>
         } @empty {
@@ -666,9 +664,13 @@
       <div class="pos-doc-header">
         <p-button type="button" icon="pi pi-arrow-left" label="Listado" severity="secondary" styleClass="pos-back-btn" ariaLabel="Volver al listado" (onClick)="closeDetail()"></p-button>
         <div class="pos-doc-actions">
-          @if (currentEstadoVisualKey() === 'EMITIDO' && emiteDte()) {
+          @if (currentEstadoVisualKey() === 'EMITIDO' && emiteDte() && !esRegistroSinDte()) {
             <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger"
               [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
+          }
+          @if (esRegistroSinDte() && canDesaplicar() && adminAccess()) {
+            <p-button type="button" label="Habilitar factura" icon="pi pi-unlock" severity="secondary"
+              (onClick)="desaplicar()"></p-button>
           }
           @if (currentEstadoVisualKey() === 'PENDIENTE_EMITIR' || currentEstadoVisualKey() === 'ELABORACION') {
             <p-button type="button" label="Eliminar" icon="pi pi-trash" severity="danger"
@@ -817,7 +819,7 @@
               <label for="pos-qty">Cant.</label>
               <input pInputText id="pos-qty" type="number" min="0" step="0.01" inputmode="decimal"
                 formControlName="LineaCantidad" [readonly]="isReadOnlyField()"
-                (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (keydown.enter)="agregarDetalleManual()" (input)="sanitizeNumericInput($event)" />
             </div>
             <div class="pos-line-field pos-line-price">
               <label for="pos-price">P. unitario</label>

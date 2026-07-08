@@ -1,495 +1,494 @@
 <section class="ingresos-inv-page">
-   <p-toast position="top-right"></p-toast>
-  <div class="fac-header ingresos-header">
-    <div class="fac-title-row ingresos-title-row">
-     @if(modo() === 'nuevo' || modo() === 'edicion') {
-      <p-button label="Listado" icon="pi pi-arrow-left" styleClass="pos-back-btn" severity="secondary" size="small" (onClick)="cancelar()"></p-button>
-     }
-      <h1>Ingresos de Inventario</h1>
-      @if(modo() === 'listado') {
-      <div class="toolbar-nuevo-fac">
-        <p-button label="Nuevo Ingreso" icon="pi pi-plus" severity="info" (onClick)="nuevoIngreso()" size="small"></p-button>
+  <p-toast position="top-right"></p-toast>
+  <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
+
+  <!-- ══ CABECERA DE PÁGINA ══════════════════════════════════ -->
+  <header class="inv-page-header">
+    <div class="inv-title-group">
+      @if (modo() === 'nuevo' || modo() === 'edicion') {
+        <button type="button" class="inv-back-btn" (click)="cancelar()" aria-label="Volver al listado">
+          <i class="pi pi-arrow-left"></i>
+        </button>
+      }
+      <span class="inv-title-icon" aria-hidden="true"><i class="pi pi-box"></i></span>
+      <div>
+        <h1 class="inv-title">
+          @if (modo() === 'listado') {
+            Ingresos de Inventario
+          } @else {
+            Ingreso
+            @if (documentoInv() > 0) {
+              <span class="inv-doc-num">#{{ documentoInv() }}</span>
+            } @else {
+              — Nuevo
+            }
+          }
+        </h1>
+        <p class="inv-subtitle">Registro de entradas de mercadería y ajustes</p>
+      </div>
+    </div>
+
+    @if (modo() === 'listado') {
+      <div class="inv-toolbar">
+        <div class="inv-filter-pill">
+          <div class="inv-filter-field">
+            <span class="inv-filter-label">Desde</span>
+            <input type="date" [value]="fechaDesde()"
+              (change)="fechaDesde.set($any($event.target).value); cargarMovimientos()" />
+          </div>
+          <div class="inv-filter-sep" aria-hidden="true"></div>
+          <div class="inv-filter-field">
+            <span class="inv-filter-label">Hasta</span>
+            <input type="date" [value]="fechaHasta()"
+              (change)="fechaHasta.set($any($event.target).value); cargarMovimientos()" />
+          </div>
+        </div>
+        <p-button label="Nuevo Ingreso" icon="pi pi-plus" severity="info" size="small" (onClick)="nuevoIngreso()"></p-button>
       </div>
     }
-    </div>
-  </div>
 
-  @if(modo() === 'listado') {
-    <div class="filtros-fecha-bar">
-      <div class="filtro-fecha-item">
-        <label for="fecha-desde">Desde</label>
-        <input id="fecha-desde" type="date" [value]="fechaDesde()" (change)="fechaDesde.set($event.target.value); cargarMovimientos()" />
-      </div>
-      <div class="filtro-fecha-item">
-        <label for="fecha-hasta">Hasta</label>
-        <input id="fecha-hasta" type="date" [value]="fechaHasta()" (change)="fechaHasta.set($event.target.value); cargarMovimientos()" />
-      </div>
-    </div>
-    <!-- <section class="maestro-section">
-      <div class="table-wrap" style="width: 100%; overflow-x: hidden; box-sizing: border-box;">  
-         @if(loading()) {
-<div class="loading-box">Cargando...</div>
-         }
-         @else {
- <table class="doc-table">
-          <thead>
-            <tr>
-              <th class="actions-col">Acciones</th>
-              <th>Documento</th>
-              <th>Fecha</th>           
-              <th>Comentario</th>
-              <th>Estado</th>              
-            </tr>
-          </thead>
-          <tbody>
-            @for (mov of movimientos(); track mov.documentoInv) {
-            <tr class="inv-card" [attr.data-estado-card]="mov.aplicado">
-  <div class="inv-card-header">
-    <span class="inv-card-id" data-label="Documento">#{{ mov.documentoInv }}</span>
-    <span class="fac-estado-badge" [attr.data-estado]="mov.aplicado">
-      {{ mov.aplicado }}
-    </span>
-  </div>
+    @if (modo() === 'edicion' || modo() === 'nuevo') {
+      <span class="inv-estado-chip" [attr.data-estado]="estadoDocumento()">{{ estadoDocumento() }}</span>
+    }
+  </header>
 
-  <div class="inv-card-body">
-    <span class="inv-card-comment">{{ mov.comentario }}</span>
-  </div>
+  <!-- ══ LISTADO ════════════════════════════════════════════ -->
+  @if (modo() === 'listado') {
+    @if (loading()) {
+      <div class="inv-loading-box"><p-progressSpinner></p-progressSpinner></div>
+    } @else {
+      <div class="modern-grid-container master-grid">
+        <div class="grid-header hidden-mobile">
+          <div class="col-actions">ACCIONES</div>
+          <div class="col-doc">DOCUMENTO</div>
+          <div class="col-date">FECHA</div>
+          <div class="col-info">COMENTARIO / OBSERVACIÓN</div>
+          <div class="col-status">ESTADO</div>
+        </div>
 
-  <div class="inv-card-footer">
-    <span class="inv-card-date">{{ mov.fecha | date:'dd/MM/yyyy' }}</span>
-    
-    <div class="inv-card-actions">
-      <p-button 
-        [icon]="mov.aplicado === 'APLICADO' ? 'pi pi-eye' : 'pi pi-pencil'" 
-        [text]="true" 
-        [severity]="mov.aplicado === 'APLICADO' ? 'secondary' : 'info'"
-        (onClick)="editarDocumento(mov.documentoInv)">
-      </p-button>
-      
-      @if (mov.aplicado !== 'APLICADO') {
-        <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="eliminarDocumento(mov.documentoInv)"></p-button>
-      }
-    </div>
-  </div>
-</tr>
-          } @empty {
-<tr><td colspan="6">Sin ingresos registrados.</td></tr>
-          }
-          </tbody>
-        </table>
+        @for (mov of movimientos(); track mov.documentoInv) {
+          <div class="grid-row border-status-{{ mov.aplicado | lowercase }}"
+               (click)="editarDocumento(mov.documentoInv)">
 
-         }
-      </div>
-    </section> -->
+            <div class="col-actions flex-end desktop-left border-bottom-mobile" (click)="$event.stopPropagation()">
+              <p-button
+                [icon]="mov.aplicado === 'APLICADO' ? 'pi pi-eye' : 'pi pi-pencil'"
+                [text]="true"
+                [severity]="mov.aplicado === 'APLICADO' ? 'secondary' : 'info'"
+                (onClick)="editarDocumento(mov.documentoInv)">
+              </p-button>
+              @if (mov.aplicado !== 'APLICADO') {
+                <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                  (onClick)="$event.stopPropagation(); solicitarEliminarDocumento(mov.documentoInv)">
+                </p-button>
+              }
+            </div>
 
-  @if(loading()) {
-    <div class="loading-box p-5 text-center"><p-progressSpinner></p-progressSpinner></div>
-  }
-  @else {
-<div class="modern-grid-container master-grid mt-3">
-  <div class="grid-header hidden-mobile">
-    <div class="col-actions">ACCIONES</div>
-    <div class="col-doc">DOCUMENTO</div>
-    <div class="col-date">FECHA</div>
-    <div class="col-info">COMENTARIO / OBSERVACIÓN</div>
-    <div class="col-status">ESTADO</div>
-  </div>
+            <div class="col-doc flex-between desktop-left">
+              <span class="mobile-label">DOCUMENTO:</span>
+              <span class="font-bold text-primary text-lg desktop-text-base">#{{ mov.documentoInv }}</span>
+            </div>
 
-  @for (mov of movimientos(); track mov.documentoInv) {
-    <div class="grid-row border-status-{{ mov.aplicado | lowercase }}">
-      
-      <div class="col-actions flex-end desktop-left border-bottom-mobile">
-        <p-button [icon]="mov.aplicado === 'APLICADO' ? 'pi pi-eye' : 'pi pi-pencil'" [text]="true" [severity]="mov.aplicado === 'APLICADO' ? 'secondary' : 'info'" (onClick)="editarDocumento(mov.documentoInv)"></p-button>
-        @if (mov.aplicado !== 'APLICADO') {
-          <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="eliminarDocumento(mov.documentoInv)"></p-button>
+            <div class="col-date flex-between desktop-left">
+              <span class="mobile-label">FECHA:</span>
+              <span>{{ mov.fecha | date:'dd/MM/yyyy' }}</span>
+            </div>
+
+            <div class="col-info flex-col">
+              <span class="mobile-label">OBSERVACIÓN:</span>
+              <span class="truncate text-500">{{ mov.comentario || 'Sin observación' }}</span>
+            </div>
+
+            <div class="col-status flex-between desktop-left">
+              <span class="mobile-label">ESTADO:</span>
+              <p-tag [severity]="mov.aplicado === 'APLICADO' ? 'success' : 'info'" [value]="mov.aplicado"></p-tag>
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-state">
+            <i class="pi pi-inbox text-4xl mb-3 opacity-50 block"></i>
+            Sin ingresos registrados en este periodo.
+          </div>
         }
       </div>
-
-      <div class="col-doc flex-between desktop-left">
-        <span class="mobile-label">DOCUMENTO:</span>
-        <span class="font-bold text-primary text-lg desktop-text-base">#{{ mov.documentoInv }}</span>
-      </div>
-
-      <div class="col-date flex-between desktop-left">
-        <span class="mobile-label">FECHA:</span>
-        <span>{{ mov.fecha | date:'dd/MM/yyyy' }}</span>
-      </div>
-
-      <div class="col-info flex-col">
-        <span class="mobile-label">OBSERVACIÓN:</span>
-        <span class="truncate text-500">{{ mov.comentario || 'Sin observación' }}</span>
-      </div>
-
-      <div class="col-status flex-between desktop-left">
-        <span class="mobile-label">ESTADO:</span>
-        <p-tag [severity]="mov.aplicado === 'APLICADO' ? 'success' : 'info'" [value]="mov.aplicado"></p-tag>
-      </div>
-
-    </div>
-  } @empty {
-    <div class="empty-state">
-      <i class="pi pi-inbox text-4xl mb-3 opacity-50 block"></i>
-      Sin ingresos registrados en este periodo.
-    </div>
-  }
-</div>
+    }
   }
 
-  }
+  <!-- ══ FORMULARIO (NUEVO / EDICIÓN) ══════════════════════ -->
+  @if (modo() === 'nuevo' || modo() === 'edicion') {
 
-  @if(modo() === 'nuevo' || modo() === 'edicion') {
-    <div class="form-actions form-actions-top"> 
+    <div class="form-actions form-actions-top">
       <div class="action-group">
-              <span class="action-group-label">Documento</span>
-              <div class="action-group-btns">
-                @if(modo() === 'edicion') {
-                <p-button type="button" label="Guardar" icon="pi pi-save" [loading]="loading()" [disabled]="!canSave()" (onClick)="guardarCambios()"></p-button>
-                } @else {
-<p-button label="Continuar" icon="pi pi-check" severity="success" size="small" (onClick)="continuarMaestro()"></p-button>
-                }
-              </div>
-            </div>
-            <div class="action-group-divider" aria-hidden="true"></div>
-
-            <div class="action-group">
-              <span class="action-group-label">Estado</span>
-              <div class="action-group-btns">
-                <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" (onClick)="aplicarDocumento()"></p-button>
-                <p-button type="button" label="Desaplicar" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicarDocumento()"></p-button>
-              </div>
-            </div>
-    </div>
-    <section class="maestro-section section-card">
-      <h3>Datos del Ingreso</h3>
-      <form [formGroup]="maestroForm" class="ingresos-maestro-form">
-        <div class="field-item">
-<label>Fecha</label>
-          <input type="date" formControlName="fecha" />        
-        </div>        
-        <div class="field-item summary-observaciones">
-          <label for="observacion">Observación</label>
-          <textarea
-            id="observacion"
-            rows="4"
-            formControlName="observacion"
-            style="resize:vertical;min-height:48px;"
-          ></textarea>
+        <span class="action-group-label">Documento</span>
+        <div class="action-group-btns">
+          @if (modo() === 'edicion') {
+            <p-button label="Guardar" icon="pi pi-save" [loading]="loading()" [disabled]="!canSave()" (onClick)="guardarCambios()"></p-button>
+          } @else {
+            <p-button label="Continuar" icon="pi pi-check" severity="success" size="small" (onClick)="continuarMaestro()"></p-button>
+          }
         </div>
-        <!-- Los campos Bodega y Bodega Destino se mantienen solo para API, no visibles en UI -->
-        <div style="flex-basis: 100%; height: 0;"></div>
-      </form>
+      </div>
+      <div class="action-group-divider" aria-hidden="true"></div>
+      <div class="action-group">
+        <span class="action-group-label">Estado</span>
+        <div class="action-group-btns">
+          <p-button label="Aplicar" severity="secondary" [disabled]="!canApply()" (onClick)="aplicarDocumento()"></p-button>
+          <p-button label="Desaplicar" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicarDocumento()"></p-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sección maestro -->
+    <section class="section-card">
+      <div class="section-card-hdr">
+        <span class="section-card-icon" aria-hidden="true"><i class="pi pi-file-edit"></i></span>
+        <span class="section-card-title">Datos del Ingreso</span>
+      </div>
+      <div class="section-card-body">
+        <form [formGroup]="maestroForm" class="ingresos-maestro-form">
+          <div class="field-item">
+            <label>Fecha</label>
+            <input type="date" formControlName="fecha" />
+          </div>
+          <div class="field-item summary-observaciones">
+            <label for="observacion">Observación</label>
+            <textarea id="observacion" rows="2" formControlName="observacion"></textarea>
+          </div>
+        </form>
+      </div>
     </section>
 
-    @if(documentoInv()>0) {
-      <section class="detalle-section section-card">
-        <h3>Agregar Detalle</h3>
-        <form [formGroup]="detalleForm" class="ingresos-detalle-form">
-          <div class="pos-view-toolbar">
-<div class="pos-view-toggle" role="group" aria-label="Tipo de vista de productos">
-              <button
-                type="button"
-                class="pos-view-toggle-btn"
-                [class.pos-view-toggle-btn-active]="articleViewMode() === 'listado'"
-                (click)="setArticleViewMode('listado')"
-              >
-                Listado
-              </button>
-              <button
-                type="button"
-                class="pos-view-toggle-btn"
-                [class.pos-view-toggle-btn-active]="articleViewMode() === 'imagenes'"
-                (click)="setArticleViewMode('imagenes')"
-              >
-                Imágenes
-              </button>
-            </div>
-          </div>
-          @if (articleViewMode() === 'listado') {
-          <div class="field-item line-articulo">
-                  <div style="display: flex; gap: 0.5rem; align-items: stretch;">
-    <p-autocomplete
-      inputId="linea-articulo"
-      [suggestions]="articuloSuggestions()"
-      [dropdown]="true"
-      [forceSelection]="false"
-      [minLength]="0"
-      [delay]="0"
-      [dropdownMode]="'blank'"
-      [completeOnFocus]="true"
-      (completeMethod)="onArticuloComplete($event.query)"
-      (onSelect)="onArticuloSelect($event.value)"
-      formControlName="LineaArticulo"
-      placeholder="Buscar artículo por código o descripción"
-      [style]="{'width': '100%'}"
-    ></p-autocomplete>
-    
-    <p-button 
-      icon="pi pi-plus" 
-      severity="success" 
-      (onClick)="abrirDialogoArticulo()"
-      pTooltip="Crear Nuevo Artículo"
-      [style]="{'height': '100%'}">
-    </p-button>
-  </div>
-          </div>
-        }   @else{
-            <div class="pos-image-search">
-              <i class="pi pi-search" aria-hidden="true"></i>
-              <input
-                pInputText
-                type="text"
-                [value]="articuloCardSearch()"
-                (input)="onArticuloCardSearch($any($event.target).value)"
-                placeholder="Buscar por código o descripción"             
-              />
+    <!-- Sección detalle -->
+    @if (documentoInv() > 0) {
+      <section class="section-card">
+        <div class="section-card-hdr">
+          <span class="section-card-title">Agregar artículos al documento</span>
+        </div>
+        <div class="section-card-body">
+          <form [formGroup]="detalleForm" class="ingresos-detalle-form">
+
+            <!-- Toggle vista -->
+            <div class="pos-view-toolbar">
+              <div class="pos-view-toggle" role="group" aria-label="Tipo de vista de productos">
+                <button type="button" class="pos-view-toggle-btn"
+                  [class.pos-view-toggle-btn-active]="articleViewMode() === 'listado'"
+                  (click)="setArticleViewMode('listado')">
+                  <i class="pi pi-list" aria-hidden="true"></i> Listado
+                </button>
+                <button type="button" class="pos-view-toggle-btn"
+                  [class.pos-view-toggle-btn-active]="articleViewMode() === 'imagenes'"
+                  (click)="setArticleViewMode('imagenes')">
+                  <i class="pi pi-images" aria-hidden="true"></i> Imágenes
+                </button>
+              </div>
             </div>
 
-            <div class="pos-images-wrapper">
-             <div class="pos-articulos-grid">
-              @for (art of visibleArticuloCards(); track art.ARTICULO) {
-                <button
-                  type="button"
-                  class="pos-articulo-card"                
-                  [class.pos-articulo-card-selected]="articuloSeleccionadoCodigo() === art.ARTICULO"
-        (click)="selectArticuloCard(art)">
-                  <div class="pos-articulo-card-thumb-wrap">
-          @if (articuloImagenUrl(art.ARTICULO)) {
-                      <img [src]="articuloImagenUrl(art.ARTICULO)!" [alt]="art.DESCRIPCION" class="pos-articulo-card-thumb" />
-                    } @else {
-                      <i class="pi pi-box"></i>
+            <!-- Área de búsqueda (cambia según modo) -->
+            <div class="entry-search-area">
+              @if (articleViewMode() === 'listado') {
+                <div class="field-item">
+                  <label>Artículo</label>
+                  <div class="search-row">
+                    <p-autocomplete
+                      inputId="linea-articulo"
+                      appendTo="body"
+                      [suggestions]="articuloListSuggestions()"
+                      [dropdown]="true"
+                      [forceSelection]="false"
+                      [minLength]="0"
+                      [delay]="250"
+                      [dropdownMode]="'blank'"
+                      [completeOnFocus]="true"
+                      [lazy]="true"
+                      [virtualScroll]="true"
+                      [virtualScrollItemSize]="articuloListItemSize"
+                      (completeMethod)="onArticuloListComplete($event)"
+                      (onLazyLoad)="onArticuloListLazyLoad($event)"
+                      (onSelect)="onArticuloListSelect($event)"
+                      formControlName="LineaArticulo"
+                      placeholder="Buscar por código o descripción"
+                      [style]="{'width': '100%'}"
+                    ></p-autocomplete>
+                    <p-button icon="pi pi-plus" severity="success"
+                      (onClick)="abrirDialogoArticulo()"
+                      pTooltip="Crear Nuevo Artículo"
+                      [style]="{'height': '100%'}">
+                    </p-button>
+                  </div>
+                  @if (articuloListLoading() && articuloListSuggestions().length === 0) {
+                    <small class="articulos-loading-hint">
+                      <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+                      Buscando artículos...
+                    </small>
+                  }
+                </div>
+              }
+
+              @if (articleViewMode() === 'imagenes') {
+                <div class="pos-image-search">
+                  <i class="pi pi-search" aria-hidden="true"></i>
+                  <input type="text"
+                    [value]="articuloImgQuery()"
+                    (input)="onArticuloImgQueryChange($any($event.target).value)"
+                    placeholder="Buscar por código o descripción"
+                  />
+                </div>
+                <div class="pos-results-scroll" (scroll)="onArticuloImgScroll($event)">
+                  <div class="pos-articulos-grid">
+                    @for (art of articuloImgResults(); track art.ARTICULO) {
+                      <button type="button" class="pos-articulo-card"
+                        [class.pos-articulo-card-selected]="articuloSeleccionadoCodigo() === art.ARTICULO"
+                        (click)="selectArticuloCard(art)">
+                        <div class="pos-articulo-card-thumb-wrap"
+                             [class.pos-card-thumb-zoomable]="!!articuloImagenUrl(art.ARTICULO)"
+                             (click)="abrirLightbox(art.ARTICULO, $event)">
+                          @if (articuloImagenUrl(art.ARTICULO)) {
+                            <img [src]="articuloImagenUrl(art.ARTICULO)!"
+                                 [alt]="art.DESCRIPCION"
+                                 class="pos-articulo-card-thumb"
+                                 width="88" height="88"
+                                 loading="lazy"
+                                 decoding="async" />
+                          } @else {
+                            <i class="pi pi-box" aria-hidden="true"></i>
+                          }
+                        </div>
+                        <span class="pos-articulo-card-code">{{ art.ARTICULO }}</span>
+                        <span class="pos-articulo-card-desc">{{ art.DESCRIPCION }}</span>
+                      </button>
+                    } @empty {
+                      @if (!articuloImgLoading()) {
+                        <div class="pos-articulos-grid-empty">
+                          <i class="pi pi-search" aria-hidden="true"></i>
+                          <span>Sin coincidencias</span>
+                        </div>
+                      }
                     }
-        </div>
-                  <span class="pos-articulo-card-code">{{ art.ARTICULO }}</span>
-                  <span class="pos-articulo-card-desc">{{ art.DESCRIPCION }}</span>
-                </button>
-              } @empty {
-                <div class="pos-articulos-grid-empty">
-                  <i class="pi pi-search"></i>
-                  <span>Sin coincidencias</span>
+                  </div>
+
+                  <div class="pos-scroll-sentinel">
+                    @if (articuloImgLoading()) {
+                      <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+                      <span>Cargando artículos...</span>
+                    } @else if (!articuloImgHasMore() && articuloImgResults().length > 0) {
+                      <span>No hay más artículos.</span>
+                    }
+                  </div>
                 </div>
               }
             </div>
-</div>
-            @if (articuloCardsRemaining() > 0) {
-              <div class="pos-articulos-grid-more">
-                <button
-                  type="button"
-                  class="pos-articulos-grid-more-btn"
-                  [disabled]="canApply()"
-                  (click)="loadMoreArticuloCards()"
-                >
-                  Mostrar más ({{ articuloCardsRemaining() }})
-                </button>
+
+            <!-- Fila cantidad + precios (grid en desktop) -->
+            <div class="qty-prices-row">
+              <div class="field-item">
+                <label>Cantidad</label>
+                <input type="number" id="cantidad-input"
+                  (focus)="selectInputText($event)"
+                  formControlName="cantidad"
+                  min="0.01" step="0.01"
+                  class="qty-input" />
               </div>
+
+              <div class="prices-strip">
+                <div class="prices-strip-hdr">
+                  <i class="pi pi-tags" aria-hidden="true"></i>
+                  Precios de referencia
+                </div>
+                <div class="prices-strip-body">
+                  <div class="price-cell price-unit">
+                    <div class="price-cell-top">
+                      <span class="price-cell-name">Por Unidad</span>
+                      <span class="price-badge mandatory">Oblig.</span>
+                    </div>
+                    <p-inputNumber
+                      formControlName="precioUnitario"
+                      mode="currency" currency="USD" locale="en-US"
+                      [showButtons]="false"
+                      class="compact-input"
+                      (onFocus)="selectInputText($event)">
+                    </p-inputNumber>
+                  </div>
+                  <div class="price-cell price-mayo">
+                    <div class="price-cell-top">
+                      <span class="price-cell-name">Por Mayoreo</span>
+                      <span class="price-badge optional">Opc.</span>
+                    </div>
+                    <p-inputNumber
+                      formControlName="precioMayoreo"
+                      mode="currency" currency="USD" locale="en-US"
+                      [showButtons]="false"
+                      class="compact-input"
+                      (onFocus)="selectInputText($event)">
+                    </p-inputNumber>
+                    <div class="price-min-row">
+                      <span class="price-min-label">Mín. unidades</span>
+                      <p-inputNumber
+                        formControlName="cantidadMinimaMayoreo"
+                        [showButtons]="false"
+                        class="compact-input compact-input-sm"
+                        (onFocus)="selectInputText($event)">
+                      </p-inputNumber>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" class="btn-agregar"
+              [disabled]="!detalleForm.valid || !articuloSeleccionadoCodigo()"
+              (click)="agregarDetalle()">
+              <i class="pi pi-plus" aria-hidden="true"></i> Agregar al documento
+            </button>
+
+          </form>
+
+          <!-- Carrito de detalles -->
+          <div class="ingresos-detalles-list">
+            <div class="detalles-list-hdr">
+              <p class="detalles-list-title">
+                Detalles del Documento
+                <span class="detalles-list-count">({{ detallesFiltrados().length }} de {{ detallesApi().length }})</span>
+              </p>
+              <div class="detalles-list-search">
+                <i class="pi pi-search" aria-hidden="true"></i>
+                <input type="text"
+                  [value]="detalleFiltro()"
+                  (input)="onDetalleFiltroChange($any($event.target).value)"
+                  placeholder="Buscar en el documento por código o descripción"
+                />
+              </div>
+            </div>
+            @if (loadingDetail()) {
+              <div class="pos-loading"><p-progressSpinner></p-progressSpinner></div>
+            } @else {
+              <div class="modern-grid-container cart-grid">
+                @if (detallesPagina().length > 0) {
+                  <div class="grid-header hidden-mobile">
+                    <div class="col-img text-center">IMG</div>
+                    <div class="col-desc">ARTÍCULO / DESCRIPCIÓN</div>
+                    <div class="col-qty text-center">CANT</div>
+                    <div class="col-price text-right">PRECIO U.</div>
+                    <div class="col-mayoreo text-right">MAYOREO</div>
+                    <div class="col-actions text-center">ELIMINAR</div>
+                  </div>
+                }
+
+                @for (det of detallesPagina(); track det.articulo) {
+                  <div class="grid-row align-items-center">
+
+                    <div class="col-img flex-center">
+                      @if (articuloImagenUrl(det.articulo)) {
+                        <img [src]="articuloImagenUrl(det.articulo)!"
+                             [alt]="det.articulo"
+                             class="fixed-img img-clickable"
+                             width="64" height="64"
+                             loading="lazy"
+                             decoding="async"
+                             (click)="abrirLightbox(det.articulo, $event)" />
+                      } @else if (articleViewMode() === 'imagenes') {
+                        <div class="fixed-img placeholder-img"><i class="pi pi-box" aria-hidden="true"></i></div>
+                      }
+                    </div>
+
+                    <div class="col-desc flex-col overflow-hidden">
+                      <span class="font-bold text-color truncate">{{ det.articulo }}</span>
+                      <span class="text-sm text-500 truncate">{{ det.descripcion }}</span>
+                    </div>
+
+                    <div class="col-qty flex-between desktop-center bg-gray-mobile">
+                      <span class="mobile-label">CANTIDAD:</span>
+                      <span class="font-bold text-lg">{{ det.cantidad | number:'1.0-2' }}</span>
+                    </div>
+
+                    <div class="col-price flex-between desktop-right bg-gray-mobile">
+                      <span class="mobile-label">PRECIO U:</span>
+                      <div class="flex align-items-center gap-2">
+                        <p-tag severity="info" value="Unidad"></p-tag>
+                        <span class="font-bold text-primary">{{ det.precioUnitario | currency:'USD':'symbol':'1.2-2' }}</span>
+                      </div>
+                    </div>
+
+                    <div class="col-mayoreo flex-between desktop-right bg-gray-mobile">
+                      <span class="mobile-label">MAYOREO:</span>
+                      @if (det.precioMayoreo > 0) {
+                        <div class="flex align-items-center gap-2">
+                          <span class="text-xs text-500">Mín: {{ det.cantidadMinimaMayoreo | number:'1.0-2' }}</span>
+                          <p-tag severity="warn" value="Mayor"></p-tag>
+                          <span class="font-bold text-orange-500">{{ det.precioMayoreo | currency:'USD':'symbol':'1.2-2' }}</span>
+                        </div>
+                      } @else {
+                        <span class="text-500 text-sm hidden-mobile">—</span>
+                      }
+                    </div>
+
+                    <div class="col-actions flex-end desktop-center border-top-mobile">
+                      <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger"
+                        [disabled]="canDesaplicar()"
+                        (onClick)="eliminarDetalle(det.documentoInv, det.correlativo)">
+                      </p-button>
+                    </div>
+
+                  </div>
+                } @empty {
+                  <div class="empty-state">
+                    <i class="pi pi-shopping-cart text-4xl mb-2 opacity-50 block"></i>
+                    @if (detalleFiltro()) {
+                      Sin coincidencias para "{{ detalleFiltro() }}"
+                    } @else {
+                      Sin artículos agregados
+                    }
+                  </div>
+                }
+              </div>
+
+              @if (detalleTotalPaginas() > 1) {
+                <div class="detalles-paginador">
+                  <p-button icon="pi pi-chevron-left" [text]="true" severity="secondary"
+                    [disabled]="detallePagina() <= 1"
+                    (onClick)="irPaginaDetalleAnterior()">
+                  </p-button>
+                  <span class="detalles-paginador-info">Página {{ detallePagina() }} de {{ detalleTotalPaginas() }}</span>
+                  <p-button icon="pi pi-chevron-right" [text]="true" severity="secondary"
+                    [disabled]="detallePagina() >= detalleTotalPaginas()"
+                    (onClick)="irPaginaDetalleSiguiente()">
+                  </p-button>
+                </div>
+              }
             }
-          }
-          <div class="field-item line-qty">
-            <label>Cantidad</label>
-            <input type="number" id="cantidad-input" (focus)="selectInputText($event)" formControlName="cantidad" min="0.01" step="0.01" />
           </div>
-          <div class="pricing-container" style="display: flex; gap: 20px; width: 100%; align-items: stretch; margin-top: 15px;">
-  
-  <div class="pricing-card card-mandatory" style="flex: 1;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <i class="pi pi-tag" style="color: #2563eb; font-size: 1rem;"></i>
-        <span style="font-weight: 700; font-size: 0.9rem; color: #1e293b;">Por Unidad</span>
-      </div>
-      <p-tag value="Obligatorio" severity="info" [style]="{'font-size': '10px'}"></p-tag>
-    </div>
-    
-    <div class="field" style="margin: 0;">
-      <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 6px;">Precio Unitario ($)</label>
-      <p-inputNumber 
-        formControlName="precioUnitario" 
-        mode="currency" currency="USD" locale="en-US"
-        [showButtons]="false"
-        [inputStyle]="{'width': '110px'}"
-        class="compact-input" (onFocus)="selectInputText($event)">
-      </p-inputNumber>
-    </div>
-  </div>
-
-  <div class="pricing-card card-optional" style="flex: 1;">
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
-      <i class="pi pi-tags" style="color: #d97706; font-size: 1rem;"></i>
-      <span style="font-weight: 700; font-size: 0.9rem; color: #1e293b;">Por Mayoreo</span>
-    </div>
-    
-    <div style="display: flex; flex-direction: column; gap: 12px;">
-      <div class="field" style="margin: 0;">
-        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 6px;">Precio Mayoreo ($)</label>
-        <p-inputNumber 
-          formControlName="precioMayoreo" 
-          mode="currency" currency="USD" locale="en-US"
-          [showButtons]="false"
-          [inputStyle]="{'width': '110px'}"
-          class="compact-input"
-          (onFocus)="selectInputText($event)">
-        </p-inputNumber>
-      </div>
-
-      <div class="field" style="margin: 0;">
-        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 6px;">Mínimo de Unidades</label>
-        <p-inputNumber 
-          formControlName="cantidadMinimaMayoreo" 
-          [showButtons]="false"
-          [inputStyle]="{'width': '70px', 'text-align': 'center'}"
-          class="compact-input" (onFocus)="selectInputText($event)">
-        </p-inputNumber>
-      </div>
-    </div>
-  </div>
-</div>
-          <div class="field-item line-actions">
-          <p-button label="Agregar" icon="pi pi-plus" severity="info" size="small" (onClick)="agregarDetalle()"></p-button>
-          </div>        
-         </form>
-         <div class="ingresos-detalles-list">
-          <h4>Detalles del Documento</h4>
-  
-  <!-- <div class="table-container">
-    <table class="doc-table">
-      <thead>
-        <tr>
-          <td class="actions-col">
-            Acciones
-            </td>
-          <th colspan="2" class="text-center">Artículo</th>
-          <th class="text-right">Cantidad</th>
-          <th class="text-right">Precio Unitario</th>
-          <th class="text-right">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (det of detallesApi(); track det.articulo) {
-          <tr>
-            <td class="actions-col">
-            <p-button icon="pi pi-trash" severity="danger" size="small" (onClick)="eliminarDetalle(det.documentoInv,det.correlativo)" styleClass="action-icon-btn action-delete" [text]="true" ariaLabel="Eliminar Documento"></p-button>
-            </td>
-          <td class="col-primary">
-          {{ det.descripcion }} </td>
-        
-        <td class="col-secondary text-xs">
-          Cod: {{ det.articulo }}
-        </td>
-
-        <td class="col-tertiary" data-label="Cant">
-          {{ det.cantidad }}
-        </td>
-        
-        <td class="col-tertiary" data-label="Precio">
-          {{ det.precioUnitario | currency }}
-        </td>
-        
-        <td class="col-tertiary" data-label="Total">
-          <strong>{{ (det.cantidad * det.precioUnitario) | currency }}</strong>
-        </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="5" style="text-align: center; padding: 2rem; color: #94a3b8;">
-              No hay artículos agregados aún.
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div> -->
-@if (loadingDetail()) {
-          <div class="pos-loading"><p-progressSpinner></p-progressSpinner></div>
-        } @else {
-          <div class="pos-cart" [class.pos-cart-image-mode]="articleViewMode() === 'imagenes'">
-           <div class="modern-grid-container cart-grid mt-3">
-  @if (detallesApi().length > 0) {
-    <div class="grid-header hidden-mobile">
-      <div class="col-img text-center">IMG</div>
-      <div class="col-desc">ARTÍCULO / DESCRIPCIÓN</div>
-      <div class="col-qty text-center">CANT</div>
-      <div class="col-price text-right">PRECIO U.</div>
-      <div class="col-mayoreo text-right">MAYOREO</div>
-      <div class="col-actions text-center">ELIMINAR</div>
-    </div>
-  }
-
-  @for (det of detallesApi(); track det.articulo) {
-    <div class="grid-row align-items-center">
-      
-      <div class="col-img flex-center">
-        @if (articleViewMode() === 'imagenes') {
-          @if (articuloImagenUrl(det.articulo)) {
-            <img [src]="articuloImagenUrl(det.articulo)!" [alt]="det.articulo" class="fixed-img" />
-          } @else {
-            <div class="fixed-img placeholder-img"><i class="pi pi-box"></i></div>
-          }
-        }
-      </div>
-
-      <div class="col-desc flex-col overflow-hidden">
-        <span class="font-bold text-color truncate">{{ det.articulo }}</span>
-        <span class="text-sm text-500 truncate">{{ det.descripcion }}</span>
-      </div>
-
-      <div class="col-qty flex-between desktop-center bg-gray-mobile">
-        <span class="mobile-label">CANTIDAD:</span>
-        <span class="font-bold text-lg">{{ det.cantidad | number:'1.0-2' }}</span>
-      </div>
-
-      <div class="col-price flex-between desktop-right bg-gray-mobile">
-        <span class="mobile-label">PRECIO U:</span>
-        <div class="flex align-items-center gap-2">
-          <p-tag severity="info" value="Unidad"></p-tag>
-          <span class="font-bold text-primary">{{ det.precioUnitario | currency:'USD':'symbol':'1.2-2' }}</span>
-        </div>
-      </div>
-
-      <div class="col-mayoreo flex-between desktop-right bg-gray-mobile">
-        <span class="mobile-label">MAYOREO:</span>
-        @if (det.precioMayoreo > 0) {
-          <div class="flex align-items-center gap-2">
-            <span class="text-xs text-500">Mín: {{ det.cantidadMinimaMayoreo | number:'1.0-2' }}</span>
-            <p-tag severity="warn" value="Mayor"></p-tag>
-            <span class="font-bold text-orange-500">{{ det.precioMayoreo | currency:'USD':'symbol':'1.2-2' }}</span>
-          </div>
-        } @else {
-          <span class="text-500 text-sm hidden-mobile">-</span>
-        }
-      </div>
-
-      <div class="col-actions flex-end desktop-center border-top-mobile">
-        <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger"
-          [disabled]="canDesaplicar()"
-          (onClick)="eliminarDetalle(det.documentoInv,det.correlativo)">
-        </p-button>
-      </div>
-
-    </div>
-  } @empty {
-    <div class="empty-state">
-      <i class="pi pi-shopping-cart text-4xl mb-2 opacity-50 block"></i>
-      Sin artículos agregados
-    </div>
-  }
-</div>
-          </div>
-        }
 
         </div>
       </section>
     }
-    }
-    <p-dialog
-  header="Creación Rápida de Artículo"
-  [visible]="showArticuloDialog()"
-  (visibleChange)="showArticuloDialog.set($event)"
-  [modal]="true"
-  appendTo="body"
-  [draggable]="false"
-  [resizable]="false"
-  [style]="{ width: '90vw', maxWidth: '1200px' }">
-  
-  @if (showArticuloDialog()) {
-    <app-articulos (articuloCreado)="onArticuloCreado($event)"></app-articulos>
   }
-</p-dialog>
+
+  <!-- ══ LIGHTBOX ══════════════════════════════════════════ -->
+  @if (lightboxVisible()) {
+    <div class="img-lightbox-overlay" (click)="cerrarLightbox()"
+         role="dialog" aria-modal="true" aria-label="Imagen ampliada">
+      <div class="img-lightbox-inner" (click)="$event.stopPropagation()">
+        <button type="button" class="img-lightbox-close" (click)="cerrarLightbox()" aria-label="Cerrar">
+          <i class="pi pi-times"></i>
+        </button>
+        <img [src]="lightboxUrl()!" [alt]="lightboxArticuloLabel()" class="img-lightbox-img" />
+        <p class="img-lightbox-caption">{{ lightboxArticuloLabel() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- ══ DIÁLOGO ARTÍCULO ════════════════════════════════════ -->
+  <p-dialog
+    header="Creación Rápida de Artículo"
+    [visible]="showArticuloDialog()"
+    (visibleChange)="showArticuloDialog.set($event)"
+    [modal]="true"
+    appendTo="body"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '90vw', maxWidth: '1200px' }">
+    @if (showArticuloDialog()) {
+      <app-articulos (articuloCreado)="onArticuloCreado($event)"></app-articulos>
+    }
+  </p-dialog>
+
 </section>

@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, PLATFORM_ID, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, finalize, forkJoin, from, map, of, switchMap } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -17,6 +17,7 @@ import { AuthService } from '../../../core/services/auth';
 import {
   AnulacionFacturaDto,
   ArticuloPorBodegaDto,
+  InfoVentaArticuloDto,
   DatosDestinatarioDteDto,
   EmisionStep,
   FacturaDetalleDto,
@@ -44,7 +45,10 @@ import {
 import { environment } from '../../../../environments/environment';
 import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
 import { FacturacionService } from '../services/facturacion';
+import { ReciboService, ReciboDatos } from '../services/recibo';
 import { ArticulosService } from '../../articulos/services/articulos';
+import { ReenviarCorreoDialogComponent } from '../../../shared/components/reenviar-correo-dialog/reenviar-correo-dialog';
+import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
 
 interface BarcodeDetectorResultLike {
   rawValue?: string;
@@ -68,13 +72,18 @@ type BarcodeDetectorCtorLike = new (options?: { formats?: string[] }) => Barcode
     InputTextModule,
     ProgressSpinnerModule,
     ToastModule,
-    DialogModule
+    DialogModule,
+    ReenviarCorreoDialogComponent,
+    EliminarConfirmDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './fac-pos.html',
   styleUrls: ['./fac-pos.scss']
 })
 export class FacPosComponent implements OnDestroy {
+  @ViewChild(ReenviarCorreoDialogComponent) reenviarCorreoDialog!: ReenviarCorreoDialogComponent;
+  @ViewChild(EliminarConfirmDialogComponent) eliminarConfirmDialog!: EliminarConfirmDialogComponent;
+
   private readonly simulateLargeCatalogForTest = false;
   private readonly simulatedCatalogTarget = 600;
   private readonly articuloChunkSize = 80;
@@ -85,6 +94,7 @@ export class FacPosComponent implements OnDestroy {
   private authService = inject(AuthService);
   private route = inject(ActivatedRoute);
   private facturacionService = inject(FacturacionService);
+  private reciboService = inject(ReciboService);
   private articulosService = inject(ArticulosService);
   private messageService = inject(MessageService);
   private currencyFormatter = new Intl.NumberFormat('es-SV', {
@@ -108,7 +118,6 @@ export class FacPosComponent implements OnDestroy {
   hasSavedCurrentRecord = signal(false);
   showCobroSection = signal(false);
   cobroDialogVisible = signal(false);
-  confirmDeleteFacturaDialogVisible = signal(false);
   anulacionDialogVisible = signal(false);
   confirmAnulacionDialogVisible = signal(false);
   anulacionMotivo = signal('');
@@ -135,6 +144,12 @@ export class FacPosComponent implements OnDestroy {
   clienteSuggestions = signal<string[]>([]);
   articulosOptions = signal<ArticuloPorBodegaDto[]>([]);
   articuloSuggestions = signal<string[]>([]);
+  // Existencia en línea del artículo seleccionado (null = aún no consultada).
+  articuloExistencia = signal<number | null>(null);
+  articuloSinExistencia = computed(() => {
+    const e = this.articuloExistencia();
+    return e !== null && e <= 0;
+  });
   articuloCardSearch = signal('');
   articleViewMode = signal<'listado' | 'imagenes'>('listado');
   articuloVisibleLimit = signal(this.articuloChunkSize);
@@ -165,10 +180,20 @@ export class FacPosComponent implements OnDestroy {
       ? 'Cambiar a Crédito Fiscal'
       : 'Cambiar a consumidor final'
   );
+  // Excepción ambiente de pruebas (00): empresas que SÍ emiten DTE pero están en el ambiente de
+  // Hacienda de pruebas registran la venta con un recibo local, sin contactar a Hacienda.
+  // Solo aplica a FAC (Consumidor Final); CCF sigue el flujo real de emisión aunque ambiente sea 0.
+  // En ambiente 1 esta bandera siempre es false y todo el comportamiento existente queda intacto.
+  esAmbientePrueba = computed(() => this.getAmbiente() === '00');
+  esRegistroSinDte = computed(() => this.emiteDte() && this.esAmbientePrueba() && this.getCurrentTipoFactura() === 'FAC');
+
   confirmarCobroLabel = computed(() =>{
     if (!this.emiteDte()) {
     return 'Finalizar factura';
   }
+    if (this.esRegistroSinDte()) {
+      return 'Registrar factura';
+    }
    return this.getCurrentTipoFactura() === 'CCF'
       ? 'Emitir Crédito Fiscal'
       : 'Emitir Consumidor Final'
@@ -544,6 +569,23 @@ export class FacPosComponent implements OnDestroy {
     });
   }
 
+  onReenviarCorreo(item: FacturaGeneralDto): void {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const idFactura = this.toNumber(item.iddoc);
+    const tipoFactura = String(item.Tipo_Factura ?? 'FAC').trim().toUpperCase() || 'FAC';
+    const perfil = this.perfilClientes().find((c) => String(c.CLIENTE ?? '').trim() === String(item.CLIENTE ?? '').trim());
+    const correoDefault = String(perfil?.CORREO_ELECTRONICO ?? '').trim();
+
+    if (this.esDocumentoSinDte(item)) {
+      this.reenviarCorreoDialog.abrir(idEmpresa, idFactura, tipoFactura, correoDefault, (correoDestino) =>
+        this.enviarReciboDesdeListado(item, correoDestino)
+      );
+      return;
+    }
+
+    this.reenviarCorreoDialog.abrir(idEmpresa, idFactura, tipoFactura, correoDefault);
+  }
+
   guardar() {
     if (!this.canSave()) {
       this.showError('FAC POS', 'Solo facturas en elaboración permiten guardar.');
@@ -664,7 +706,9 @@ export class FacPosComponent implements OnDestroy {
     this.showCobroSection.set(false);
     this.facForm.patchValue({ Estado: 'APLICADO' });
     this.syncDisabledControls();
-    if(this.emiteDte()){
+    if (this.esRegistroSinDte()) {
+      this.registrarFacturaSinDte();
+    } else if(this.emiteDte()){
  this.showInfo('FAC POS', 'Factura aplicada. Iniciando emisión DTE...');
     this.emitirDte();
     }else {
@@ -673,7 +717,112 @@ export class FacPosComponent implements OnDestroy {
       this.imprimirTicketInformal();
       this.loadMaestro(); // Recargar el listado
     }
-   
+
+  }
+
+  // Ambiente de pruebas: se salta el contacto con Hacienda. El recibo se muestra de inmediato
+  // y el correo se envía en segundo plano (si falla se avisa; si no, se asume enviado).
+  private registrarFacturaSinDte() {
+    const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
+    if (!idFactura) {
+      this.showError('FAC POS', 'Guarde la factura antes de continuar.');
+      return;
+    }
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const datos = this.buildReciboDatosDesdeForm();
+    const correoDestino = String(this.facForm.controls.CorreoElectronico.value ?? '').trim();
+
+    // 1. Recibo al instante + UI liberada + listado actualizado. No esperamos al PDF ni al correo.
+    this.emitting.set(false);
+    this.syncDisabledControls();
+    this.openDteVisualPreview(this.reciboService.buildDocumentoVisual(datos));
+    this.showInfo('FAC POS', 'Factura registrada correctamente.');
+    this.loadMaestro();
+
+    // 2. Envío del recibo por correo en segundo plano.
+    if (!correoDestino) {
+      this.showInfo('FAC POS', 'El cliente no tiene correo registrado; el recibo no se envió.');
+      return;
+    }
+    this.enviarReciboEnSegundoPlano(idEmpresa, idFactura, datos, correoDestino);
+  }
+
+  // El rasterizado (html2canvas) congela el hilo principal; con el defer el recibo ya está
+  // pintado antes de empezar, y el envío SMTP es async y no bloquea.
+  private enviarReciboEnSegundoPlano(idEmpresa: number, idFactura: number, datos: ReciboDatos, correoDestino: string): void {
+    setTimeout(() => {
+      this.reciboService.generarReciboPdfBase64(datos)
+        .then((pdfBase64) => {
+          this.facturacionService
+            .enviarReciboDirecto(idEmpresa, idFactura, 'FAC', correoDestino, pdfBase64, `Recibo_${idFactura}.pdf`)
+            .subscribe({
+              next: () => this.showInfo('FAC POS', 'Recibo enviado por correo.'),
+              error: (err) => this.showError('FAC POS', this.extractError(err, 'No se pudo enviar el recibo por correo.'))
+            });
+        })
+        .catch(() => this.showError('FAC POS', 'No se pudo generar el PDF del recibo para el envío.'));
+    }, 50);
+  }
+
+  private buildReciboDatosDesdeForm(): ReciboDatos {
+    return this.buildReciboDatos(this.facForm.getRawValue(), this.detalleRows(), this.isAnonimoClient());
+  }
+
+  private buildReciboDatos(raw: Record<string, unknown>, detalles: FacturaDetalleDto[], anonimo: boolean): ReciboDatos {
+    const empresa = this.authService.currentUser()?.selectedEmpresa;
+    const logoSrc = empresa?.logo ? (empresa.logo.startsWith('http') ? empresa.logo : `data:image/png;base64,${empresa.logo}`) : '';
+    const nombreEmpresa = empresa?.nombreComercial || empresa?.nombre || 'EMPRESA';
+    const codigoDocumento = String(raw['CodGeneracion'] ?? '').trim() || '---';
+    const fechaEmision = this.formatDateDisplay(raw['Fecha']);
+    const clienteNombre = anonimo
+      ? (String(raw['NombreFacturarA'] ?? '').trim() || 'Sr(a)')
+      : (String(raw['FacturarA'] ?? '').trim() || String(raw['Cliente'] ?? '').trim() || 'Consumidor Final');
+
+    return {
+      nombreEmpresa,
+      logoSrc,
+      clienteNombre,
+      codigoDocumento,
+      fechaEmision,
+      lineas: detalles.map((item) => ({
+        cantidad: this.toNumber(item.CANTIDAD),
+        descripcion: item.DESCRIPCION,
+        precioUnitario: this.toNumber(item.PRECIO_UNITARIO),
+        total: this.toNumber((item as unknown as { TotalVenta?: number }).TotalVenta ?? item.TOTAL)
+      })),
+      subtotal: this.toNumber(raw['Sumas']),
+      descuento: this.toNumber(raw['Descuentos']),
+      total: this.toNumber(raw['TotalFactura'])
+    };
+  }
+
+  // Reenvío directo (sin maildte) para documentos FAC registrados en ambiente de pruebas: se
+  // reconstruye el recibo a partir del encabezado/detalle del documento (no es el que está
+  // abierto en el formulario) y se manda el mismo endpoint que el registro original.
+  private enviarReciboDesdeListado(item: FacturaGeneralDto, correoDestino: string): Observable<unknown> {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const idFactura = this.toNumber(item.iddoc);
+    const sucursal = String(item.CODIGOSUCURSAL || item.SUCURSAL || '').trim();
+    const puntoVenta = String(item.PUNTO_VENTA || '').trim();
+
+    return forkJoin({
+      encabezado: this.facturacionService.getFacturaEncabezado(item.Prefijo, item.Factura, sucursal, puntoVenta, idEmpresa),
+      detalle: this.facturacionService.getFacturaDetalle(item.Prefijo, item.Factura, sucursal, puntoVenta, item.Tipo_Factura)
+    }).pipe(
+      switchMap(({ encabezado, detalle }) => {
+        const datos = this.buildReciboDatos(encabezado as unknown as Record<string, unknown>, detalle ?? [], false);
+        return from(this.reciboService.generarReciboPdfBase64(datos)).pipe(
+          switchMap((pdfBase64) =>
+            this.facturacionService.enviarReciboDirecto(idEmpresa, idFactura, 'FAC', correoDestino, pdfBase64, `Recibo_${idFactura}.pdf`)
+          )
+        );
+      })
+    );
+  }
+
+  private esDocumentoSinDte(item: FacturaGeneralDto): boolean {
+    const tipo = String(item.Tipo_Factura ?? '').trim().toUpperCase();
+    return this.emiteDte() && this.esAmbientePrueba() && tipo === 'FAC';
   }
 
   cambiarTipoFacturaCobro() {
@@ -782,10 +931,11 @@ export class FacPosComponent implements OnDestroy {
   }
 
   desaplicar() {
+    if (!this.adminAccess()) { this.showError('FAC POS', 'Solo un usuario Administrador puede habilitar la factura.'); return; }
     if (!this.canDesaplicar()) { this.showError('FAC POS', 'Solo facturas aplicadas sin sello permiten desaplicar.'); return; }
     const idFactura = this.facForm.controls.IdFactura.value;
     if (!idFactura) { this.showError('FAC POS', 'No hay factura para desaplicar.'); return; }
-    this.facturacionService.desaplicarFac(idFactura).subscribe({
+    this.executeDesaplicarFromCobro().subscribe({
       next: () => {
         this.isLocked.set(false);
         this.showCobroSection.set(false);
@@ -1034,17 +1184,7 @@ if(!this.adminAccess()){
   this.showError('FAC POS', 'Solicite al administrador la eliminacion de esta factura.');
       return;
 }
-    this.confirmDeleteFacturaDialogVisible.set(true);
-  }
-
-  cancelarEliminarFactura() {
-    this.confirmDeleteFacturaDialogVisible.set(false);
-  }
-
-  confirmarEliminarFactura() {
-    this.confirmDeleteFacturaDialogVisible.set(false);
-
-    this.eliminarFactura();
+    this.eliminarConfirmDialog.abrir(() => this.eliminarFactura());
   }
 
   eliminarFactura(retryAfterDesaplicar: boolean = true) {
@@ -1114,8 +1254,8 @@ if(!this.adminAccess()){
       this.showError('FAC POS', 'Guarde la factura antes de abrir la vista previa.');
       return;
     }
-// Interceptar aquí si es informal
-    if (!this.emiteDte()) {
+// Interceptar aquí si es informal o registro sin DTE (ambiente de pruebas)
+    if (!this.emiteDte() || this.esRegistroSinDte()) {
       // 1. NUEVA VALIDACIÓN: Evitar impresiones falsas o previas al cobro
     if (this.currentEstado() !== 'APLICADO') {
       this.showError('FAC POS', 'La factura debe estar aplicada (cobrada) para poder imprimir el ticket.');
@@ -1270,13 +1410,13 @@ if(!this.adminAccess()){
 
   estadoVisualKey(estado: unknown, selloRecepcion: unknown): 'ELABORACION' | 'PENDIENTE_EMITIR' | 'EMITIDO' | 'ANULADO' | 'OTRO' {
     const normalized = this.normalizeEstadoValue(estado);
-if(!this.emiteDte()){
+if(!this.emiteDte() || this.esRegistroSinDte()){
     if (normalized === 'APLICADO') {
       return 'EMITIDO';
     }
     return "ELABORACION";
   }
-else{     
+else{
     if (normalized === 'APLICADO') {
       return this.isSelloRecepcionEmpty(selloRecepcion) ? 'PENDIENTE_EMITIR' : 'EMITIDO';
     }
@@ -1468,7 +1608,8 @@ else{
 
   onArticuloSelect(displayValue: string) {
     const articulo = this.findArticuloByDisplay(String(displayValue ?? '').trim());
-    if (!articulo) { this.facForm.patchValue({ LineaArticulo: '', LineaDescripcion: '' }); return; }
+    if (!articulo) { this.facForm.patchValue({ LineaArticulo: '', LineaDescripcion: '' }); this.articuloExistencia.set(null); return; }
+    this.articuloExistencia.set(null);
     this.facForm.patchValue({
       LineaArticuloDisplay: this.toArticuloDisplay(articulo),
       LineaArticulo: articulo.ARTICULO,
@@ -1477,7 +1618,31 @@ else{
       LineaPrecioMayoreo: articulo.PRECIO_MAYOREO ?? 0,
       LineaCantidadMinimaMayoreo: articulo.cantidadmayoreo ?? 0
     });
-    this.focusLineaPrecioInput();
+    this.focusLineaCantidadInput();
+    // Precio y existencia en línea (autoritativos sobre el catálogo cacheado).
+    this.cargarInfoVentaEnLinea(articulo.ARTICULO, (info) => {
+      this.facForm.patchValue({
+        LineaPrecio: info.ultimoPrecio,
+        LineaPrecioMayoreo: info.precioMayoreo,
+        LineaCantidadMinimaMayoreo: info.cantidadMayoreo
+      });
+    });
+  }
+
+  // Consulta en línea precio + existencia del artículo y aplica los valores frescos.
+  // Si no hay existencia, avisa. En error de red, conserva los valores del catálogo.
+  private cargarInfoVentaEnLinea(articulo: string, aplicar: (info: InfoVentaArticuloDto) => void): void {
+    this.facturacionService.getInfoVentaArticulo(articulo, 'BOD01').subscribe({
+      next: (info) => {
+        if (!info) { return; }
+        aplicar(info);
+        this.articuloExistencia.set(this.toNumber(info.existencia));
+        if (this.toNumber(info.existencia) <= 0) {
+          this.showWarn('FAC POS', 'No hay existencia disponible.');
+        }
+      },
+      error: () => { /* sin conexión: se mantienen los valores del catálogo */ }
+    });
   }
 
   setArticleViewMode(mode: 'listado' | 'imagenes') {
@@ -1509,6 +1674,7 @@ else{
     this.ensureArticuloImageLoaded(articulo.ARTICULO);
 
     this.selectedArticuloImagen.set(articulo);
+    this.articuloExistencia.set(null);
     const ultimoPrecio = this.toNumber(articulo.ULTIMO_PRECIO);
     this.articuloImagenForm.reset({
       cantidad: 1,
@@ -1516,6 +1682,13 @@ else{
       preciomayoreo: articulo.PRECIO_MAYOREO ?? 0
     });
     this.articuloImagenDialogVisible.set(true);
+    // Precio y existencia en línea (autoritativos sobre el catálogo cacheado).
+    this.cargarInfoVentaEnLinea(articulo.ARTICULO, (info) => {
+      this.articuloImagenForm.patchValue({
+        precio: info.ultimoPrecio,
+        preciomayoreo: info.precioMayoreo
+      });
+    });
   }
 
   openScannerDialog() {
@@ -1627,6 +1800,16 @@ else{
 
   articuloImagenUrl(codigo: string): string | null {
     return this.articuloImagenUrls()[codigo] ?? null;
+  }
+
+  private focusLineaCantidadInput() {
+    if (!isPlatformBrowser(this.platformId) || typeof document === 'undefined') return;
+    requestAnimationFrame(() => {
+      const input = document.getElementById('pos-qty') as HTMLInputElement | null;
+      if (!input || input.readOnly || input.disabled) return;
+      input.focus();
+      input.select();
+    });
   }
 
   private focusLineaPrecioInput() {
@@ -2294,7 +2477,9 @@ else{
   private guardarEncabezadoConSrAParaAgregarDetalle() {
     if (this.saving()) return;
 
-    this.applyDefaultSrCliente();
+    if (this.requiresClienteConfirmation()) {
+      this.applyDefaultSrCliente();
+    }
     const payload = this.buildUpdateFacturaPayload();
 
     this.saving.set(true);
@@ -2311,7 +2496,9 @@ else{
           this.saving.set(false);
           this.hasSavedCurrentRecord.set(true);
           this.syncDisabledControls();
-          this.showInfo('FAC POS', 'Encabezado guardado con cliente Sr(a).');
+          const raw = this.facForm.getRawValue();
+          const clienteGuardado = String(raw.FacturarA ?? raw.Cliente ?? '').trim() || 'Sr(a)';
+          this.showInfo('FAC POS', `Encabezado guardado con cliente ${clienteGuardado}.`);
           this.agregarDetalleManual(true);
         },
         error: (error) => {
@@ -3032,6 +3219,7 @@ else{
 
   private showInfo(summary: string, detail: string) { this.messageService.add({ severity: 'info', summary, detail }); }
   private showError(summary: string, detail: string) { this.messageService.add({ severity: 'error', summary, detail }); }
+  private showWarn(summary: string, detail: string) { this.messageService.add({ severity: 'warn', summary, detail }); }
 
   private patchIdFacturaFromUpdateResponse(response: unknown) {
     if (!response || typeof response !== 'object') {
@@ -3255,152 +3443,12 @@ else{
         }
       });
   }
+  // Recibo informal: usado cuando la empresa no emite DTE, y también (ambiente de pruebas) para
+  // FAC registradas sin contactar Hacienda. El formato vive en ReciboService (compartido con fac.ts).
   private imprimirTicketInformal() {
-    const raw = this.facForm.getRawValue();
-    const detalles = this.detalleRows();
-    const empresa = this.authService.currentUser()?.selectedEmpresa;
-    
-    // Obtener y formatear datos
-    const logoSrc = empresa?.logo ? (empresa.logo.startsWith('http') ? empresa.logo : `data:image/png;base64,${empresa.logo}`) : '';
-    const nombreEmpresa = empresa?.nombreComercial || empresa?.nombre || 'EMPRESA';
-    const codigoGeneracion = raw.CodGeneracion || '---';
-    const fechaEmision = this.formatDateDisplay(raw.Fecha);
-    const clienteNombre = this.isAnonimoClient() 
-  ? (raw.NombreFacturarA || 'Sr(a)') 
-  : (raw.FacturarA || raw.Cliente || 'Consumidor Final');
-
-    // Construir tabla de detalles
-    let filasDetalle = '';
-    detalles.forEach((item) => {
-      filasDetalle += `
-        <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${this.toNumber(item.CANTIDAD)}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.DESCRIPCION}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${this.formatCurrency(item.PRECIO_UNITARIO)}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${this.formatCurrency(item.TotalVenta || item.TOTAL)}</td>
-        </tr>
-      `;
-    });
-
-    // Construir HTML del ticket
-    const htmlTicket = `
-      <!DOCTYPE html>
-      <html lang="es">
-      <head>
-        <meta charset="UTF-8">
-        <title>Factura ${codigoGeneracion}</title>
-        <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #f0f0f0; }
-          .a4-container { 
-            width: 210mm; 
-            min-height: 297mm; 
-            margin: 20mm auto; 
-            padding: 20mm; 
-            background: white; 
-            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-            box-sizing: border-box;
-          }
-          .header { text-align: center; margin-bottom: 30px; }
-          .logo { max-width: 150px; max-height: 80px; margin-bottom: 10px; }
-          .company-name { font-size: 24px; font-weight: bold; margin: 0; color: #333; }
-          .doc-title { font-size: 18px; color: #666; margin: 10px 0; text-transform: uppercase; letter-spacing: 1px; }
-          .info-grid { display: flex; justify-content: space-between; margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
-          .info-col { flex: 1; }
-          .info-col strong { display: block; font-size: 12px; color: #777; margin-bottom: 3px; }
-          .info-col span { display: block; font-size: 14px; color: #333; margin-bottom: 10px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-          th { background-color: #f8f9fa; padding: 10px 8px; text-align: left; font-size: 13px; color: #555; border-bottom: 2px solid #ddd; }
-          th.center { text-align: center; }
-          th.right { text-align: right; }
-          .totals { width: 300px; margin-left: auto; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
-          .total-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
-          .total-row.grand-total { font-weight: bold; font-size: 18px; border-top: 2px solid #ddd; margin-top: 10px; padding-top: 10px; }
-          .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #888; border-top: 1px solid #ddd; padding-top: 20px; }
-          
-          @media print {
-            body { background: white; margin: 0; }
-            .a4-container { box-shadow: none; margin: 0; padding: 10mm; width: 100%; min-height: auto; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="a4-container">
-          <div class="header">
-            ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="logo">` : ''}
-            <h1 class="company-name">${nombreEmpresa}</h1>
-            <h2 class="doc-title">Documento de Venta</h2>
-          </div>
-          
-          <div class="info-grid">
-            <div class="info-col">
-              <strong>CLIENTE</strong>
-              <span>${clienteNombre}</span>
-            </div>
-            <div class="info-col" style="text-align: right;">
-              <strong>CÓDIGO DE DOCUMENTO</strong>
-              <span>${codigoGeneracion}</span>
-              <strong>FECHA DE EMISIÓN</strong>
-              <span>${fechaEmision}</span>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th class="center" style="width: 10%;">CANTIDAD</th>
-                <th style="width: 50%;">DESCRIPCIÓN</th>
-                <th class="right" style="width: 20%;">PRECIO UNIT.</th>
-                <th class="right" style="width: 20%;">TOTAL</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filasDetalle}
-            </tbody>
-          </table>
-
-          <div class="totals">
-            <div class="total-row">
-              <span>Subtotal:</span>
-              <span>${this.formatCurrency(raw.Sumas)}</span>
-            </div>
-            ${raw.Descuentos > 0 ? `
-              <div class="total-row" style="color: #dc3545;">
-                <span>Descuento:</span>
-                <span>-${this.formatCurrency(raw.Descuentos)}</span>
-              </div>
-            ` : ''}
-            <div class="total-row grand-total">
-              <span>Total a Pagar:</span>
-              <span>${this.formatCurrency(raw.TotalFactura)}</span>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <p>Gracias por su compra.</p>          
-          </div>
-        </div>
-        <script>
-          window.onload = function() {
-            // Le damos 500ms para asegurar que el logo base64 renderice en móviles lentos
-            setTimeout(function() {
-              window.print();
-            }, 500);
-            
-            // Hemos eliminado window.close() para evitar que el spooler de Android/iOS se cuelgue.
-            // La pestaña se mantendrá abierta para que el usuario la cierre manualmente.
-          };
-        </script>
-      </body>
-      </html>
-    `;
-
-    // Abrir popup y escribir el HTML
-    const popup = window.open('', '_blank');
-    if (popup) {
-      popup.document.open();
-      popup.document.write(htmlTicket);
-      popup.document.close();
-    } else {
+    const datos = this.buildReciboDatosDesdeForm();
+    const ok = this.reciboService.imprimirRecibo(datos);
+    if (!ok) {
       this.showError('FAC POS', 'El navegador bloqueó la vista de la factura. Asegúrese de permitir ventanas emergentes.');
     }
   }

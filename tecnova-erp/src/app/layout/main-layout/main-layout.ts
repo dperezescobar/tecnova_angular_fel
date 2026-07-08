@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
 import { PwaInstallService } from '../../core/services/pwa-install';
 import { NotificacionesService } from '../../core/services/notificaciones.service';
+import { FacturacionService } from '../../features/facturacion/services/facturacion';
 
 @Component({
   selector: 'app-main-layout',
@@ -21,6 +22,7 @@ export class MainLayoutComponent {
   private router = inject(Router);
   private pwaInstallService = inject(PwaInstallService);
   private notificacionesService = inject(NotificacionesService);
+  private facturacionService = inject(FacturacionService);
   private readonly mobileBreakpointQuery = '(max-width: 991.98px)';
   private readonly touchTabletQuery = '(pointer: coarse) and (max-width: 1366px)';
 
@@ -28,9 +30,14 @@ export class MainLayoutComponent {
   isDesktopSidebarExpanded = false;
   isMobileView = typeof window !== 'undefined' ? this.detectOverlaySidebarMode(window) : false;
   isMobileMenuOpen = false;
+  aplicaInventarios = signal(false);
+
   showCatalogos = false;
+  showInventarios = false;
+  showInvReportes = false;
   showFacturacion = false;
   showReportes = false;
+  showCompras = false;
   showInstallBanner = () => this.pwaInstallService.canShowInstallBanner();
 
   tienePendientes = this.notificacionesService.tienePendientes;
@@ -44,6 +51,11 @@ export class MainLayoutComponent {
       const idEmpresa = user?.selectedEmpresa?.idEmpresa ?? 0;
       if (idEmpresa && !this.notificacionesService.yaVerificado()) {
         this.notificacionesService.verificarAbonos(idEmpresa);
+      }
+      if (idEmpresa) {
+        this.facturacionService.getAplicaInventarios().subscribe(v => this.aplicaInventarios.set(v));
+      } else {
+        this.aplicaInventarios.set(false);
       }
     });
   }
@@ -76,6 +88,18 @@ export class MainLayoutComponent {
 
   toggleReportes() {
     this.showReportes = !this.showReportes;
+  }
+
+  toggleInventarios() {
+    this.showInventarios = !this.showInventarios;
+  }
+
+  toggleInvReportes() {
+    this.showInvReportes = !this.showInvReportes;
+  }
+
+  toggleCompras() {
+    this.showCompras = !this.showCompras;
   }
 
   onWindowResize() {
@@ -174,6 +198,10 @@ export class MainLayoutComponent {
     const tipoUsuario = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase();
     if (tipoUsuario === 'A') return true;
     return false;
+  }
+
+  esRoot(): boolean {
+    return this.authService.isRoot();
   }
 
   irAlPerfil(): void {

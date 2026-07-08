@@ -1,0 +1,33 @@
+<div class="man-page">
+  <header class="man-hero">
+    <div class="man-hero-icon"><i class="bi bi-book"></i></div>
+    <div>
+      <h1>Manuales de uso</h1>
+      <p>Guías paso a paso de cada módulo del sistema. Elige un manual para empezar.</p>
+    </div>
+  </header>
+
+  <div class="man-grid">
+    @for (m of manuales; track m.ruta) {
+      @if (m.disponible) {
+        <a class="man-card" [routerLink]="m.ruta">
+          <div class="man-card-icon"><i [class]="m.icono"></i></div>
+          <div class="man-card-body">
+            <h2>{{ m.titulo }}</h2>
+            <p>{{ m.descripcion }}</p>
+          </div>
+          <i class="bi bi-chevron-right man-card-arrow"></i>
+        </a>
+      } @else {
+        <div class="man-card man-card--soon">
+          <div class="man-card-icon"><i [class]="m.icono"></i></div>
+          <div class="man-card-body">
+            <h2>{{ m.titulo }}</h2>
+            <p>{{ m.descripcion }}</p>
+          </div>
+          <span class="man-badge-soon">Próximamente</span>
+        </div>
+      }
+    }
+  </div>
+</div>

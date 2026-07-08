@@ -1,0 +1,435 @@
+<section class="compras-page">
+  <p-toast position="top-right"></p-toast>
+
+  <!-- ── Header ── -->
+  <header class="compras-header">
+    <div class="header-title-group">
+      <h1 class="page-title"><i class="bi bi-cart3" aria-hidden="true"></i> Cargar Compras</h1>
+      <p class="page-subtitle">Importación de DTE JSON y registro de compras del libro</p>
+    </div>
+
+    <div class="filters-bar">
+      <div class="filter-field">
+        <label for="fi">Desde</label>
+        <input id="fi" type="date" [(ngModel)]="fechaInicio" class="date-input">
+      </div>
+      <div class="filter-field">
+        <label for="ff">Hasta</label>
+        <input id="ff" type="date" [(ngModel)]="fechaFin" class="date-input">
+      </div>
+      <p-button label="Buscar" icon="pi pi-search" severity="info"
+        (onClick)="buscar()" [disabled]="isLoading() || isUploading()"></p-button>
+      <span class="filters-sep" aria-hidden="true"></span>
+      <p-button label="Nueva compra" icon="pi pi-plus" severity="secondary"
+        (onClick)="abrirDialogManual()" [disabled]="isLoading() || isUploading()"></p-button>
+    </div>
+  </header>
+
+  <!-- ── Upload zone ── -->
+  <div class="upload-card">
+    <div class="upload-card-head">
+      <i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>
+      <h2>Importar archivos JSON</h2>
+      <span class="upload-hint">Archivos DTE emitidos por el MH (CCF, FEX, etc.)</span>
+    </div>
+
+    <div
+      class="drop-zone"
+      [class.drop-zone--over]="isDragOver()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave()"
+      (drop)="onDrop($event)"
+      (click)="fileInput.click()"
+      role="button"
+      tabindex="0"
+      aria-label="Zona de carga de archivos JSON"
+      (keydown.enter)="fileInput.click()"
+    >
+      <input #fileInput type="file" accept=".json,.JSON,application/json" multiple hidden (change)="onFileChange($event)">
+      <i class="bi bi-cloud-upload drop-icon" aria-hidden="true"></i>
+      <p class="drop-text">Arrastra archivos <strong>.json</strong> aquí o haz clic para seleccionar</p>
+      <p class="drop-sub">Solo archivos CCF — los Consumidor Final son rechazados automáticamente</p>
+    </div>
+
+    @if (archivosSeleccionados().length > 0) {
+      <div class="archivos-list">
+        @for (archivo of archivosSeleccionados(); track archivo.name; let i = $index) {
+          <div class="archivo-item">
+            <i class="bi bi-filetype-json" aria-hidden="true"></i>
+            <span class="archivo-nombre">{{ archivo.name }}</span>
+            <span class="archivo-size">{{ (archivo.size / 1024).toFixed(1) }} KB</span>
+            <button type="button" class="btn-quitar" (click)="quitarArchivo(i)" aria-label="Quitar archivo">
+              <i class="bi bi-x" aria-hidden="true"></i>
+            </button>
+          </div>
+        }
+      </div>
+
+      <div class="upload-actions">
+        <p-button label="Limpiar" icon="pi pi-times" severity="secondary" [text]="true"
+          (onClick)="limpiarArchivos()" [disabled]="isUploading()"></p-button>
+        <p-button
+          [label]="isUploading() ? 'Procesando...' : 'Importar ' + archivosSeleccionados().length + ' archivo(s)'"
+          icon="pi pi-upload" severity="success"
+          (onClick)="cargarJsons()" [disabled]="isUploading() || isLoading()">
+        </p-button>
+      </div>
+    }
+
+    @if (isUploading()) {
+      <div class="upload-loading">
+        <p-progressSpinner [style]="{ width: '32px', height: '32px' }"></p-progressSpinner>
+        <span>Procesando archivos...</span>
+      </div>
+    }
+
+    <!-- Resultados del upload -->
+    @if (resultadosUpload().length > 0) {
+      <div class="resultados-upload">
+        <h3 class="resultados-title">Resultado de importación</h3>
+        <div class="resultados-list">
+          @for (r of resultadosUpload(); track r.archivo) {
+            <div [class]="'resultado-row resultado-row--' + (r.exitoso ? 'ok' : 'warn')">
+              <i [class]="'bi ' + (r.exitoso ? 'bi-check-circle' : 'bi-exclamation-triangle')" aria-hidden="true"></i>
+              <span class="resultado-archivo">{{ r.archivo }}</span>
+              <span class="resultado-msg">{{ r.mensaje }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- ── Grid de compras ── -->
+  @if (isLoading()) {
+    <div class="loading-state" role="status">
+      <p-progressSpinner></p-progressSpinner>
+    </div>
+  }
+
+  @if (!isLoading() && compras().length > 0) {
+    <!-- Resumen -->
+    <div class="resumen-bar">
+      <span class="resumen-item">
+        <i class="bi bi-receipt" aria-hidden="true"></i>
+        <strong>{{ resumen().count }}</strong> compras
+      </span>
+      <span class="resumen-sep" aria-hidden="true">·</span>
+      <span class="resumen-item">
+        <i class="bi bi-currency-dollar" aria-hidden="true"></i>
+        IVA: <strong>{{ resumen().totalIva | currency }}</strong>
+      </span>
+      <span class="resumen-sep" aria-hidden="true">·</span>
+      <span class="resumen-item">
+        Total: <strong>{{ resumen().totalCompras | currency }}</strong>
+      </span>
+      @if (camposPendientes() > 0 || hayModificaciones()) {
+        <div class="resumen-acciones">
+          @if (camposPendientes() > 0) {
+            <span class="resumen-alerta">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              {{ camposPendientes() }} fila(s) sin completar
+            </span>
+          }
+          @if (hayModificaciones()) {
+            <span class="resumen-alerta resumen-alerta--modificado">
+              <i class="bi bi-pencil-square" aria-hidden="true"></i>
+              {{ comprasModificadas().length }} cambio(s) sin guardar
+            </span>
+            <p-button label="Guardar cambios" icon="pi pi-save" severity="warn" size="small"
+              (onClick)="guardarCambios()" [disabled]="isSaving()" [loading]="isSaving()"></p-button>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Cards -->
+    <div class="compras-cards">
+      @for (compra of compras(); track compra.correl) {
+        <div class="compra-card"
+             [class.card-pendiente]="compra.clasificacion === 0 || compra.sector === 0 || compra.codCostoGasto === 0"
+             [class.card-modificado]="esDirty(compra)">
+
+          <div class="card-header">
+            <div class="card-header-left">
+              <span class="tipo-badge tipo-badge--{{ compra.tipoDoc | lowercase }}">{{ compra.tipoDoc }}</span>
+              <span class="card-proveedor" [title]="compra.proveedor">{{ compra.proveedor }}</span>
+            </div>
+            <div class="card-header-right">
+              <span class="card-fecha">{{ compra.fecha }}</span>
+              <button type="button" class="btn-delete" (click)="eliminar(compra)" aria-label="Eliminar compra">
+                <i class="bi bi-trash" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-identifiers">
+            <span class="card-numero" [title]="compra.numero">{{ compra.numero }}</span>
+            @if (compra.numeroResolucion) {
+              <span class="card-sep" aria-hidden="true">·</span>
+              <span class="card-numero-control">{{ compra.numeroResolucion }}</span>
+            }
+            <span class="card-sep" aria-hidden="true">·</span>
+            <span class="card-nit">{{ compra.nitNrc }}</span>
+          </div>
+
+          <div class="card-amounts">
+            <div class="amount-item">
+              <span class="amount-label">Gravadas</span>
+              <span class="amount-value">{{ compra.comprasInternasGravadas | currency }}</span>
+            </div>
+            <div class="amount-item">
+              <span class="amount-label">IVA CF</span>
+              <span class="amount-value">{{ compra.creditoFiscal | currency }}</span>
+            </div>
+            <div class="amount-item amount-item--total">
+              <span class="amount-label">Total</span>
+              <span class="amount-value">{{ compra.totalCompras | currency }}</span>
+            </div>
+          </div>
+
+          <div class="card-selects">
+            <div class="select-group">
+              <label>Clasificación</label>
+              <select class="campo-select" [class.campo-ok]="compra.clasificacion > 0" [class.campo-pendiente]="compra.clasificacion === 0"
+                (change)="onCampoChange(compra, 'clasificacion', +$any($event.target).value)" aria-label="Clasificación">
+                @for (opt of optsClasificacion; track opt.id) {
+                  <option [value]="opt.id" [selected]="compra.clasificacion === opt.id">{{ opt.id }} - {{ opt.nombre }}</option>
+                }
+              </select>
+            </div>
+            <div class="select-group">
+              <label>Sector</label>
+              <select class="campo-select" [class.campo-ok]="compra.sector > 0" [class.campo-pendiente]="compra.sector === 0"
+                (change)="onCampoChange(compra, 'sector', +$any($event.target).value)" aria-label="Sector">
+                @for (opt of optsSector; track opt.id) {
+                  <option [value]="opt.id" [selected]="compra.sector === opt.id">{{ opt.id }} - {{ opt.nombre }}</option>
+                }
+              </select>
+            </div>
+            <div class="select-group">
+              <label>Costo / Gasto</label>
+              <select class="campo-select" [class.campo-ok]="compra.codCostoGasto > 0" [class.campo-pendiente]="compra.codCostoGasto === 0"
+                (change)="onCampoChange(compra, 'codCostoGasto', +$any($event.target).value)" aria-label="Código Costo/Gasto">
+                @for (opt of optsCostoGasto; track opt.id) {
+                  <option [value]="opt.id" [selected]="compra.codCostoGasto === opt.id">{{ opt.id }} - {{ opt.nombre }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+        </div>
+      }
+    </div>
+  }
+
+  @if (!isLoading() && compras().length === 0 && !isUploading()) {
+    <div class="empty-state">
+      <i class="bi bi-inbox" aria-hidden="true"></i>
+      <p>No hay compras en el período seleccionado.</p>
+    </div>
+  }
+
+  <!-- ── Dialog: Registrar compra manual ── -->
+  <p-dialog header="Registrar compra manual" [modal]="true"
+    [visible]="showDialogManual()" (visibleChange)="showDialogManual.set($event)"
+    [draggable]="false" [resizable]="false" [style]="{ width: 'min(700px, 95vw)' }">
+
+    <form class="form-manual" (ngSubmit)="submitManual()">
+
+      <!-- Fila 1: Fechas -->
+      <div class="form-section">
+        <div class="form-grid form-grid--2">
+          <div class="form-field">
+            <label>Fecha Compra <span class="req">*</span></label>
+            <input type="date" class="date-input"
+              [value]="formManual().fecha"
+              (change)="setManualField('fecha', $any($event.target).value)">
+          </div>
+          <div class="form-field">
+            <label>Fecha Libro <span class="req">*</span></label>
+            <input type="date" class="date-input"
+              [value]="formManual().fechaLibro"
+              (change)="setManualField('fechaLibro', $any($event.target).value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila 2: Tipo y clase de documento -->
+      <div class="form-section">
+        <div class="form-grid form-grid--2">
+          <div class="form-field">
+            <label>Clase Documento</label>
+            <select class="campo-select form-select-full"
+              [value]="formManual().claseDocumento"
+              (change)="setManualField('claseDocumento', +$any($event.target).value)">
+              @for (opt of optsClaseDoc; track opt.id) {
+                <option [value]="opt.id" [selected]="formManual().claseDocumento === opt.id">
+                  {{ opt.id }} - {{ opt.nombre }}
+                </option>
+              }
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Tipo de Documento <span class="req">*</span></label>
+            <select class="campo-select form-select-full"
+              [value]="formManual().tipoComprobante"
+              (change)="setManualField('tipoComprobante', $any($event.target).value)">
+              <option value="CCF">03 — Crédito Fiscal (CCF)</option>
+              <option value="FEX">19 — Exportación (FEX)</option>
+              <option value="LC">15 — Liquidación Contable (LC)</option>
+              <option value="ND">06 — Nota de Débito (ND)</option>
+              <option value="NC">05 — Nota de Crédito (NC)</option>
+              <option value="OD">14 — Otro Documento (OD)</option>
+              <option value="TCK">09 — Ticket (TCK)</option>
+              <option value="NA">NA — No aplica</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila 3: Número de documento -->
+      <div class="form-section">
+        <div class="form-field">
+          <label>Número de Documento <span class="req">*</span></label>
+          <input type="text" class="form-input"
+            [value]="formManual().numeroDocumento"
+            (input)="setManualField('numeroDocumento', $any($event.target).value)"
+            placeholder="DTE-03-M019P001-000000001234">
+        </div>
+      </div>
+
+      <!-- Fila 4: Proveedor -->
+      <div class="form-section">
+        <div class="form-field">
+          <label>Proveedor <span class="req">*</span></label>
+          @if (loadingProveedores()) {
+            <span class="form-loading">
+              <i class="bi bi-arrow-repeat" aria-hidden="true"></i> Cargando proveedores...
+            </span>
+          } @else {
+            <div class="proveedor-picker">
+              <input type="search" class="prov-filter"
+                placeholder="Filtrar por nombre o NRC..."
+                [value]="filtroProveedor()"
+                (input)="filtroProveedor.set($any($event.target).value)">
+              <select class="form-select-prov" size="5"
+                [value]="formManual().nrcProveedor"
+                (change)="onProveedorSelect($any($event.target).value)">
+                @for (p of proveedoresFiltrados(); track p.proveedor) {
+                  <option [value]="p.proveedor" [selected]="formManual().nrcProveedor === p.proveedor">
+                    {{ p.nombre }}  ·  {{ p.proveedor }}
+                  </option>
+                }
+                @if (!proveedoresFiltrados().length) {
+                  <option value="" disabled>Sin resultados para "{{ filtroProveedor() }}"</option>
+                }
+              </select>
+              @if (formManual().nrcProveedor) {
+                <div class="prov-selected">
+                  <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                  Seleccionado: <strong>{{ formManual().nrcProveedor }}</strong>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Fila 5: Montos -->
+      <div class="form-section">
+        <h3 class="form-section-title">Montos</h3>
+        <div class="form-grid form-grid--3">
+          <div class="form-field">
+            <label>Compras sin IVA <span class="req">*</span></label>
+            <input type="number" class="form-input form-input--money" min="0" step="0.01"
+              [value]="formManual().gravadas || null"
+              (change)="onGravadasChange($any($event.target).value)"
+              placeholder="0.00">
+          </div>
+          <div class="form-field">
+            <label>IVA Crédito Fiscal <span class="form-hint">(auto 13%)</span></label>
+            <input type="number" class="form-input form-input--money" min="0" step="0.01"
+              [value]="formManual().iva || null"
+              (change)="onIvaChange($any($event.target).value)"
+              placeholder="0.00">
+          </div>
+          <div class="form-field">
+            <label>Total Compra <span class="req">*</span></label>
+            <input type="number" class="form-input form-input--money form-input--total" min="0" step="0.01"
+              [value]="formManual().total || null"
+              (change)="onTotalChange($any($event.target).value)"
+              placeholder="0.00">
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila 6: DUI Proveedor -->
+      <div class="form-section">
+        <div class="form-field">
+          <label>DUI Proveedor</label>
+          <input type="text" class="form-input"
+            [value]="formManual().duiProveedor"
+            (input)="setManualField('duiProveedor', $any($event.target).value)"
+            placeholder="00000000-0">
+        </div>
+      </div>
+
+      <!-- Fila 7: Clasificación -->
+      <div class="form-section">
+        <h3 class="form-section-title">Clasificación</h3>
+        <div class="form-grid form-grid--3">
+          <div class="form-field">
+            <label>Clasificación</label>
+            <select class="campo-select form-select-full"
+              [class.campo-ok]="formManual().clasificacion > 0"
+              [class.campo-pendiente]="formManual().clasificacion === 0"
+              (change)="setManualField('clasificacion', +$any($event.target).value)">
+              @for (opt of optsClasificacion; track opt.id) {
+                <option [value]="opt.id" [selected]="formManual().clasificacion === opt.id">
+                  {{ opt.id }} - {{ opt.nombre }}
+                </option>
+              }
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Sector</label>
+            <select class="campo-select form-select-full"
+              [class.campo-ok]="formManual().sector > 0"
+              [class.campo-pendiente]="formManual().sector === 0"
+              (change)="setManualField('sector', +$any($event.target).value)">
+              @for (opt of optsSector; track opt.id) {
+                <option [value]="opt.id" [selected]="formManual().sector === opt.id">
+                  {{ opt.id }} - {{ opt.nombre }}
+                </option>
+              }
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Tipo Costo / Gasto</label>
+            <select class="campo-select form-select-full"
+              [class.campo-ok]="formManual().codCostoGasto > 0"
+              [class.campo-pendiente]="formManual().codCostoGasto === 0"
+              (change)="setManualField('codCostoGasto', +$any($event.target).value)">
+              @for (opt of optsCostoGasto; track opt.id) {
+                <option [value]="opt.id" [selected]="formManual().codCostoGasto === opt.id">
+                  {{ opt.id }} - {{ opt.nombre }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="dialog-form-footer">
+        <p-button label="Cancelar" severity="secondary" [text]="true"
+          (onClick)="showDialogManual.set(false)" [disabled]="submittingManual()"></p-button>
+        <p-button type="submit" label="Registrar compra" icon="pi pi-save" severity="success"
+          (onClick)="submitManual()" [disabled]="submittingManual()" [loading]="submittingManual()"></p-button>
+      </div>
+
+    </form>
+  </p-dialog>
+
+</section>

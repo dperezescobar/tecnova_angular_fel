@@ -1,0 +1,286 @@
+<section class="spv-page">
+  <p-toast position="top-right"></p-toast>
+  <p-confirmDialog [style]="{ maxWidth: '28rem' }"></p-confirmDialog>
+
+  <header class="spv-header">
+    <h1>Sucursales y puntos de venta</h1>
+  </header>
+
+  <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)">
+    <p-tablist>
+      <p-tab value="sucursales">
+        <i class="bi bi-shop" aria-hidden="true"></i>
+        <span>Sucursales</span>
+      </p-tab>
+      <p-tab value="puntos-venta">
+        <i class="bi bi-credit-card-2-front" aria-hidden="true"></i>
+        <span>Puntos de venta</span>
+      </p-tab>
+    </p-tablist>
+
+    <p-tabpanels>
+      <!-- ══════════ PESTAÑA: SUCURSALES ══════════ -->
+      <p-tabpanel value="sucursales">
+        @if (errorSucursal()) {
+          <p-message severity="error" [text]="errorSucursal()"></p-message>
+        }
+
+        @if (!showSucursalForm()) {
+          <div class="toolbar">
+            <span class="search-box">
+              <i class="pi pi-search"></i>
+              <input pInputText type="text" placeholder="Buscar por código o descripción" [value]="filterSucursales()" (input)="filterSucursales.set($any($event.target).value)" />
+            </span>
+            <div class="toolbar-actions">
+              <p-button label="Refrescar" icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="loadSucursales()" [disabled]="loadingSucursales()"></p-button>
+              <p-button label="Nueva sucursal" icon="pi pi-plus" severity="info" (onClick)="openCreateSucursal()"></p-button>
+            </div>
+          </div>
+
+          @if (loadingSucursales()) {
+            <div class="loading-box" role="status" aria-live="polite">
+              <p-progressSpinner></p-progressSpinner>
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="spv-table" aria-label="Listado de sucursales">
+                <thead>
+                  <tr>
+                    <th class="actions-col">Acciones</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Dirección</th>
+                    <th>Teléfono</th>
+                    <th>Responsable</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (s of filteredSucursales(); track s.sucursal) {
+                    <tr>
+                      <td class="actions-col">
+                        <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar sucursal" pTooltip="Editar" (onClick)="openEditSucursal(s)"></p-button>
+                        <p-button icon="pi pi-trash" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Eliminar sucursal" pTooltip="Eliminar" (onClick)="solicitarEliminarSucursal(s)"></p-button>
+                      </td>
+                      <td>{{ s.sucursal }}</td>
+                      <td>{{ s.descripcion }}</td>
+                      <td>{{ s.direccion }}</td>
+                      <td>{{ s.telefono }}</td>
+                      <td>{{ s.responsable }}</td>
+                    </tr>
+                  } @empty {
+                    <tr><td colspan="6">No se encontraron sucursales con el filtro aplicado.</td></tr>
+                  }
+                </tbody>
+              </table>
+
+              <div class="list-mobile-cards">
+                @for (s of filteredSucursales(); track s.sucursal) {
+                  <article class="list-mobile-card">
+                    <div class="card-row"><span class="card-label">Código</span><span class="card-value">{{ s.sucursal }}</span></div>
+                    <div class="card-row"><span class="card-label">Descripción</span><span class="card-value">{{ s.descripcion }}</span></div>
+                    <div class="card-row"><span class="card-label">Dirección</span><span class="card-value">{{ s.direccion }}</span></div>
+                    <div class="card-row"><span class="card-label">Teléfono</span><span class="card-value">{{ s.telefono }}</span></div>
+                    <div class="card-row"><span class="card-label">Responsable</span><span class="card-value">{{ s.responsable }}</span></div>
+                    <div class="card-actions">
+                      <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar sucursal" (onClick)="openEditSucursal(s)"></p-button>
+                      <p-button icon="pi pi-trash" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Eliminar sucursal" (onClick)="solicitarEliminarSucursal(s)"></p-button>
+                    </div>
+                  </article>
+                } @empty {
+                  <div class="mobile-empty">No se encontraron sucursales con el filtro aplicado.</div>
+                }
+              </div>
+            </div>
+          }
+        } @else {
+          <section class="form-panel">
+            <p-card>
+              <ng-template pTemplate="title">{{ isEditSucursal() ? 'Editar sucursal' : 'Nueva sucursal' }}</ng-template>
+              <form [formGroup]="sucursalForm" (ngSubmit)="guardarSucursal()" class="spv-form">
+                <div class="field-grid">
+                  <div class="field-item">
+                    <label for="sucursal">Código</label>
+                    <input pInputText id="sucursal" formControlName="sucursal" maxlength="10" />
+                  </div>
+                  <div class="field-item">
+                    <label for="descripcion">Descripción</label>
+                    <input pInputText id="descripcion" formControlName="descripcion" maxlength="50" />
+                  </div>
+                  <div class="field-item field-wide">
+                    <label for="direccion">Dirección</label>
+                    <input pInputText id="direccion" formControlName="direccion" maxlength="150" />
+                  </div>
+                  <div class="field-item">
+                    <label for="telefono">Teléfono</label>
+                    <input pInputText id="telefono" formControlName="telefono" maxlength="10" />
+                  </div>
+                  <div class="field-item">
+                    <label for="responsable">Responsable</label>
+                    <input pInputText id="responsable" formControlName="responsable" maxlength="50" />
+                  </div>
+                  <div class="field-item">
+                    <label for="codigoMH">Código MH</label>
+                    <input pInputText id="codigoMH" formControlName="codigoMH" maxlength="10" />
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <p-button type="button" label="Cancelar" severity="secondary" (onClick)="closeSucursalForm()"></p-button>
+                  <p-button type="submit" label="Guardar" icon="pi pi-save" [loading]="savingSucursal()"></p-button>
+                </div>
+              </form>
+            </p-card>
+          </section>
+        }
+      </p-tabpanel>
+
+      <!-- ══════════ PESTAÑA: PUNTOS DE VENTA ══════════ -->
+      <p-tabpanel value="puntos-venta">
+        @if (errorPV()) {
+          <p-message severity="error" [text]="errorPV()"></p-message>
+        }
+
+        @if (!showPVForm()) {
+          <div class="toolbar">
+            <span class="search-box">
+              <i class="pi pi-search"></i>
+              <input pInputText type="text" placeholder="Buscar por código, descripción o sucursal" [value]="filterPV()" (input)="filterPV.set($any($event.target).value)" />
+            </span>
+            <div class="toolbar-actions">
+              <p-button label="Refrescar" icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="loadPuntosVenta()" [disabled]="loadingPV()"></p-button>
+              <p-button label="Nuevo punto de venta" icon="pi pi-plus" severity="info" (onClick)="openCreatePV()"></p-button>
+            </div>
+          </div>
+
+          @if (loadingPV()) {
+            <div class="loading-box" role="status" aria-live="polite">
+              <p-progressSpinner></p-progressSpinner>
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="spv-table" aria-label="Listado de puntos de venta">
+                <thead>
+                  <tr>
+                    <th class="actions-col">Acciones</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Sucursal</th>
+                    <th>Código MH</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (pv of filteredPuntosVenta(); track pv.sucursal + pv.puntoVenta) {
+                    <tr>
+                      <td class="actions-col">
+                        <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar punto de venta" pTooltip="Editar" (onClick)="openEditPV(pv)"></p-button>
+                        <p-button icon="pi pi-trash" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Eliminar punto de venta" pTooltip="Eliminar" (onClick)="solicitarEliminarPV(pv)"></p-button>
+                      </td>
+                      <td>{{ pv.puntoVenta }}</td>
+                      <td>{{ pv.descripcion }}</td>
+                      <td>{{ pv.sucursalDescripcion }}</td>
+                      <td>{{ pv.codigoMH }}</td>
+                    </tr>
+                  } @empty {
+                    <tr><td colspan="5">No se encontraron puntos de venta con el filtro aplicado.</td></tr>
+                  }
+                </tbody>
+              </table>
+
+              <div class="list-mobile-cards">
+                @for (pv of filteredPuntosVenta(); track pv.sucursal + pv.puntoVenta) {
+                  <article class="list-mobile-card">
+                    <div class="card-row"><span class="card-label">Código</span><span class="card-value">{{ pv.puntoVenta }}</span></div>
+                    <div class="card-row"><span class="card-label">Descripción</span><span class="card-value">{{ pv.descripcion }}</span></div>
+                    <div class="card-row"><span class="card-label">Sucursal</span><span class="card-value">{{ pv.sucursalDescripcion }}</span></div>
+                    <div class="card-row"><span class="card-label">Código MH</span><span class="card-value">{{ pv.codigoMH }}</span></div>
+                    <div class="card-actions">
+                      <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar punto de venta" (onClick)="openEditPV(pv)"></p-button>
+                      <p-button icon="pi pi-trash" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Eliminar punto de venta" (onClick)="solicitarEliminarPV(pv)"></p-button>
+                    </div>
+                  </article>
+                } @empty {
+                  <div class="mobile-empty">No se encontraron puntos de venta con el filtro aplicado.</div>
+                }
+              </div>
+            </div>
+          }
+        } @else {
+          <section class="form-panel">
+            <p-card>
+              <ng-template pTemplate="title">{{ isEditPV() ? 'Editar punto de venta' : 'Nuevo punto de venta' }}</ng-template>
+              <form [formGroup]="pvForm" (ngSubmit)="guardarPV()" class="spv-form">
+                <div class="field-grid">
+                  <div class="field-item">
+                    <label for="puntoVenta">Código</label>
+                    <input pInputText id="puntoVenta" formControlName="puntoVenta" maxlength="10" />
+                  </div>
+                  <div class="field-item">
+                    <label for="pvSucursal">Sucursal</label>
+                    <p-select inputId="pvSucursal" [options]="sucursalOptions()" formControlName="sucursal" placeholder="Seleccione una sucursal"></p-select>
+                  </div>
+                  <div class="field-item field-wide">
+                    <label for="pvDescripcion">Descripción</label>
+                    <input pInputText id="pvDescripcion" formControlName="descripcion" maxlength="60" />
+                  </div>
+                  <div class="field-item">
+                    <label for="pvCodigoMH">Código MH</label>
+                    <input pInputText id="pvCodigoMH" formControlName="codigoMH" maxlength="10" />
+                  </div>
+                  <div class="field-item">
+                    <label for="pvCondicionPago">Condición de pago</label>
+                    <p-select inputId="pvCondicionPago" [options]="condicionPagoOptions()" formControlName="condicionPago" placeholder="Seleccione una condición"></p-select>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <p-button type="button" label="Cancelar" severity="secondary" (onClick)="closePVForm()"></p-button>
+                  <p-button type="submit" label="Guardar" icon="pi pi-save" [loading]="savingPV()"></p-button>
+                </div>
+              </form>
+
+              @if (isEditPV()) {
+                <div class="asignaciones-section">
+                  <div class="asignacion-block">
+                    <h3>Usuarios asignados</h3>
+                    <div class="asignacion-add">
+                      <p-select [options]="usuariosDisponibles()" [ngModel]="usuarioSeleccionado()" (ngModelChange)="usuarioSeleccionado.set($event)" placeholder="Seleccione un usuario" [style]="{ minWidth: '16rem' }"></p-select>
+                      <p-button label="Agregar" icon="pi pi-plus" [disabled]="!usuarioSeleccionado()" [loading]="savingAsignacionUsuario()" (onClick)="agregarUsuario()"></p-button>
+                    </div>
+                    <ul class="asignacion-list">
+                      @for (usuario of usuariosAsignados(); track usuario) {
+                        <li>
+                          <span>{{ usuario }}</span>
+                          <p-button icon="pi pi-times" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Quitar usuario" (onClick)="quitarUsuario(usuario)"></p-button>
+                        </li>
+                      } @empty {
+                        <li class="asignacion-empty">Sin usuarios asignados.</li>
+                      }
+                    </ul>
+                  </div>
+
+                  <div class="asignacion-block">
+                    <h3>Vendedores asignados</h3>
+                    <div class="asignacion-add">
+                      <p-select [options]="vendedoresDisponibles()" [ngModel]="vendedorSeleccionado()" (ngModelChange)="vendedorSeleccionado.set($event)" placeholder="Seleccione un vendedor" [style]="{ minWidth: '16rem' }"></p-select>
+                      <p-button label="Agregar" icon="pi pi-plus" [disabled]="!vendedorSeleccionado()" [loading]="savingAsignacionVendedor()" (onClick)="agregarVendedor()"></p-button>
+                    </div>
+                    <ul class="asignacion-list">
+                      @for (vendedor of vendedoresAsignados(); track vendedor.vendedor) {
+                        <li>
+                          <span>{{ vendedor.vendedor }} - {{ vendedor.nombre }}</span>
+                          <p-button icon="pi pi-times" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Quitar vendedor" (onClick)="quitarVendedor(vendedor.vendedor)"></p-button>
+                        </li>
+                      } @empty {
+                        <li class="asignacion-empty">Sin vendedores asignados.</li>
+                      }
+                    </ul>
+                  </div>
+                </div>
+              } @else {
+                <p class="dialog-hint">Guarde el punto de venta para poder asignar usuarios y vendedores.</p>
+              }
+            </p-card>
+          </section>
+        }
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+</section>

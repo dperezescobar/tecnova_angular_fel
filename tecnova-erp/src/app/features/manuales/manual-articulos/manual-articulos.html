@@ -1,0 +1,180 @@
+<div class="man-doc">
+  <nav class="man-breadcrumb">
+    <a routerLink="/manuales"><i class="bi bi-arrow-left"></i> Manuales de uso</a>
+    <span>/</span>
+    <span class="current">Artículos</span>
+  </nav>
+
+  <header class="man-doc-header">
+    <div class="man-doc-icon"><i class="bi bi-box-seam"></i></div>
+    <div>
+      <h1>Manual de Artículos</h1>
+      <p>Cómo crear, editar y eliminar artículos del catálogo, con sus validaciones.</p>
+    </div>
+  </header>
+
+  <!-- ── Selector de pestañas (comparación de formatos) ── -->
+  <div class="man-tabs" role="tablist">
+    <button type="button" role="tab" class="man-tab" [class.active]="vista() === 'documento'"
+      [attr.aria-selected]="vista() === 'documento'" (click)="setVista('documento')">
+      <i class="bi bi-grid-1x2"></i> Documento
+    </button>
+    <button type="button" role="tab" class="man-tab" [class.active]="vista() === 'guia'"
+      [attr.aria-selected]="vista() === 'guia'" (click)="setVista('guia')">
+      <i class="bi bi-signpost-2"></i> Guía paso a paso
+    </button>
+  </div>
+
+  <!-- ════════════════ PESTAÑA 1: DOCUMENTO (tarjetas) ════════════════ -->
+  @if (vista() === 'documento') {
+    <div class="doc-note doc-note--info">
+      <i class="bi bi-signpost-2"></i>
+      <span>Para llegar: en el menú entra a <strong>Catálogos → Artículos</strong>. Arriba verás el buscador y los botones <strong>Recargar</strong> y <strong>Nuevo Artículo</strong>.</span>
+    </div>
+
+    <section class="doc-block">
+      <h2 class="doc-block-title"><i class="bi bi-plus-circle"></i> Crear un artículo</h2>
+      <div class="doc-cards">
+        @for (p of pasosCrear; track $index) {
+          <article class="doc-card">
+            <span class="doc-card-step">{{ $index + 1 }}</span>
+            <span class="doc-card-icon"><i [class]="p.icono"></i></span>
+            <div class="doc-card-body">
+              <h3>{{ p.titulo }}</h3>
+              <p>{{ p.detalle }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="doc-block">
+      <h2 class="doc-block-title"><i class="bi bi-pencil"></i> Editar un artículo</h2>
+      <div class="doc-cards">
+        @for (p of pasosEditar; track $index) {
+          <article class="doc-card">
+            <span class="doc-card-step">{{ $index + 1 }}</span>
+            <span class="doc-card-icon"><i [class]="p.icono"></i></span>
+            <div class="doc-card-body">
+              <h3>{{ p.titulo }}</h3>
+              <p>{{ p.detalle }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="doc-block">
+      <h2 class="doc-block-title"><i class="bi bi-trash"></i> Eliminar un artículo</h2>
+      <div class="doc-cards">
+        @for (p of pasosEliminar; track $index) {
+          <article class="doc-card">
+            <span class="doc-card-step">{{ $index + 1 }}</span>
+            <span class="doc-card-icon"><i [class]="p.icono"></i></span>
+            <div class="doc-card-body">
+              <h3>{{ p.titulo }}</h3>
+              <p>{{ p.detalle }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="doc-block">
+      <h2 class="doc-block-title"><i class="bi bi-shield-check"></i> Validaciones del sistema</h2>
+      <p class="doc-block-intro">Reglas que el sistema aplica y los mensajes que puedes ver:</p>
+      <div class="man-table-wrap">
+        <table class="man-table">
+          <thead>
+            <tr><th>Situación</th><th>Regla</th><th>Mensaje / comportamiento</th></tr>
+          </thead>
+          <tbody>
+            @for (v of validaciones; track $index) {
+              <tr>
+                <td>{{ v.situacion }}</td>
+                <td>{{ v.regla }}</td>
+                <td class="man-msg">{{ v.mensaje }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc-block">
+      <h2 class="doc-block-title"><i class="bi bi-lightbulb"></i> Consejos rápidos</h2>
+      <ul class="man-tips">
+        <li>Usa el <strong>buscador</strong> del listado para encontrar artículos por código, descripción o tipo.</li>
+        <li>Si no puedes eliminar un artículo por tener movimientos, <strong>desactívalo</strong> (quita la marca "Activo" al editarlo) para sacarlo de circulación sin perder el histórico.</li>
+        <li>La fotografía se ajusta y comprime sola al subirla, así que puedes tomarla directo con el dispositivo.</li>
+      </ul>
+    </section>
+  }
+
+  <!-- ════════════════ PESTAÑA 2: GUÍA PASO A PASO ════════════════ -->
+  @if (vista() === 'guia') {
+    <div class="guia">
+      @if (!tarea()) {
+        <p class="guia-intro">¿Qué quieres hacer hoy? Toca una opción y te acompaño paso a paso.</p>
+        <div class="guia-tareas">
+          @for (t of tareas; track t.id) {
+            <button type="button" class="guia-tarea" (click)="seleccionarTarea(t.id)">
+              <span class="guia-tarea-icon"><i [class]="t.icono"></i></span>
+              <span class="guia-tarea-text">
+                <strong>{{ t.titulo }}</strong>
+                <small>{{ t.descripcion }}</small>
+              </span>
+              <i class="bi bi-chevron-right guia-tarea-arrow"></i>
+            </button>
+          }
+        </div>
+      } @else {
+        <div class="guia-topbar">
+          <button type="button" class="guia-volver" (click)="volverATareas()">
+            <i class="bi bi-arrow-left"></i> Elegir otra tarea
+          </button>
+          <span class="guia-tarea-nombre">{{ tareaTitulo() }}</span>
+        </div>
+
+        @if (!completado()) {
+          <div class="guia-progreso">
+            <div class="guia-progreso-texto">Paso {{ paso() + 1 }} de {{ totalPasos() }}</div>
+            <div class="guia-barra"><div class="guia-barra-fill" [style.width.%]="progreso()"></div></div>
+          </div>
+
+          @if (pasoActual(); as p) {
+            <div class="guia-paso">
+              <div class="guia-paso-icon"><i [class]="p.icono"></i></div>
+              <h2 class="guia-paso-titulo">{{ p.titulo }}</h2>
+              <p class="guia-paso-detalle">{{ p.detalle }}</p>
+            </div>
+          }
+
+          <div class="guia-nav">
+            <button type="button" class="guia-btn guia-btn--secundario" [disabled]="paso() === 0" (click)="pasoAnterior()">
+              <i class="bi bi-arrow-left"></i> Anterior
+            </button>
+            <button type="button" class="guia-btn guia-btn--primario" (click)="siguientePaso()">
+              @if (esUltimoPaso()) { Terminar <i class="bi bi-check-lg"></i> }
+              @else { Siguiente <i class="bi bi-arrow-right"></i> }
+            </button>
+          </div>
+        } @else {
+          <div class="guia-fin">
+            <div class="guia-fin-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <h2>¡Muy bien! Ya terminaste.</h2>
+            <p>Completaste la guía para <strong>{{ tareaTitulo().toLowerCase() }}</strong>. Puedes repetirla o elegir otra tarea.</p>
+            <div class="guia-nav guia-nav--centrado">
+              <button type="button" class="guia-btn guia-btn--secundario" (click)="reiniciarGuia()">
+                <i class="bi bi-arrow-repeat"></i> Repetir
+              </button>
+              <button type="button" class="guia-btn guia-btn--primario" (click)="volverATareas()">
+                <i class="bi bi-list"></i> Otra tarea
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  }
+</div>

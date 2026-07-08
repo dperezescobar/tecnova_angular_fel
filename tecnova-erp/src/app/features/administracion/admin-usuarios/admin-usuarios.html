@@ -1,0 +1,247 @@
+<section class="admin-usuarios-page">
+  <p-toast position="top-right"></p-toast>
+  <p-confirmDialog [style]="{ maxWidth: '28rem' }"></p-confirmDialog>
+
+  <header class="admin-usuarios-header">
+    <div>
+      <h1>Administración de Usuarios</h1>
+    </div>
+
+    <div class="header-actions">
+      @if (!showForm()) {
+        <span class="search-box">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Buscar por usuario, nombre o correo"
+            [value]="filterText()"
+            (input)="onFilterChange($any($event.target).value)"
+          />
+        </span>
+
+        <div class="header-buttons" role="group" aria-label="Acciones del listado de usuarios">
+          <p-button label="Refrescar" icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="loadUsuarios()" [disabled]="loading()"></p-button>
+          <p-button label="Nuevo usuario" icon="pi pi-user-plus" severity="info" (onClick)="openCreateForm()"></p-button>
+        </div>
+      } @else {
+        <div class="detail-actions">
+          <p-button type="button" label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+        </div>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage()) {
+    <p-message severity="error" [text]="errorMessage()"></p-message>
+  }
+
+  @if (!showForm()) {
+    <section class="maestro-section">
+      @if (loading()) {
+        <div class="loading-box" role="status" aria-live="polite">
+          <p-progressSpinner></p-progressSpinner>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="usuarios-table" aria-label="Listado de usuarios">
+            <thead>
+              <tr>
+                <th class="actions-col">Acciones</th>
+                <th>Usuario</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (usuario of filteredUsuarios(); track usuario.usuario) {
+                <tr>
+                  <td class="actions-col">
+                    <div class="actions-group">
+                      <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar usuario" pTooltip="Editar" tooltipPosition="top" (onClick)="openEditForm(usuario)"></p-button>
+                      <p-button icon="pi pi-key" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Cambiar contraseña" pTooltip="Cambiar contraseña" tooltipPosition="top" (onClick)="abrirCambiarPassword(usuario)"></p-button>
+                      <p-button icon="pi pi-refresh" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Reiniciar contraseña" pTooltip="Reiniciar contraseña" tooltipPosition="top" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarReiniciarPassword(usuario)"></p-button>
+                      @if (usuario.bloqueado) {
+                        <p-button icon="pi pi-lock-open" [text]="true" severity="success" styleClass="action-icon-btn" ariaLabel="Desbloquear usuario" pTooltip="Desbloquear" tooltipPosition="top" (onClick)="solicitarDesbloquear(usuario)"></p-button>
+                      } @else {
+                        <p-button icon="pi pi-lock" [text]="true" severity="secondary" styleClass="action-icon-btn" ariaLabel="Bloquear usuario" pTooltip="Bloquear" tooltipPosition="top" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarBloquear(usuario)"></p-button>
+                      }
+                      @if (usuario.activo) {
+                        <p-button icon="pi pi-user-minus" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Desactivar usuario" pTooltip="Desactivar" tooltipPosition="top" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarDesactivar(usuario)"></p-button>
+                      }
+                    </div>
+                  </td>
+                  <td>{{ usuario.usuario }}</td>
+                  <td>{{ usuario.nombre }}</td>
+                  <td>{{ usuario.tipo === 'A' ? 'Administrador' : 'Usuario' }}</td>
+                  <td>
+                    <div class="estado-tags">
+                      <p-tag [severity]="usuario.activo ? 'success' : 'secondary'" [value]="usuario.activo ? 'Activo' : 'Inactivo'"></p-tag>
+                      @if (usuario.bloqueado) {
+                        <p-tag severity="danger" value="Bloqueado" icon="pi pi-lock"></p-tag>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5">No se encontraron usuarios con el filtro aplicado.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          <div class="list-mobile-cards" aria-label="Listado de usuarios en móvil">
+            @for (usuario of filteredUsuarios(); track usuario.usuario) {
+              <article class="list-mobile-card">
+                <div class="card-row">
+                  <span class="card-label">Usuario</span>
+                  <span class="card-value">{{ usuario.usuario }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Nombre</span>
+                  <span class="card-value">{{ usuario.nombre }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Tipo</span>
+                  <span class="card-value">{{ usuario.tipo === 'A' ? 'Administrador' : 'Usuario' }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Estado</span>
+                  <span class="card-value estado-tags">
+                    <p-tag [severity]="usuario.activo ? 'success' : 'secondary'" [value]="usuario.activo ? 'Activo' : 'Inactivo'"></p-tag>
+                    @if (usuario.bloqueado) {
+                      <p-tag severity="danger" value="Bloqueado" icon="pi pi-lock"></p-tag>
+                    }
+                  </span>
+                </div>
+                <div class="card-actions">
+                  <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar usuario" (onClick)="openEditForm(usuario)"></p-button>
+                  <p-button icon="pi pi-key" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Cambiar contraseña" (onClick)="abrirCambiarPassword(usuario)"></p-button>
+                  <p-button icon="pi pi-refresh" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Reiniciar contraseña" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarReiniciarPassword(usuario)"></p-button>
+                  @if (usuario.bloqueado) {
+                    <p-button icon="pi pi-lock-open" [text]="true" severity="success" styleClass="action-icon-btn" ariaLabel="Desbloquear usuario" (onClick)="solicitarDesbloquear(usuario)"></p-button>
+                  } @else {
+                    <p-button icon="pi pi-lock" [text]="true" severity="secondary" styleClass="action-icon-btn" ariaLabel="Bloquear usuario" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarBloquear(usuario)"></p-button>
+                  }
+                  @if (usuario.activo) {
+                    <p-button icon="pi pi-user-minus" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Desactivar usuario" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarDesactivar(usuario)"></p-button>
+                  }
+                </div>
+              </article>
+            } @empty {
+              <div class="mobile-empty">No se encontraron usuarios con el filtro aplicado.</div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+
+  @if (showForm()) {
+    <section class="form-panel">
+      <p-card>
+        <ng-template pTemplate="title">{{ formTitle() }}</ng-template>
+
+        @if (loadingFormData()) {
+          <div class="loading-box" role="status" aria-live="polite">
+            <p-progressSpinner></p-progressSpinner>
+          </div>
+        } @else {
+          <form [formGroup]="usuarioForm" (ngSubmit)="guardarUsuario()" class="usuario-form">
+            <div class="field-grid">
+              <div class="field-item field-wide">
+                <label for="correo">Correo electrónico (también será su usuario)</label>
+                <input pInputText id="correo" type="email" formControlName="correo" />
+              </div>
+
+              <div class="field-item field-wide">
+                <label for="nombre">Nombre completo</label>
+                <input pInputText id="nombre" formControlName="nombre" />
+              </div>
+
+              <div class="field-item">
+                <label for="tipo">Tipo de usuario</label>
+                <p-select inputId="tipo" [options]="tipoOptions" optionLabel="label" optionValue="value" formControlName="tipo"></p-select>
+              </div>
+
+              <div class="field-item">
+                <label for="dui">DUI</label>
+                <input pInputText id="dui" formControlName="dui" />
+              </div>
+
+              <div class="field-item">
+                <label for="estado">Estado</label>
+                <p-select inputId="estado" [options]="estadoOptions" optionLabel="label" optionValue="value" formControlName="activo"></p-select>
+              </div>
+
+              @if (!isEditMode()) {
+                <div class="field-item">
+                  <label for="password">Contraseña</label>
+                  <p-password id="password" formControlName="password" [feedback]="true" [toggleMask]="true" styleClass="w-full" [inputStyle]="{ width: '100%' }"></p-password>
+                </div>
+
+                <div class="field-item">
+                  <label for="passwordConfirmar">Confirmar contraseña</label>
+                  <p-password id="passwordConfirmar" formControlName="passwordConfirmar" [feedback]="false" [toggleMask]="true" styleClass="w-full" [inputStyle]="{ width: '100%' }"></p-password>
+                </div>
+              }
+            </div>
+
+            <div class="form-actions">
+              <p-button type="button" label="Cancelar" severity="secondary" (onClick)="closeForm()"></p-button>
+              <p-button type="submit" label="Guardar" icon="pi pi-save" [loading]="saving()"></p-button>
+            </div>
+          </form>
+        }
+      </p-card>
+    </section>
+  }
+
+  <!-- Dialog: Cambiar contraseña -->
+  <p-dialog
+    header="Cambiar contraseña"
+    [visible]="showPasswordDialog()"
+    [modal]="true"
+    [style]="{ width: '26rem', maxWidth: '95vw' }"
+    (onHide)="cerrarCambiarPassword()"
+  >
+    <form [formGroup]="passwordForm" (ngSubmit)="guardarNuevaPassword()" class="password-form">
+      <p class="dialog-subtitle">Usuario: <strong>{{ passwordDialogUsuario() }}</strong></p>
+
+      <div class="field-item">
+        <label for="nuevaPassword">Nueva contraseña</label>
+        <p-password id="nuevaPassword" formControlName="nuevaPassword" [feedback]="true" [toggleMask]="true" styleClass="w-full" [inputStyle]="{ width: '100%' }"></p-password>
+      </div>
+
+      <div class="field-item">
+        <label for="confirmarPassword">Confirmar contraseña</label>
+        <p-password id="confirmarPassword" formControlName="confirmarPassword" [feedback]="false" [toggleMask]="true" styleClass="w-full" [inputStyle]="{ width: '100%' }"></p-password>
+      </div>
+
+      <div class="form-actions">
+        <p-button type="button" label="Cancelar" severity="secondary" (onClick)="cerrarCambiarPassword()"></p-button>
+        <p-button type="submit" label="Guardar" icon="pi pi-save" [loading]="passwordSaving()" [disabled]="passwordForm.invalid"></p-button>
+      </div>
+    </form>
+  </p-dialog>
+
+  <!-- Dialog: Resultado de reinicio de contraseña -->
+  <p-dialog
+    header="Contraseña reiniciada"
+    [visible]="!!reinicioResultado()"
+    [modal]="true"
+    [closable]="false"
+    [style]="{ width: '26rem', maxWidth: '95vw' }"
+  >
+    @if (reinicioResultado(); as resultado) {
+      <p>La contraseña del usuario <strong>{{ resultado.usuario }}</strong> fue reiniciada. Comuníquele la siguiente contraseña temporal:</p>
+      <p class="password-reveal">{{ resultado.nuevaPassword }}</p>
+      <p class="dialog-hint">Deberá definir una nueva contraseña la próxima vez que inicie sesión.</p>
+      <div class="form-actions">
+        <p-button label="Entendido" icon="pi pi-check" (onClick)="cerrarReinicioResultado()"></p-button>
+      </div>
+    }
+  </p-dialog>
+</section>

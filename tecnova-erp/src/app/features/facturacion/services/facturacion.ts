@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environment';
 import {
   AnulacionFacturaDto,
   ArticuloPorBodegaDto,
+  InfoVentaArticuloDto,
   DatosDestinatarioDteDto,
   DteSelladoDto,
   FacSavePayload,
@@ -30,7 +31,10 @@ import {
   UpdateFacturaDto,
   UpdateFacturaFormaPagoDto,
   VerificarSecuenciasDto,
-  UpdateFacturaRetencionDto
+  UpdateFacturaRetencionDto,
+  CcfParaNcDto,
+  UpdateDetalleFacturaDescuentoDto,
+  UpdateFacturaDevolucionDto
 } from '../../../core/models/facturacion.models';
 
 @Injectable({ providedIn: 'root' })
@@ -91,6 +95,10 @@ export class FacturacionService {
   clearArticulosCache(bodega: string = 'BOD01'): void {
     const bodegaNormalized = String(bodega || 'BOD01').trim() || 'BOD01';
     this.invalidateCacheByPrefix(`catalogo:articulos:${bodegaNormalized}`);
+  }
+
+  clearClientesCache(): void {
+    this.invalidateCacheByPrefix('catalogo:perfilClientes');
   }
 
   private invalidateFacturasGeneralCache(): void {
@@ -305,6 +313,25 @@ export class FacturacionService {
     };
   }
 
+  private mapCcfParaNc(raw: Record<string, unknown>): CcfParaNcDto {
+    return {
+      Prefijo: this.toString(this.pickValue(raw, 'Prefijo', 'PREFIJO')),
+      Factura: this.toString(this.pickValue(raw, 'Factura', 'FACTURA')),
+      Sucursal: this.toString(this.pickValue(raw, 'Sucursal', 'SUCURSAL')),
+      PuntoVenta: this.toString(this.pickValue(raw, 'PuntoVenta', 'PUNTO_VENTA')),
+      Fecha: this.toString(this.pickValue(raw, 'Fecha', 'FECHA')),
+      TotalFacturar: this.toNumber(this.pickValue(raw, 'TotalFacturar', 'TOTAL_FACTURAR')),
+      Sumas: this.toNumber(this.pickValue(raw, 'Sumas', 'SUMAS')),
+      TotalImpuesto1: this.toNumber(this.pickValue(raw, 'TotalImpuesto1', 'TOTAL_IMPUESTO1')),
+      Cliente: this.toString(this.pickValue(raw, 'Cliente', 'CLIENTE')),
+      FacturarA: this.toString(this.pickValue(raw, 'FacturarA', 'FACTURAR_A')),
+      NumeroControl: this.toString(this.pickValue(raw, 'NumeroControl', 'Numero_Control')),
+      CodigoGeneracion: this.toString(this.pickValue(raw, 'CodigoGeneracion')),
+      TipoFactura: this.toString(this.pickValue(raw, 'TipoFactura', 'TIPO_FACTURA')),
+      TotalRegistros: this.toNumber(this.pickValue(raw, 'TotalRegistros', 'TOTAL_REGISTROS'))
+    };
+  }
+
   private mapFacturaRetencion(raw: Record<string, unknown>): FacturaRetencionDto {
     return {
       TIPORETENCION: this.toString(this.pickValue(raw, 'TIPORETENCION', 'tipoRetencion')),
@@ -413,7 +440,14 @@ export class FacturacionService {
       return this.http
         .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetArticulosPorBodega`, { params })
         .pipe(map((rows) => (rows ?? []).map((item) => this.mapArticuloPorBodega(item))));
-    });
+    }, this.shortCacheTtlMs);
+  }
+
+  // Precio y existencia VIGENTES de un artículo, consultados en línea (sin caché) al
+  // seleccionarlo en fac-pos, para no depender del catálogo cargado al abrir la pantalla.
+  getInfoVentaArticulo(articulo: string, bodega: string = 'BOD01'): Observable<InfoVentaArticuloDto> {
+    const params = new HttpParams().set('articulo', articulo).set('bodega', bodega || 'BOD01');
+    return this.http.get<InfoVentaArticuloDto>(`${this.facturaApiUrl}/GetInfoVentaArticulo`, { params });
   }
 
   getFormasPago(): Observable<FormaPagoDto[]> {
@@ -549,7 +583,7 @@ export class FacturacionService {
 
   postDteAnulacion(apiBaseUrl: string, payload: ParametrosDteAnulacionDto): Observable<RespuestaDteDto> {
     return this.http
-      .post<Record<string, unknown> | string>(this.join(apiBaseUrl, 'api/Dteemitidoes/PostAnulacion'), payload)
+      .post<Record<string, unknown> | string>(this.join(apiBaseUrl, 'api/DteemitidosV2/PostAnulacion'), payload)
       .pipe(
         map((response) => {
           if (typeof response === 'string') {
@@ -618,13 +652,13 @@ getEmiteDte(idEmpresa:number): Observable<boolean> {
   }
 
   serviceAvailable(apiBaseUrl: string): Observable<string> {
-    return this.http.get(`${this.join(apiBaseUrl, 'api/Dteemitidoes/ServiceAvailable')}`, { responseType: 'text' });
+    return this.http.get(`${this.join(apiBaseUrl, 'api/DteemitidosV2/ServiceAvailable')}`, { responseType: 'text' });
   }
 
   emitirDte(apiBaseUrl: string, payload: ParametrosDteDto, tipoFactura: string): Observable<RespuestaDteDto> {
     const tipo = String(tipoFactura ?? '').trim().toUpperCase() || 'FAC';
     return this.http
-      .post<Record<string, unknown>>(this.join(apiBaseUrl, `api/Dteemitidoes/Post${tipo}`), payload)
+      .post<Record<string, unknown>>(this.join(apiBaseUrl, `api/DteemitidosV2/Post${tipo}`), payload)
       .pipe(map((row) => this.mapRespuestaDte(row ?? {})));
   }
 
@@ -640,7 +674,7 @@ getEmiteDte(idEmpresa:number): Observable<boolean> {
       .set('codGeneracion', String(codGeneracion ?? '').trim());
 
     return this.http
-      .get<Array<Record<string, unknown>>>(this.join(apiBaseUrl, 'api/Dteemitidoes/GetDTEHaciendaSistema'), { params })
+      .get<Array<Record<string, unknown>>>(this.join(apiBaseUrl, 'api/DteemitidosV2/GetDTEHaciendaSistema'), { params })
       .pipe(
         map((rows) =>
           (rows ?? []).map((row) => ({
@@ -661,6 +695,32 @@ getEmiteDte(idEmpresa:number): Observable<boolean> {
     return this.http.post(this.join(this.mailDteApiUrl, 'api/Dte/enviar-correo'), null, {
       params,
       responseType: 'text'
+    });
+  }
+
+  reenviarCorreoDte(idEmpresa: number, idFactura: number, tipoFactura: string, correoDestino: string): Observable<string> {
+    const params = new HttpParams()
+      .set('idEmpresa', idEmpresa)
+      .set('idFactura', idFactura)
+      .set('tipoFactura', String(tipoFactura ?? '').trim().toUpperCase())
+      .set('correoDestino', String(correoDestino ?? '').trim());
+
+    return this.http.post(this.join(this.mailDteApiUrl, 'api/Dte/reenviar-correo'), null, {
+      params,
+      responseType: 'text'
+    });
+  }
+
+  // Envío directo (sin maildte.kulstoresv.com) para documentos registrados en ambiente 0:
+  // el PDF ya viene generado en el navegador (ReciboService), el backend solo lo manda por SMTP.
+  enviarReciboDirecto(idEmpresa: number, idFactura: number, tipoFactura: string, correoDestino: string, pdfBase64: string, nombreArchivo?: string): Observable<unknown> {
+    return this.http.post(`${this.facturaApiUrl}/EnviarReciboDirecto`, {
+      IdEmpresa: idEmpresa,
+      IdFactura: idFactura,
+      TipoFactura: String(tipoFactura ?? '').trim().toUpperCase(),
+      CorreoDestino: String(correoDestino ?? '').trim(),
+      PdfBase64: pdfBase64,
+      NombreArchivo: nombreArchivo ?? null
     });
   }
 
@@ -728,5 +788,74 @@ getEmiteDte(idEmpresa:number): Observable<boolean> {
     const base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
     return `${base}/${normalizedPath}`;
+  }
+
+  getNotasCredito(desde: string, hasta: string): Observable<FacturaGeneralDto[]> {
+    const desdeNormalized = String(desde ?? '').trim();
+    const hastaNormalized = String(hasta ?? '').trim();
+    const cacheKey = `notasCredito:${desdeNormalized}:${hastaNormalized}`;
+
+    return this.getCachedRequest(
+      cacheKey,
+      () => {
+        const params = new HttpParams().set('desde', desdeNormalized).set('hasta', hastaNormalized);
+        return this.http
+          .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetNotasCredito`, { params })
+          .pipe(map((rows) => (rows ?? []).map((item) => this.mapFacturaGeneral(item))));
+      },
+      this.shortCacheTtlMs
+    );
+  }
+
+  getCcfsPorCliente(cliente: string, pagina: number = 1, busqueda: string = ''): Observable<CcfParaNcDto[]> {
+    let params = new HttpParams()
+      .set('cliente', String(cliente ?? '').trim())
+      .set('pagina', pagina)
+      .set('tamanioPagina', 25);
+    if (busqueda) {
+      params = params.set('busqueda', busqueda);
+    }
+    return this.http
+      .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetCcfsPorCliente`, { params })
+      .pipe(map((rows) => (rows ?? []).map((item) => this.mapCcfParaNc(item))));
+  }
+
+  getCcfVinculadoNc(prefijo: string, factura: string, sucursal: string, puntoVenta: string): Observable<CcfParaNcDto | null> {
+    const params = new HttpParams()
+      .set('prefijo', prefijo)
+      .set('factura', factura)
+      .set('sucursal', sucursal)
+      .set('puntoVenta', puntoVenta);
+    return this.http
+      .get<Record<string, unknown> | null>(`${this.facturaApiUrl}/GetCcfVinculadoNc`, { params })
+      .pipe(map((row) => (row ? this.mapCcfParaNc(row) : null)));
+  }
+
+  getAplicaInventarios(): Observable<boolean> {
+    return this.getCachedRequest(
+      'config:aplicaInventarios',
+      () => this.http.get<boolean>(`${this.facturaApiUrl}/GetAplicaInventarios`).pipe(
+        map((v) => v === true),
+        catchError(() => of(false))
+      )
+    );
+  }
+
+  updateDetalleFacturaDescuento(payload: UpdateDetalleFacturaDescuentoDto): Observable<unknown> {
+    return this.http.post(`${this.facturaApiUrl}/UpdateDetalleFacturaDescuento`, payload);
+  }
+
+  updateFacturaDevolucion(payload: UpdateFacturaDevolucionDto): Observable<unknown> {
+    return this.http.post(`${this.facturaApiUrl}/UpdateFacturaDevolucion`, payload).pipe(
+      tap(() => this.invalidateFacturasGeneralCache())
+    );
+  }
+
+  getMinimoGlobalMayoreo(): Observable<number> {
+    return this.http.get<number>(`${this.facturaApiUrl}/GetMinimoGlobalMayoreo`);
+  }
+
+  setMinimoGlobalMayoreo(minimo: number): Observable<unknown> {
+    return this.http.post(`${this.facturaApiUrl}/SetMinimoGlobalMayoreo`, { Minimo: minimo });
   }
 }

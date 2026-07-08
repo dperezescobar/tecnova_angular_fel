@@ -19,6 +19,7 @@
         </div>
 
         <nav class="sidebar-nav">
+            <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Principal</span>
             <a routerLink="/dashboard" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
                 <i class="bi bi-speedometer2"></i>
                 <span *ngIf="!isSidebarInIconMode()">Dashboard</span>
@@ -32,24 +33,65 @@
                 </div>
                 
                 <div class="submenu" *ngIf="showCatalogos && !isSidebarInIconMode()">
-                    <a routerLink="/clientes" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">Clientes</a>
-                    <a routerLink="/proveedores" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">Proveedores</a>
-                    <a routerLink="/articulos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">Artículos</a>
+                    <a routerLink="/clientes" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Clientes</a>
+                    <a routerLink="/proveedores" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Proveedores</a>
+                    <a routerLink="/articulos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Artículos</a>
                 </div>
             </div>
 
-            <a routerLink="/inventario/ingresos" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
-                <i class="bi bi-box-arrow-in-down"></i>
-                <span *ngIf="!isSidebarInIconMode()">Ingresos de inventario</span>
-            </a>
-            @if(adminAccess()) {
- <a routerLink="/precios" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
-        <i class="bi bi-cash-stack"></i>
-                <span *ngIf="!isSidebarInIconMode()">Control de Precios</span>
-    </a>
-            }
+            <div class="nav-group">
+                <div class="nav-item cursor-pointer" (click)="toggleInventarios()">
+                    <i class="bi bi-boxes"></i>
+                    <span *ngIf="!isSidebarInIconMode()">Inventarios y precios</span>
+                    <i *ngIf="!isSidebarInIconMode()" class="bi bi-chevron-down ms-auto" [class.rotate]="showInventarios"></i>
+                </div>
+                <div class="submenu" *ngIf="showInventarios && !isSidebarInIconMode()">
+                    <a [routerLink]="aplicaInventarios() ? '/inventario/ingresos' : null"
+                       routerLinkActive="active"
+                       class="nav-subitem"
+                       [class.nav-subitem--disabled]="!aplicaInventarios()"
+                       (click)="aplicaInventarios() && onNavLinkClick()">
+                        <span class="nav-subitem-dot" aria-hidden="true"></span>Ingresos de inventario
+                    </a>
+                    @if(adminAccess()) {
+                        <a [routerLink]="aplicaInventarios() ? '/precios' : null"
+                           routerLinkActive="active"
+                           class="nav-subitem"
+                           [class.nav-subitem--disabled]="!aplicaInventarios()"
+                           (click)="aplicaInventarios() && onNavLinkClick()">
+                            <span class="nav-subitem-dot" aria-hidden="true"></span>Control de Precios
+                        </a>
+                    }
+                    <div class="submenu-subgroup">
+                        <div class="nav-subitem nav-subitem--toggle" (click)="toggleInvReportes()">
+                            <span class="nav-subitem-dot nav-subitem-dot--folder" aria-hidden="true"></span>
+                            Reportes
+                            <i class="bi bi-chevron-down ms-auto submenu-chevron" [class.rotate]="showInvReportes"></i>
+                        </div>
+                        @if(showInvReportes) {
+                            <div class="sub-submenu">
+                                <a [routerLink]="aplicaInventarios() ? '/inventario/reportes/existencias' : null"
+                                   routerLinkActive="active"
+                                   class="nav-subitem nav-subitem--nested"
+                                   [class.nav-subitem--disabled]="!aplicaInventarios()"
+                                   (click)="aplicaInventarios() && onNavLinkClick()">
+                                    <span class="nav-subitem-dot" aria-hidden="true"></span>Existencias
+                                </a>
+                                <a [routerLink]="aplicaInventarios() ? '/inventario/reportes/movimientos' : null"
+                                   routerLinkActive="active"
+                                   class="nav-subitem nav-subitem--nested"
+                                   [class.nav-subitem--disabled]="!aplicaInventarios()"
+                                   (click)="aplicaInventarios() && onNavLinkClick()">
+                                    <span class="nav-subitem-dot" aria-hidden="true"></span>Movimientos de artículo
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
            
 
+            <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Facturación &amp; Reportes</span>
             <div class="nav-group">
                 <div class="nav-item cursor-pointer" (click)="toggleFacturacion()">
                     <i class="bi bi-cart-check"></i>
@@ -58,10 +100,10 @@
                 </div>
 
                 <div class="submenu" *ngIf="showFacturacion && !isSidebarInIconMode()">
-                    <a routerLink="/facturacion/fac" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">FAC - Consumidor Final</a>
-                    <a routerLink="/facturacion/ccf" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">CCF - Crédito Fiscal</a>
-                    <span class="nav-subitem">NC - Nota de Crédito</span>
-                    <a routerLink="/facturacion/fex" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">FEX - Factura de Exportación</a>
+                    <a routerLink="/facturacion/fac" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>FAC - Consumidor Final</a>
+                    <a routerLink="/facturacion/ccf" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>CCF - Crédito Fiscal</a>
+                    <a routerLink="/facturacion/nc" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>NC - Nota de Crédito</a>
+                    <a routerLink="/facturacion/fex" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>FEX - Factura de Exportación</a>
                 </div>
             </div>
 
@@ -75,13 +117,57 @@
                 </div>
 @if(showReportes && !isSidebarInIconMode()) {
 <div class="submenu">
-    <a routerLink="/reportes/selector-libros" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">Libros de venta</a>
-    <a routerLink="/reportes/anexos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">Anexos F07</a>
+    <a routerLink="/reportes/selector-libros" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Libros de venta</a>
+    <a routerLink="/reportes/anexos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Anexos F07</a>
+    <a routerLink="/reportes/cuadro-ventas" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Cuadro de Ventas</a>
 </div>
 
 }
             </div>
 
+            <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Compras</span>
+            <div class="nav-group">
+                <div class="nav-item cursor-pointer" (click)="toggleCompras()">
+                    <i class="bi bi-cart3"></i>
+                    @if (!isSidebarInIconMode()) {
+                        <span>Compras</span>
+                        <i class="bi bi-chevron-down ms-auto" [class.rotate]="showCompras"></i>
+                    }
+                </div>
+                @if (showCompras && !isSidebarInIconMode()) {
+                    <div class="submenu">
+                        <a routerLink="/compras/registro" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">
+                            <span class="nav-subitem-dot" aria-hidden="true"></span>Cargar Compras
+                        </a>
+                        <a routerLink="/comprobantes/retencion" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">
+                            <span class="nav-subitem-dot" aria-hidden="true"></span>Comp. Retención
+                        </a>
+                        <a routerLink="/comprobantes/donacion" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()">
+                            <span class="nav-subitem-dot" aria-hidden="true"></span>Comp. Donación
+                        </a>
+                    </div>
+                }
+            </div>
+
+            @if (esRoot()) {
+                <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Administración</span>
+                <a routerLink="/administracion/usuarios" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
+                    <i class="bi bi-person-gear"></i>
+                    <span *ngIf="!isSidebarInIconMode()">Usuarios</span>
+                </a>
+                <a routerLink="/administracion/sucursales-puntos-venta" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
+                    <i class="bi bi-shop"></i>
+                    <span *ngIf="!isSidebarInIconMode()">Sucursales y puntos de venta</span>
+                </a>
+            }
+
+            <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Ayuda</span>
+            <a routerLink="/manuales" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
+                <i class="bi bi-book"></i>
+                <span *ngIf="!isSidebarInIconMode()">Manuales de uso</span>
+            </a>
+
+            <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Cuenta</span>
             <a routerLink="/mi-perfil" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
                 <i class="bi bi-person-badge"></i>
                 <span *ngIf="!isSidebarInIconMode()">Mi perfil</span>
@@ -90,12 +176,12 @@
 
         @if (showInstallBanner() && !isSidebarInIconMode()) {
             <section class="install-banner" aria-label="Instalar aplicación">
-                <div class="install-banner-copy">
-                    <span class="install-banner-title">Instalar App</span>
-                    <span class="install-banner-text">Acceso rápido desde tu dispositivo</span>
-                </div>
-                <div class="install-banner-actions">
-                    <button type="button" class="btn-install" (click)="installApp()">Instalar</button>
+                <div class="install-banner-head">
+                    <i class="bi bi-phone" aria-hidden="true"></i>
+                    <div class="install-banner-copy">
+                        <span class="install-banner-title">Instalar App</span>
+                        <span class="install-banner-text">Acceso rápido desde tu dispositivo</span>
+                    </div>
                     <button
                         type="button"
                         class="btn-install-dismiss"
@@ -105,17 +191,18 @@
                         <i class="bi bi-x-lg" aria-hidden="true"></i>
                     </button>
                 </div>
+                <button type="button" class="btn-install" (click)="installApp()">Instalar</button>
             </section>
         }
 
         <div class="sidebar-footer">
+            <div class="sidebar-user-avatar" aria-hidden="true">{{ currentUser().charAt(0).toUpperCase() }}</div>
             <div class="sidebar-user" *ngIf="!isSidebarInIconMode()">
-                <i class="bi bi-person-circle"></i>
                 <span class="sidebar-user-name" [title]="currentUser()">{{ currentUser() }}</span>
+                <span class="sidebar-user-role">{{ adminAccess() ? 'Administrador' : 'Usuario' }}</span>
             </div>
-            <button class="btn-logout" (click)="logout()">
+            <button class="btn-logout" (click)="logout()" aria-label="Cerrar sesión">
                 <i class="bi bi-power"></i>
-                <span *ngIf="!isSidebarInIconMode()">Cerrar</span>
             </button>
         </div>
     </aside>
@@ -123,7 +210,7 @@
     <div class="sidebar-overlay" *ngIf="isMobileView && isMobileMenuOpen" (click)="closeSidebarOnMobile()"></div>
 
     <div class="main-content">
-        <header class="topbar shadow-sm">
+        <header class="topbar">
             <button class="btn-toggle" type="button" (click)="toggleSidebar()" aria-label="Abrir o cerrar menú">
                 <i class="bi bi-list fs-4"></i>
             </button>
@@ -159,9 +246,7 @@
                             [ngSrc]="currentEmpresaLogo()"
                             width="32"
                             height="32"
-                            loading="lazy"
-                            decoding="async"
-                            [attr.fetchpriority]="'low'"
+                            priority
                             alt="Logo empresa"
                         />
                     }

@@ -33,6 +33,7 @@
             ],
             "styles": [
   "node_modules/primeicons/primeicons.css",
+  "node_modules/@webdatarocks/webdatarocks/webdatarocks.min.css",
   "src/styles.scss"
             ]
           },

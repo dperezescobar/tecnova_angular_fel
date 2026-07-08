@@ -1,5 +1,7 @@
 ﻿<section class="fac-page">
   <p-toast position="top-right"></p-toast>
+  <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
+  <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
   <!-- ── Panel de Emisión DTE ── -->
   <p-dialog
     header="Panel de emisión DTE"
@@ -131,31 +133,6 @@
     </ng-template>
   </p-dialog>
 
-  <p-dialog
-    header="Eliminar factura"
-    [(visible)]="confirmDeleteFacturaDialogVisible"
-    [modal]="true"
-    [closable]="false"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: '30rem', maxWidth: '90vw' }"
-  >
-    <p>¿Desea eliminar esta factura?</p>
-    <ng-template pTemplate="footer">
-      <p-button
-        type="button"
-        label="Cancelar"
-        severity="secondary"
-        (onClick)="cancelarEliminarFactura()"
-      ></p-button>
-      <p-button
-        type="button"
-        label="Eliminar"
-        severity="danger"
-        (onClick)="confirmarEliminarFactura()"
-      ></p-button>
-    </ng-template>
-  </p-dialog>
 
   <p-dialog
     header="Motivo de anulación"
@@ -279,14 +256,21 @@
 </div>
 
   <ng-template pTemplate="footer">
-    <p-button 
-      label="Cancelar" 
-      severity="secondary" 
+    <p-button
+      label="Actualizar lista"
+      severity="secondary"
+      icon="pi pi-refresh"
+      [loading]="loadingClientes()"
+      (onClick)="refreshClientes()"
+    ></p-button>
+    <p-button
+      label="Cancelar"
+      severity="secondary"
       (onClick)="cancelarSelectorCliente()"
     ></p-button>
-    <p-button 
-      label="Continuar" 
-      severity="info" 
+    <p-button
+      label="Continuar"
+      severity="info"
       icon="pi pi-check"
       [disabled]="!clienteSeleccionadoEnTabla()"
       (onClick)="confirmarSeleccionDesdeTabla()"
@@ -360,7 +344,57 @@
           <p-progressSpinner></p-progressSpinner>
         </div>
       } @else {
-        <div class="table-wrap">
+        <!-- Cards: listado principal en tablet/mobile -->
+        <div class="fac-cards" aria-label="Listado de facturas CCF en formato tarjeta">
+          @for (item of filteredFacturas(); track item.iddoc) {
+            <article class="fac-list-card">
+              <div class="fac-list-card-top">
+                <div class="fac-list-card-primary">
+                  <span class="fac-list-card-num">{{ item.Prefijo }}{{ item.Factura }}</span>
+                  <span class="fac-estado-badge" [attr.data-estado]="estadoVisualKey(item.ESTADO, item.SelloRecepcion)">
+                    {{ estadoVisualLabel(item.ESTADO, item.SelloRecepcion) }}
+                  </span>
+                </div>
+                <div class="fac-list-card-actions">
+                  <p-button icon="pi pi-pencil" [text]="true" severity="info"
+                    styleClass="action-icon-btn action-edit" ariaLabel="Editar factura"
+                    (onClick)="openEdit(item)"></p-button>
+                  <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                    styleClass="action-icon-btn action-delete" ariaLabel="Eliminar factura"
+                    [disabled]="!canEliminarFactura(item)"
+                    (onClick)="solicitarEliminarFactura(item)"></p-button>
+                  @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                    <p-button icon="pi pi-dollar" [text]="true" severity="success"
+                      styleClass="action-icon-btn" ariaLabel="Registrar pago recibido"
+                      title="Registrar pago recibido" (onClick)="registrarPago(item)"></p-button>
+                  }
+                  <p-button icon="pi pi-envelope" [text]="true" severity="secondary"
+                    styleClass="action-icon-btn" ariaLabel="Reenviar correo"
+                    title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
+                </div>
+              </div>
+              <div class="fac-list-card-cliente">{{ item.FACTURAR_A || item.CLIENTE }}</div>
+              <div class="fac-list-card-bottom">
+                <span class="fac-list-card-fecha">{{ fmtFecha(item.FECHA) }}</span>
+                <span class="fac-list-card-total">{{ formatCurrency(item.TOTAL) }}</span>
+              </div>
+              @if (item.NoControl || item.CodGeneracion) {
+                <div class="fac-list-card-meta">
+                  @if (item.NoControl) { <span>No. Control: {{ item.NoControl }}</span> }
+                  @if (item.CodGeneracion) { <span>Cód. Gen: {{ item.CodGeneracion }}</span> }
+                </div>
+              }
+            </article>
+          } @empty {
+            <div class="fac-list-cards-empty">
+              <i class="pi pi-inbox"></i>
+              <span>No se encontraron facturas CCF en el rango seleccionado.</span>
+            </div>
+          }
+        </div>
+
+        <!-- Tabla: listado principal en desktop -->
+        <div class="table-wrap compact fac-listado-table-wrap">
           <table class="fac-table" aria-label="Listado de facturas CCF">
             <thead>
               <tr>
@@ -406,9 +440,18 @@
                         (onClick)="registrarPago(item)"
                       ></p-button>
                     }
+                    <p-button
+                      icon="pi pi-envelope"
+                      [text]="true"
+                      severity="secondary"
+                      styleClass="action-icon-btn"
+                      ariaLabel="Reenviar correo"
+                      title="Reenviar correo"
+                      (onClick)="onReenviarCorreo(item)"
+                    ></p-button>
                   </td>
-                  <td>{{ item.FECHA }}</td>
-                  <td>{{ item.Prefijo }}-{{ item.Factura }}</td>
+                  <td>{{ fmtFecha(item.FECHA) }}</td>
+                  <td>{{ item.Prefijo }}{{ item.Factura }}</td>
                   <td>{{ item.FACTURAR_A || item.CLIENTE }}</td>
                   <td>{{ formatCurrency(item.TOTAL) }}</td>
                   <td>
@@ -631,11 +674,14 @@
                 </div>
                 <div class="field-item line-qty">
                   <label for="linea-cant">Cantidad</label>
-                  <input pInputText id="linea-cant" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaCantidad" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                  <input pInputText id="linea-cant" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaCantidad" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (keydown.enter)="agregarDetalleManual()" (input)="sanitizeNumericInput($event)" />
                 </div>
                    <div class="field-item line-price">
                      <label for="linea-precio">Precio</label>
                      <input pInputText id="linea-precio" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaPrecio" [readonly]="isReadOnlyField() || !canEditPrecioLinea()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                     @if ((facForm.get('LineaPrecioMayoreo')?.value ?? 0) > 0) {
+                       <small class="mayoreo-hint">Mayoreo: ${{ facForm.get('LineaPrecioMayoreo')?.value | number:'1.2-2' }} (mín. {{ facForm.get('LineaCantidadMinimaMayoreo')?.value }} unds)</small>
+                     }
                 </div>
                 <div class="line-side-actions">
                   <div class="field-item include-iva-field">

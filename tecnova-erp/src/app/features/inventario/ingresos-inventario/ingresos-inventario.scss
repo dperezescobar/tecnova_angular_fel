@@ -1,85 +1,26 @@
-/* =========================
-   FILTROS DE FECHA LISTADO
-   ========================= */
-.filtros-fecha-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: flex-end;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  padding: 1rem 1.5rem 0.5rem 1.5rem;
-  margin-bottom: 1.5rem;
-  margin-top: 0.5rem;
-}
-
-.filtro-fecha-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 140px;
-}
-
-.filtro-fecha-item label {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #1a56db;
-  margin-bottom: 0.15rem;
-}
-
-.filtro-fecha-item input[type="date"] {
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 0.35rem 0.75rem;
-  font-size: 1rem;
-  background: #f8fafc;
-  color: #111827;
-  transition: border-color 0.2s;
-}
-
-.filtro-fecha-item input[type="date"]:focus {
-  outline: none;
-  border-color: #1a56db;
-  background: #fff;
-}
-
-@media (max-width: 600px) {
-  .filtros-fecha-bar {
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.75rem 0.5rem 0.5rem 0.5rem;
-  }
-  .filtro-fecha-item {
-    min-width: 100%;
-  }
-}
-$pos-primary:     #1a56db;
-$pos-success:     #0e9f6e;
-$pos-danger:      #e02424;
-$pos-warning:     #d97706;
-$pos-bg:          #f3f4f6;
-$pos-surface:     #ffffff;
-$pos-border:      #e5e7eb;
-$pos-text:        #111827;
-$pos-text-muted:  #6b7280;
-$pos-radius:      10px;
-$pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
 /* =========================================================
-   RESET Y CONTENEDOR PRINCIPAL
+   VARIABLES
+   ========================================================= */
+$pos-primary:    #1668cc;
+$pos-border:     #e2e8f0;
+$pos-bg:         #f8fafc;
+$pos-text:       #0f172a;
+$pos-text-muted: #64748b;
+
+/* =========================================================
+   CONTENEDOR PRINCIPAL
    ========================================================= */
 * { box-sizing: border-box; }
 
 .ingresos-inv-page {
   max-width: 100vw;
   width: 100%;
-  overflow-x: hidden; /* Elimina desbordes laterales de una vez por todas */
+  overflow-x: hidden;
   padding: 1rem;
 }
 
 /* =========================================================
-   UTILERÍAS REUTILIZABLES
+   UTILERÍAS
    ========================================================= */
 .truncate {
   white-space: nowrap;
@@ -95,11 +36,11 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   min-width: 50px;
   object-fit: cover;
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0,0,0,.10);
 }
 
 .placeholder-img {
-  background-color: #f1f5f9;
+  background: #f1f5f9;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -107,8 +48,170 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   font-size: 1.5rem;
 }
 
+.inv-loading-box,
+.pos-loading {
+  text-align: center;
+  padding: 2rem;
+}
+
 /* =========================================================
-   ESTRUCTURA MÓVIL (CARDS) - Default (Mobile First)
+   CABECERA DE PÁGINA
+   ========================================================= */
+.inv-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: #fff;
+  padding: 0.9rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid $pos-border;
+  margin-bottom: 1.1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+
+.inv-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.inv-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid $pos-border;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.13s;
+  flex-shrink: 0;
+  margin-top: 0.12rem;
+
+  &:hover { background: #e2e8f0; }
+}
+
+.inv-title-icon {
+  width: 2.1rem;
+  height: 2.1rem;
+  background: #eff6ff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $pos-primary;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  margin-top: 0.12rem;
+}
+
+.inv-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: $pos-text;
+  margin: 0 0 0.12rem 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.inv-doc-num { color: $pos-primary; font-variant-numeric: tabular-nums; }
+
+.inv-subtitle { font-size: 0.77rem; color: $pos-text-muted; margin: 0; }
+
+.inv-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.inv-filter-pill {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  background: #fff;
+  border: 1px solid $pos-border;
+  border-radius: 8px;
+  padding: 0.32rem 0.65rem;
+}
+
+.inv-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.inv-filter-label {
+  font-size: 0.67rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: $pos-text-muted;
+}
+
+.inv-filter-field input[type="date"] {
+  height: 1.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 0 0.45rem;
+  font-size: 0.82rem;
+  background: $pos-bg;
+  color: $pos-text;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &:focus { border-color: $pos-primary; background: #fff; }
+}
+
+.inv-filter-sep {
+  width: 1px;
+  height: 22px;
+  background: $pos-border;
+  align-self: flex-end;
+  margin-bottom: 0.1rem;
+}
+
+.inv-estado-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 20px;
+  padding: 0.22rem 0.72rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  align-self: flex-start;
+
+  &::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.8;
+    flex-shrink: 0;
+  }
+
+  &[data-estado="ELABORACION"] { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  &[data-estado="APLICADO"]    { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+  &[data-estado="ANULADO"]     { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+}
+
+@media (max-width: 767px) {
+  .inv-page-header { flex-direction: column; gap: 0.75rem; }
+  .inv-toolbar { width: 100%; flex-direction: column; }
+  .inv-filter-pill { width: 100%; }
+  .inv-toolbar ::ng-deep .p-button { width: 100%; }
+}
+
+/* =========================================================
+   MOBILE GRID (CARDS) — mobile-first
    ========================================================= */
 .modern-grid-container {
   display: flex;
@@ -121,9 +224,9 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   .empty-state {
     text-align: center;
     padding: 2.5rem;
-    background: #f8fafc;
+    background: $pos-bg;
     border-radius: 8px;
-    color: #64748b;
+    color: $pos-text-muted;
     border: 1px dashed #cbd5e1;
   }
 
@@ -131,175 +234,102 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: #fff;
+    border: 1px solid $pos-border;
     border-radius: 12px;
     padding: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    box-shadow: 0 2px 4px rgba(0,0,0,.02);
     position: relative;
     overflow: hidden;
 
-    /* Bordes de estado izquierdo en Card */
     &.border-status-elaboracion { border-left: 5px solid #3b82f6; }
-    &.border-status-aplicado { border-left: 5px solid #10b981; background: #f8fafc; }
+    &.border-status-aplicado    { border-left: 5px solid #10b981; background: #fafdf9; }
 
-    /* Utilerías Flex internas */
     .flex-between { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-    .flex-col { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-    .flex-center { display: flex; justify-content: center; align-items: center; width: 100%; }
-    .flex-end { display: flex; justify-content: flex-end; align-items: center; width: 100%; }
-    
+    .flex-col     { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+    .flex-center  { display: flex; justify-content: center; align-items: center; width: 100%; }
+    .flex-end     { display: flex; justify-content: flex-end; align-items: center; width: 100%; }
+
     .mobile-label {
       font-size: 0.75rem;
       font-weight: 800;
-      color: #64748b;
+      color: $pos-text-muted;
       margin-right: 8px;
       min-width: 80px;
     }
 
     .border-bottom-mobile { border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
-    .border-top-mobile { border-top: 1px solid #f1f5f9; padding-top: 0.5rem; margin-top: 0.25rem; }
-    .bg-gray-mobile { background: #f8fafc; padding: 6px 8px; border-radius: 6px; }
+    .border-top-mobile    { border-top: 1px solid #f1f5f9; padding-top: 0.5rem; margin-top: 0.25rem; }
+    .bg-gray-mobile       { background: $pos-bg; padding: 6px 8px; border-radius: 6px; }
   }
 }
 
 /* =========================================================
-   ESTRUCTURA ESCRITORIO (TABLA MODERNA) - >= 992px
+   DESKTOP GRID (TABLA) — >= 992px
    ========================================================= */
 @media (min-width: 992px) {
   .modern-grid-container {
     gap: 0;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: #fff;
+    border: 1px solid $pos-border;
     border-radius: 8px;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,.05);
 
     .hidden-mobile { display: grid !important; }
-    .mobile-label { display: none !important; }
-    
-    /* Limpiar utilerías móviles */
+    .mobile-label  { display: none !important; }
+
     .border-bottom-mobile, .border-top-mobile { border: none; padding: 0; margin: 0; }
     .bg-gray-mobile { background: transparent; padding: 0; }
-    
-    /* Alineaciones Desktop */
-    .grid-row .desktop-left { justify-content: flex-start !important; }
+
+    .grid-row .desktop-left   { justify-content: flex-start !important; }
     .grid-row .desktop-center { justify-content: center !important; text-align: center; }
-    .grid-row .desktop-right { justify-content: flex-end !important; text-align: right; }
+    .grid-row .desktop-right  { justify-content: flex-end !important; text-align: right; }
     .grid-row .desktop-text-base { font-size: 1rem !important; }
 
-    /* --- COMPORTAMIENTO BASE DEL GRID --- */
     .grid-header, .grid-row {
       display: grid;
       align-items: center;
       padding: 0.75rem 1rem;
       gap: 1rem;
       border: none;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid $pos-border;
       border-radius: 0;
       box-shadow: none;
-      /* Prevenir que un input o texto largo rompa la celda */
-      > div { min-width: 0; } 
+      > div { min-width: 0; }
     }
 
     .grid-header {
-      background: #f8fafc;
+      background: $pos-bg;
       font-weight: 700;
       font-size: 0.75rem;
       color: #475569;
       border-radius: 8px 8px 0 0;
-      border-bottom: 2px solid #e2e8f0;
+      border-bottom: 2px solid $pos-border;
     }
 
     .grid-row:last-child { border-bottom: none; }
-    .grid-row:hover { background: #f1f5f9; }
+    .grid-row:hover      { background: #f1f5f9; cursor: pointer; }
 
-    /* Bordes de estado izquierdo en Grid */
     .grid-row {
       &.border-status-elaboracion { border-left: 4px solid #3b82f6; }
-      &.border-status-aplicado { border-left: 4px solid #10b981; }
+      &.border-status-aplicado    { border-left: 4px solid #10b981; }
     }
 
-    /* --- DEFINICIÓN ESTRICTA DE COLUMNAS --- */
-    /* 1. Grid del Listado Principal */
-    &.master-grid .grid-header, 
+    &.master-grid .grid-header,
     &.master-grid .grid-row {
-      /* Acciones(100px) | Doc(120px) | Fecha(110px) | Comentario(auto) | Estado(120px) */
       grid-template-columns: 100px 120px 110px 1fr 120px;
     }
 
-    /* 2. Grid del Detalle del Documento (Carrito) */
-    &.cart-grid .grid-header, 
+    &.cart-grid .grid-header,
     &.cart-grid .grid-row {
-      /* Img(50px) | Desc(auto) | Cant(80px) | PrecioU(150px) | Mayoreo(200px) | Acciones(80px) */
       grid-template-columns: 50px 1fr 80px 150px 200px 80px;
     }
   }
 }
+
 /* =========================================================
-   ESTILOS DEL FORMULARIO, CABECERA Y PRECIOS (RESTAURADOS)
+   BARRA DE ACCIONES STICKY
    ========================================================= */
-
-/* --- 1. Cabecera Principal --- */
-.fac-header {
-  margin-bottom: 1.5rem;
-  
-  &.ingresos-header {
-    background: #fff;
-    padding: 1rem;
-    border-radius: 8px;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 1rem;
-  }
-
-  .fac-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      color: #1e293b;
-      margin: 0;
-    }
-
-    .toolbar-nuevo-fac {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    @media (max-width: 767px) {
-      flex-direction: column;
-      align-items: flex-start;
-      .toolbar-nuevo-fac { width: 100%; button { width: 100%; } }
-    }
-  }
-}
-
-/* --- 2. Tarjetas de Sección --- */
-.section-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-
-  h3 {
-    margin-top: 0;
-    margin-bottom: 1.25rem;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #334155;
-    border-bottom: 2px solid #f1f5f9;
-    padding-bottom: 0.5rem;
-  }
-}
-
-/* --- 3. Barra de Acciones Superior --- */
 .form-actions {
   display: flex;
   align-items: center;
@@ -307,9 +337,9 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   background: #fff;
   padding: 1rem 1.5rem;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid $pos-border;
   margin-bottom: 1rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 4px rgba(0,0,0,.04);
   flex-wrap: wrap;
 
   &.form-actions-top {
@@ -327,20 +357,17 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
       font-size: 0.7rem;
       font-weight: 800;
       text-transform: uppercase;
-      color: #64748b;
+      color: $pos-text-muted;
       letter-spacing: 0.025em;
     }
 
-    .action-group-btns {
-      display: flex;
-      gap: 0.5rem;
-    }
+    .action-group-btns { display: flex; gap: 0.5rem; }
   }
 
   .action-group-divider {
     width: 1px;
     height: 32px;
-    background: #e2e8f0;
+    background: $pos-border;
     align-self: center;
   }
 
@@ -352,115 +379,57 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   }
 }
 
-/* --- 4. Grid del Formulario (Inputs) --- */
 /* =========================================================
-   GRID DEL FORMULARIO Y CORRECCIÓN DE PRIMENG 21
+   SECTION CARD
    ========================================================= */
+.section-card {
+  background: #fff;
+  border: 1px solid $pos-border;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  overflow: hidden;
+}
 
+.section-card-hdr {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  background: $pos-bg;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.section-card-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: $pos-primary;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.section-card-title {
+  font-size: 0.87rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.section-card-body { padding: 1.1rem 1.2rem; }
+
+/* =========================================================
+   FORMULARIO MAESTRO
+   ========================================================= */
 .ingresos-maestro-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.25rem;
 
-  .summary-observaciones {
-    grid-column: 1 / -1;
-  }
-}
-
-.ingresos-detalle-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-
-  .line-qty {
-    max-width: 150px;
-  }
-
-  .line-actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-}
-
-.pos-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
-
-  .field-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    width: 100%; /* Asegura que la celda use todo su espacio */
-
-    label {
-      font-weight: 700;
-      font-size: 0.8rem;
-      color: #475569;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    /* 1. Obligar a las etiquetas propias de Angular a comportarse como bloques */
-    p-dropdown, 
-    p-datepicker, 
-    p-autocomplete, 
-    p-inputnumber {
-      display: block;
-      width: 100%;
-    }
-
-    /* 2. Penetrar el encapsulamiento de PrimeNG 21 con !important */
-    ::ng-deep {
-      .p-dropdown,
-      .p-datepicker,
-      .p-autocomplete,
-      .p-inputnumber,
-      .p-inputtext {
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-
-      /* Alturas uniformes para que no se vean desalineados */
-      .p-dropdown, 
-      .p-inputtext {
-        min-height: 42px;
-      }
-
-      /* Textarea de Observaciones */
-      textarea.p-inputtext {
-        min-height: 80px;
-        resize: vertical;
-      }
-    }
-  }
-
-  /* Fila Especial: Buscador de Artículos (Ocupa el doble de espacio en Desktop) */
-  .line-articulo {
-    grid-column: 1 / -1; 
-    
-    @media (min-width: 992px) {
-      grid-column: span 2; 
-    }
-
-    /* Alineación de la barra de búsqueda y el botón "+" */
-    > div {
-      display: flex;
-      gap: 0.5rem;
-      width: 100%;
-      align-items: stretch;
-
-      p-autocomplete {
-        flex-grow: 1; /* Obliga al Autocomplete a tomar el espacio sobrante */
-        width: auto;
-      }
-
-      p-button ::ng-deep .p-button {
-        height: 100%; /* El botón verde medirá lo mismo que el input */
-      }
-    }
-  }
+  .summary-observaciones { grid-column: 1 / -1; }
 }
 
 .field-item {
@@ -470,131 +439,319 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
 
   label {
     font-weight: 700;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-input,
+
+  input,
   textarea {
     width: 100%;
     border: 1px solid #cbd5e1;
-    border-radius: 0.6rem;
-    padding: 0.55rem 0.65rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.65rem;
     background: #fff;
     font: inherit;
+    font-size: 0.88rem;
+    color: $pos-text;
+    outline: none;
+    transition: border-color 0.15s;
+
+    &:focus {
+      border-color: $pos-primary;
+      box-shadow: 0 0 0 2px rgba(22,104,204,.09);
+    }
   }
-  /* Forzar el 100% de ancho en los componentes de PrimeNG */
-  p-autocomplete, 
-  p-inputnumber, 
-  p-dropdown, 
-  p-datepicker, 
-  .p-inputtext, 
-  .p-autocomplete-input, 
+
+  textarea { resize: vertical; min-height: 56px; }
+
+  p-autocomplete,
+  p-inputnumber,
+  p-dropdown,
+  p-datepicker,
+  .p-inputtext,
+  .p-autocomplete-input,
   .p-inputnumber-input {
     width: 100% !important;
     max-width: 100%;
   }
 }
 
-/* Fila especial para el buscador de artículos (Toma más espacio) */
-.line-articulo {
-  grid-column: 1 / -1; 
+/* =========================================================
+   DETALLE — LAYOUT ENTRADA
+   ========================================================= */
+.ingresos-detalle-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Búsqueda ocupa siempre el ancho completo */
+.entry-search-area { width: 100%; }
+
+.search-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+
+  p-autocomplete { flex: 1; }
+
+  p-button ::ng-deep .p-button { height: 100%; }
+}
+
+/* Fila cantidad + precios: apilados en móvil, grid en desktop */
+.qty-prices-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+
   @media (min-width: 992px) {
-    grid-column: span 2; 
-  }
-}
-
-/* --- 3. Tarjetas de Estructura de Precios --- */
-.pricing-card {
-  padding: 1.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #ffffff;
-  min-width: 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  height: 100%; /* Para que ambas tarjetas midan lo mismo */
-
-  &.card-mandatory { 
-    border-top: 5px solid #3b82f6; 
-  }
-  
-  &.card-optional { 
-    border-top: 5px solid #f59e0b; 
-    background-color: #fffbeb; /* Fondo amarillento muy sutil */
-  }
-
-  .field-item {
-    margin-bottom: 1rem;
-    &:last-child { margin-bottom: 0; }
-  }
-}
-
-/* --- 4. Panel Inferior de Acciones --- */
-.pos-summary-panel {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e2e8f0;
-
-  .summary-observaciones {
-    margin-bottom: 1.5rem;
-    textarea {
-      min-height: 80px;
-      resize: vertical;
-      width: 100%;
-    }
-  }
-
-  .summary-actions {
-    display: flex;
-    justify-content: flex-end;
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: start;
     gap: 1rem;
-    flex-wrap: wrap;
+  }
+}
 
-    button {
-      min-width: 140px;
-    }
+.qty-input {
+  width: 100%;
+  max-width: 150px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.48rem 0.65rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: $pos-text;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
 
-    @media (max-width: 767px) {
-      flex-direction: column;
-      button { width: 100%; }
+  &:focus {
+    border-color: $pos-primary;
+    box-shadow: 0 0 0 2px rgba(22,104,204,.09);
+  }
+}
+
+/* =========================================================
+   STRIP DE PRECIOS
+   ========================================================= */
+.prices-strip {
+  border: 1px solid $pos-border;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.prices-strip-hdr {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.42rem 0.75rem;
+  background: $pos-bg;
+  border-bottom: 1px solid $pos-border;
+  font-size: 0.67rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: $pos-text-muted;
+}
+
+.prices-strip-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.price-cell {
+  padding: 0.65rem 0.75rem;
+
+  &.price-mayo {
+    border-left: 1px solid $pos-border;
+    background: #fffbeb;
+  }
+
+  p-inputnumber { display: block; width: 100%; }
+
+  ::ng-deep .p-inputnumber         { width: 100%; }
+  ::ng-deep .p-inputnumber-input   { width: 100%; }
+}
+
+.price-cell-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
+.price-cell-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.price-badge {
+  font-size: 0.61rem;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 0.07rem 0.32rem;
+
+  &.mandatory { background: #eff6ff; color: #1d4ed8; }
+  &.optional  { background: #fffbeb; color: #b45309; }
+}
+
+.price-min-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.price-min-label {
+  font-size: 0.67rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.compact-input-sm ::ng-deep .p-inputnumber-input {
+  width: 58px !important;
+  text-align: center;
+}
+
+/* =========================================================
+   BOTÓN AGREGAR — FULL WIDTH
+   ========================================================= */
+.btn-agregar {
+  width: 100%;
+  background: $pos-primary;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: background 0.13s;
+  line-height: 1;
+
+  &:hover:not(:disabled)  { background: #0b448e; }
+  &:active:not(:disabled) { transform: scale(0.99); }
+  &:disabled              { background: #94a3b8; cursor: not-allowed; }
+}
+
+/* =========================================================
+   LISTA DE DETALLES (CARRITO)
+   ========================================================= */
+.ingresos-detalles-list { margin-top: 1rem; }
+
+.detalles-list-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: $pos-text-muted;
+  margin: 0;
+
+  .detalles-list-count {
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
+    margin-left: 0.3rem;
+  }
+}
+
+.detalles-list-hdr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f1f5f9;
+  margin-bottom: 0.65rem;
+}
+
+.detalles-list-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 260px;
+  max-width: 340px;
+
+  .pi {
+    position: absolute;
+    left: 0.55rem;
+    color: $pos-text-muted;
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    height: 2.1rem;
+    border: 1px solid $pos-border;
+    border-radius: 8px;
+    padding: 0 0.65rem 0 1.9rem;
+    font-size: 0.82rem;
+    font-family: inherit;
+    outline: none;
+    background: #fff;
+
+    &:focus {
+      border-color: $pos-primary;
+      box-shadow: 0 0 0 3px rgba(22,104,204,.10);
     }
   }
 }
 
-/* --- 5. Botón de Retroceso (Back) --- */
+.detalles-paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+
+  .detalles-paginador-info {
+    font-size: 0.82rem;
+    color: $pos-text-muted;
+    font-weight: 600;
+  }
+}
+
+/* =========================================================
+   BACK BUTTON PRIMENG OVERRIDE
+   ========================================================= */
 ::ng-deep .pos-back-btn {
   background: #f1f5f9 !important;
   color: #475569 !important;
   border: 1px solid #cbd5e1 !important;
-  &:hover {
-    background: #e2e8f0 !important;
-  }
+  &:hover { background: #e2e8f0 !important; }
 }
+
+/* =========================================================
+   TOGGLE VISTA
+   ========================================================= */
 .pos-view-toggle {
   display: inline-flex;
   align-items: center;
-  width: fit-content;
-  border: 1px solid #e5e7eb;;
+  border: 1px solid $pos-border;
   border-radius: 8px;
   overflow: hidden;
-  background: #f8fafc;
+  background: $pos-bg;
 }
 
 .pos-view-toolbar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  width: 100%;
-
-  .pos-view-toggle {
-    flex: 0 0 auto;
-  }
-
-  .pos-scan-trigger {
-    margin-left: auto;
-  }
 }
+
 .pos-view-toggle-btn {
   border: 0;
   background: transparent;
@@ -604,30 +761,46 @@ input,
   padding: 0.35rem 0.65rem;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: inherit;
 
-  &:hover {
-    background: #e5e7eb;
-    color: $pos-text;
-  }
+  &:hover { background: #e5e7eb; color: $pos-text; }
 }
 
-.pos-view-toggle-btn-active {
-  background: $pos-primary;
-  color: #fff;
-}
-.pos-images-wrapper {
-  margin-top: 1rem;
-  background: #f8fafc;
-  padding: 1rem;
+.pos-view-toggle-btn-active { background: $pos-primary; color: #fff; }
+
+/* =========================================================
+   BÚSQUEDA + GRID DE IMÁGENES
+   ========================================================= */
+.pos-results-scroll {
+  background: $pos-bg;
+  border: 1px solid $pos-border;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  padding: 0.85rem;
+  margin-top: 0.75rem;
+  max-height: 360px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar       { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+}
+
+.pos-scroll-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+  color: $pos-text-muted;
+  font-size: 0.8rem;
 }
 
 .pos-image-search {
   position: relative;
   display: flex;
   align-items: center;
-  width: 100%;
 
   .pi {
     position: absolute;
@@ -643,32 +816,21 @@ input,
     border-radius: 8px;
     padding: 0 0.65rem 0 1.9rem;
     font-size: 0.86rem;
+    font-family: inherit;
     outline: none;
+    background: #fff;
 
     &:focus {
       border-color: $pos-primary;
-      box-shadow: 0 0 0 3px #bfdbfe55;
-    }
-
-    &[readonly] {
-      background: #f9fafb;
-      color: $pos-text-muted;
-      cursor: default;
+      box-shadow: 0 0 0 3px rgba(22,104,204,.10);
     }
   }
 }
 
 .pos-articulos-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 0.45rem;
-  max-height: 360px;
-  overflow-y: auto;
-  padding-right: 0.1rem;
-}
-
-.pos-articulos-grid-readonly {
-  opacity: 0.9;
 }
 
 .pos-articulo-card {
@@ -683,30 +845,20 @@ input,
   text-align: center;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.08s;
+  font-family: inherit;
 
-  &:hover:not(:disabled) {
-    border-color: #93c5fd;
-    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.15);
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.98);
-  }
+  &:hover:not(:disabled)  { border-color: #93c5fd; box-shadow: 0 2px 10px rgba(59,130,246,.15); }
+  &:active:not(:disabled) { transform: scale(0.98); }
 
   &.pos-articulo-card-selected {
     border-color: $pos-primary;
     background: #eff6ff;
-    box-shadow: 0 0 0 2px rgba(26, 86, 219, 0.2);
-    
-    .pos-articulo-card-thumb-wrap {
-      background: #dbeafe;
-    }
+    box-shadow: 0 0 0 2px rgba(22,104,204,.20);
+
+    .pos-articulo-card-thumb-wrap { background: #dbeafe; }
   }
 
-  &:disabled {
-    cursor: default;
-    opacity: 0.6;
-  }
+  &:disabled { cursor: default; opacity: 0.6; }
 }
 
 .pos-articulo-card-thumb-wrap {
@@ -719,10 +871,7 @@ input,
   justify-content: center;
   overflow: hidden;
 
-  .pi {
-    font-size: 1.25rem;
-    color: $pos-text-muted;
-  }
+  .pi { font-size: 1.25rem; color: $pos-text-muted; }
 }
 
 .pos-articulo-card-thumb {
@@ -732,34 +881,20 @@ input,
   display: block;
 }
 
-.pos-articulos-grid-more {
+.pos-articulos-grid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+  color: $pos-text-muted;
+}
+
+.articulos-loading-hint {
   display: flex;
-  justify-content: center;
-  margin-top: 1rem;
-  padding: 0.5rem;
-
-  .pos-articulos-grid-more-btn {
-    background: #fff;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 0.5rem 1.5rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #475569;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover:not(:disabled) {
-      background: #f8fafc;
-      border-color: #94a3b8;
-      color: #1e293b;
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  color: $pos-text-muted;
+  font-size: 0.8rem;
 }
 
 .pos-articulo-card-code {
@@ -774,7 +909,7 @@ input,
 }
 
 .pos-articulo-card-desc {
-  font-size: 0.68rem;
+  font-size: 0.67rem;
   color: $pos-text-muted;
   max-width: 100%;
   display: -webkit-box;
@@ -783,3 +918,180 @@ input,
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* =========================================================
+   IMAGEN CLICKABLE (zoom-in)
+   ========================================================= */
+.img-clickable {
+  cursor: zoom-in;
+  transition: opacity 0.15s;
+  &:hover { opacity: 0.82; }
+}
+
+.pos-card-thumb-zoomable {
+  cursor: zoom-in;
+  &:hover img { opacity: 0.82; }
+}
+
+/* =========================================================
+   LIGHTBOX — ampliar imagen al click
+   ========================================================= */
+.img-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(6px);
+  animation: lb-in 0.14s ease;
+}
+
+@keyframes lb-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.img-lightbox-inner {
+  position: relative;
+  width: min(92vw, 540px);
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45);
+}
+
+.img-lightbox-img {
+  display: block;
+  width: 100%;
+  max-height: 76vh;
+  object-fit: contain;
+}
+
+.img-lightbox-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  z-index: 1;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(0, 0, 0, 0.80); }
+}
+
+.img-lightbox-caption {
+  margin: 0;
+  padding: 0.45rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================================================
+   CARRITO — TARJETA MÓVIL MEJORADA (imagen izquierda)
+   ========================================================= */
+@media (max-width: 991px) {
+  .modern-grid-container.cart-grid .grid-row {
+    display: grid !important;
+    grid-template-areas:
+      "img desc    actions"
+      "img qty     qty"
+      "img price   price"
+      "img mayoreo mayoreo";
+    grid-template-columns: auto 1fr 40px;
+    grid-template-rows: auto;
+    row-gap: 4px;
+    column-gap: 0.65rem;
+    padding: 0.7rem 0.8rem;
+    align-items: start;
+
+    .col-img {
+      grid-area: img;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 2px;
+    }
+
+    .col-desc {
+      grid-area: desc;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+      align-self: center;
+    }
+
+    .col-qty {
+      grid-area: qty;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: $pos-bg;
+      border-radius: 5px;
+      padding: 3px 8px;
+    }
+
+    .col-price {
+      grid-area: price;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: $pos-bg;
+      border-radius: 5px;
+      padding: 3px 8px;
+    }
+
+    .col-mayoreo {
+      grid-area: mayoreo;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: $pos-bg;
+      border-radius: 5px;
+      padding: 3px 8px;
+      min-height: 28px;
+    }
+
+    .col-actions {
+      grid-area: actions;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      width: 40px;
+    }
+
+    .flex-between   { display: flex !important; justify-content: flex-start !important; gap: 6px !important; width: 100% !important; }
+    .flex-end       { display: flex !important; justify-content: center !important; }
+    .mobile-label   { min-width: auto; font-size: 0.68rem; }
+
+    .border-bottom-mobile,
+    .border-top-mobile { border: none !important; padding: 0 !important; margin: 0 !important; }
+    .bg-gray-mobile    { background: transparent !important; padding: 0 !important; }
+  }
+
+  .fixed-img {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: 8px;
+  }
+}
+

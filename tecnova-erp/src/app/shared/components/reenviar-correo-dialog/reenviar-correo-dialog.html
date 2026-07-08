@@ -1,0 +1,27 @@
+<p-dialog
+  header="Reenviar correo"
+  [(visible)]="visible"
+  [modal]="true"
+  [closable]="!enviando()"
+  [draggable]="false"
+  [dismissableMask]="false"
+  [style]="{ width: '28rem', maxWidth: '92vw' }"
+>
+  <div class="reenviar-correo-field">
+    <label for="reenviar-correo-input">Correo de destino</label>
+    <input
+      pInputText
+      id="reenviar-correo-input"
+      type="email"
+      class="w-full"
+      [ngModel]="correo()"
+      (ngModelChange)="correo.set($event)"
+      [disabled]="enviando()"
+      placeholder="cliente@ejemplo.com"
+    />
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [disabled]="enviando()" (onClick)="cerrar()"></p-button>
+    <p-button label="Reenviar Correo" icon="pi pi-send" [loading]="enviando()" (onClick)="reenviar()"></p-button>
+  </ng-template>
+</p-dialog>

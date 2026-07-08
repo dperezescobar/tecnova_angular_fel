@@ -599,6 +599,13 @@
     padding: 0.55rem 0.65rem;
     background: #fff;
     font: inherit;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+
+    &:focus {
+      outline: none;
+      border-color: #0b63f3;
+      box-shadow: 0 0 0 3px rgba(11, 99, 243, 0.14);
+    }
   }
 
   textarea {
@@ -679,6 +686,14 @@
 .line-qty,
 .line-price {
   grid-column: auto;
+}
+
+.mayoreo-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--p-green-600, #16a34a);
+  font-weight: 600;
 }
 
 .line-side-actions {
@@ -1185,20 +1200,6 @@
     justify-content: space-between;
   }
 
-  .detalle-cards {
-    display: grid;
-    gap: 0.55rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .table-wrap.compact {
-    display: none;
-  }
-
-  .detalle-card-metrics {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 3fr) minmax(0, 4fr);
-  }
-
   .detalle-card-label {
     font-size: 0.7rem;
   }
@@ -1424,10 +1425,149 @@
   &.row-selected {
     background-color: #e0f2fe !important; /* Azul claro de selección */
     border-left: 4px solid #0ea5e9; /* Indicador lateral */
-    
+
     td {
       font-weight: 600;
       color: #0369a1;
     }
   }
+}
+
+// ── Cards: listado principal (tablet/mobile) ─────────────────────────────────
+// Base compartida por FAC y FEX.
+.fac-cards {
+  display: none;
+  gap: 0.65rem;
+}
+
+.fac-list-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.7rem;
+  background: #fff;
+  padding: 0.75rem 0.85rem;
+  display: grid;
+  gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.fac-list-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.fac-list-card-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.fac-list-card-num {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.fac-list-card-actions {
+  display: flex;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  margin: -0.4rem -0.4rem 0 0;
+}
+
+.fac-list-card-cliente {
+  font-size: 0.86rem;
+  color: #334155;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.fac-list-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #64748b;
+  padding-top: 0.4rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.fac-list-card-total {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.fac-list-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-family: monospace;
+  padding-top: 0.3rem;
+  border-top: 1px dashed #f1f5f9;
+}
+
+.fac-list-cards-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.9rem;
+
+  .pi { font-size: 2rem; }
+}
+
+// ── Alternancia tabla / cards según ancho de pantalla ────────────────────────
+// Tablets y menores (≤ 991.98px): cards. Desktop: tabla con scroll horizontal.
+// Mismo umbral usado para el listado principal y para las líneas de detalle.
+@media (max-width: 991.98px) {
+  .fac-cards,
+  .detalle-cards {
+    display: grid;
+  }
+
+  .table-wrap.compact {
+    display: none;
+  }
+
+  .detalle-card-metrics {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 3fr) minmax(0, 4fr);
+  }
+}
+
+// ── Micro-interacciones: feedback táctil en botones ──────────────────────────
+::ng-deep .p-button {
+  transition:
+    background-color 180ms ease,
+    border-color     180ms ease,
+    color            150ms ease,
+    box-shadow       180ms ease,
+    transform        130ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+::ng-deep .p-button:not(.p-disabled):not([disabled]):active {
+  transform: scale(0.97);
+  transition-duration: 80ms !important;
+}
+
+::ng-deep .action-icon-btn:not(.p-disabled):not([disabled]):active,
+::ng-deep .p-button.p-button-text:not(.p-disabled):not([disabled]):active {
+  transform: scale(0.90);
+  transition-duration: 60ms !important;
+}
+
+::ng-deep .p-button:focus-visible {
+  outline: 2px solid #0b63f3;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(11, 99, 243, 0.18);
 }

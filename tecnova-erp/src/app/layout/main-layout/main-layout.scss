@@ -31,7 +31,8 @@
         align-items: center;
         justify-content: center;
         background-color: var(--contask-header);
-        
+        border-bottom: 2px solid var(--contask-blue);
+
         .brand {
             color: white;
             text-decoration: none;
@@ -45,44 +46,128 @@
     .sidebar-nav {
         flex: 1 1 auto;
         min-height: 0;
-        padding-top: 1rem;
+        padding: 0.5rem 0;
         overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.08) transparent;
+
+        &::-webkit-scrollbar { width: 3px; }
+        &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+        .nav-section-label {
+            display: block;
+            padding: 0.65rem 0.9rem 0.2rem;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.25);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+        }
 
         .nav-item {
             display: flex;
             align-items: center;
-            padding: 11px 16px;
+            padding: 10px 12px;
+            margin: 0 0.4rem 1px;
+            border-radius: 8px;
             color: var(--contask-text-muted);
             text-decoration: none;
-            transition: 0.2s;
+            transition: background-color 0.18s ease, color 0.18s ease;
             cursor: pointer;
 
-            &:hover, &.active {
-                background-color: rgba(255,255,255,0.1);
-                color: white;
-                border-left: 4px solid var(--contask-blue);
+            &:hover {
+                background-color: rgba(255,255,255,0.08);
+                color: rgba(255,255,255,0.9);
+            }
+
+            &.active {
+                background-color: rgba(59,130,246,0.15);
+                color: var(--contask-blue);
             }
 
             i { font-size: 1.1rem; margin-right: 8px; }
         }
 
         .submenu {
-            background-color: rgba(0,0,0,0.2);
+            margin-left: 1.8rem;
+            padding-left: 0.5rem;
+            border-left: 1.5px solid rgba(255,255,255,0.08);
+
             .nav-subitem {
-                display: block;
-                padding: 9px 10px 9px 42px;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 7px 10px;
                 color: var(--contask-text-muted);
                 text-decoration: none;
-                font-size: 0.86rem;
+                font-size: 0.84rem;
+                border-radius: 6px;
+                transition: background-color 0.15s ease, color 0.15s ease;
+
                 &:hover,
-                &.active { color: white; }
+                &.active {
+                    color: white;
+                    background-color: rgba(255,255,255,0.06);
+                }
+
+                &.active .nav-subitem-dot { background-color: var(--contask-blue); }
 
                 &.disabled {
                     opacity: 0.6;
                     cursor: not-allowed;
                 }
+
+                &.nav-subitem--disabled {
+                    opacity: 0.45;
+                    cursor: not-allowed;
+                    pointer-events: none;
+                }
+            }
+
+            .nav-subitem-dot {
+                width: 4px;
+                height: 4px;
+                border-radius: 50%;
+                background: rgba(255,255,255,0.2);
+                flex-shrink: 0;
+
+                &--folder {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 2px;
+                    background: rgba(255,255,255,0.15);
+                }
+            }
+
+            .submenu-subgroup {
+                margin-top: 1px;
+            }
+
+            .nav-subitem--toggle {
+                cursor: pointer;
+                user-select: none;
+
+                .submenu-chevron {
+                    font-size: 0.62rem;
+                    transition: transform 0.2s ease;
+
+                    &.rotate { transform: rotate(-180deg); }
+                }
+            }
+
+            .sub-submenu {
+                margin-left: 0.85rem;
+                padding-left: 0.4rem;
+                border-left: 1px solid rgba(255,255,255,0.06);
+            }
+
+            .nav-subitem--nested {
+                font-size: 0.79rem;
+                padding: 5px 8px;
             }
         }
     }
@@ -117,57 +202,64 @@
             }
         }
 
-        .install-banner-actions {
+        .install-banner-head {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.4rem;
+            align-items: flex-start;
+            gap: 0.45rem;
 
-            .btn-install {
-                border: 1px solid rgba(96, 165, 250, 0.7);
-                background: var(--contask-blue);
-                color: #eff6ff;
-                border-radius: 0.45rem;
-                font-size: 0.74rem;
-                font-weight: 700;
-                line-height: 1;
-                padding: 0.38rem 0.55rem;
-                transition: background 0.2s ease;
-
-                &:hover {
-                    background: var(--contask-header);
-                }
-
-                &:focus-visible {
-                    outline: 2px solid rgba(147, 197, 253, 0.9);
-                    outline-offset: 1px;
-                }
+            > i {
+                font-size: 0.9rem;
+                color: #60a5fa;
+                flex-shrink: 0;
+                margin-top: 2px;
             }
 
-            .btn-install-dismiss {
-                width: 1.65rem;
-                height: 1.65rem;
-                border-radius: 0.42rem;
-                border: 1px solid rgba(148, 163, 184, 0.4);
-                background: transparent;
-                color: #cbd5e1;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                transition: background 0.2s ease;
+            .install-banner-copy {
+                flex: 1;
+                min-width: 0;
+            }
+        }
 
-                i {
-                    font-size: 0.66rem;
-                }
+        .btn-install {
+            width: 100%;
+            border: 1px solid rgba(96, 165, 250, 0.7);
+            background: var(--contask-blue);
+            color: #eff6ff;
+            border-radius: 0.45rem;
+            font-size: 0.74rem;
+            font-weight: 700;
+            line-height: 1;
+            padding: 0.38rem 0.55rem;
+            transition: background 0.2s ease;
 
-                &:hover {
-                    background: rgba(148, 163, 184, 0.18);
-                }
+            &:hover { background: var(--contask-header); }
 
-                &:focus-visible {
-                    outline: 2px solid rgba(148, 163, 184, 0.8);
-                    outline-offset: 1px;
-                }
+            &:focus-visible {
+                outline: 2px solid rgba(147, 197, 253, 0.9);
+                outline-offset: 1px;
+            }
+        }
+
+        .btn-install-dismiss {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 0.4rem;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            background: transparent;
+            color: #cbd5e1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s ease;
+
+            i { font-size: 0.62rem; }
+
+            &:hover { background: rgba(148, 163, 184, 0.18); }
+
+            &:focus-visible {
+                outline: 2px solid rgba(148, 163, 184, 0.8);
+                outline-offset: 1px;
             }
         }
     }
@@ -187,32 +279,45 @@
         gap: 0.5rem;
         min-height: 56px;
 
-        .sidebar-user {
+        .sidebar-user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(59,130,246,0.15);
+            border: 1.5px solid rgba(59,130,246,0.3);
             display: flex;
             align-items: center;
-            gap: 0.42rem;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #93c5fd;
+            flex-shrink: 0;
+            letter-spacing: 0.02em;
+        }
+
+        .sidebar-user {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.05rem;
             min-width: 0;
             flex: 1 1 auto;
-            font-size: 0.84rem;
-            color: #e2e8f0;
-            font-weight: 600;
-
-            i {
-                font-size: 1rem;
-                color: #93c5fd;
-                flex: 0 0 auto;
-            }
 
             .sidebar-user-name {
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: #e2e8f0;
                 min-width: 0;
                 overflow: hidden;
-                display: -webkit-box;
-                -webkit-box-orient: vertical;
-                -webkit-line-clamp: 2;
-                line-clamp: 2;
-                line-height: 1.1;
-                max-height: 2.2em;
-                overflow-wrap: anywhere;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 100%;
+            }
+
+            .sidebar-user-role {
+                font-size: 0.62rem;
+                color: rgba(255,255,255,0.3);
+                white-space: nowrap;
             }
         }
 
@@ -297,7 +402,7 @@
     overflow-x: hidden;
     min-width: 0;
     min-height: 0;
-    background-color: #f8f9fa;
+    background-color: #f8fafc;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
 }
@@ -306,6 +411,7 @@
     height: calc(56px + env(safe-area-inset-top, 0px));
     min-height: calc(56px + env(safe-area-inset-top, 0px));
     background: white;
+    border-bottom: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: space-between;

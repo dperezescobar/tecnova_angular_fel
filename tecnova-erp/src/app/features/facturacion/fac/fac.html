@@ -1,5 +1,7 @@
 <section class="fac-page">
   <p-toast position="top-right"></p-toast>
+  <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
+  <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
   <!-- ── Panel de Emisión DTE ── -->
   <p-dialog
     header="Panel de emisión DTE"
@@ -132,32 +134,6 @@
   </p-dialog>
 
   <p-dialog
-    header="Eliminar factura"
-    [(visible)]="confirmDeleteFacturaDialogVisible"
-    [modal]="true"
-    [closable]="false"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: '30rem', maxWidth: '90vw' }"
-  >
-    <p>¿Desea eliminar esta factura?</p>
-    <ng-template pTemplate="footer">
-      <p-button
-        type="button"
-        label="Cancelar"
-        severity="secondary"
-        (onClick)="cancelarEliminarFactura()"
-      ></p-button>
-      <p-button
-        type="button"
-        label="Eliminar"
-        severity="danger"
-        (onClick)="confirmarEliminarFactura()"
-      ></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <p-dialog
     header="Motivo de anulación"
     [(visible)]="anulacionDialogVisible"
     [modal]="true"
@@ -281,14 +257,21 @@
 </div>
 
   <ng-template pTemplate="footer">
-    <p-button 
-      label="Cancelar" 
-      severity="secondary" 
+    <p-button
+      label="Actualizar lista"
+      severity="secondary"
+      icon="pi pi-refresh"
+      [loading]="loadingClientes()"
+      (onClick)="refreshClientes()"
+    ></p-button>
+    <p-button
+      label="Cancelar"
+      severity="secondary"
       (onClick)="cancelarSelectorCliente()"
     ></p-button>
-    <p-button 
-      label="Continuar" 
-      severity="info" 
+    <p-button
+      label="Continuar"
+      severity="info"
       icon="pi pi-check"
       [disabled]="!clienteSeleccionadoEnTabla()"
       (onClick)="confirmarSeleccionDesdeTabla()"
@@ -408,9 +391,18 @@
                         (onClick)="registrarPago(item)"
                       ></p-button>
                     }
+                    <p-button
+                      icon="pi pi-envelope"
+                      [text]="true"
+                      severity="secondary"
+                      styleClass="action-icon-btn"
+                      ariaLabel="Reenviar correo"
+                      title="Reenviar correo"
+                      (onClick)="onReenviarCorreo(item)"
+                    ></p-button>
                   </td>
-                  <td>{{ item.FECHA }}</td>
-                  <td>{{ item.Prefijo }}-{{ item.Factura }}</td>
+                  <td>{{ fmtFecha(item.FECHA) }}</td>
+                  <td>{{ item.Prefijo }}{{ item.Factura }}</td>
                   <td>{{ item.FACTURAR_A || item.CLIENTE }}</td>
                   <td>{{ formatCurrency(item.TOTAL) }}</td>
                   <td>
@@ -452,7 +444,7 @@
               <span class="action-group-label">Estado</span>
               <div class="action-group-btns">
                 <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" (onClick)="aplicar()"></p-button>
-                <p-button type="button" label="Desaplicar" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicar()"></p-button>
+                <p-button type="button" [label]="esRegistroSinDte() ? 'Habilitar factura' : 'Desaplicar'" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicar()"></p-button>
               </div>
             </div>
 
@@ -461,8 +453,10 @@
             <div class="action-group dte-group">
               <span class="action-group-label">Transmisión DTE</span>
               <div class="action-group-btns">
-                <p-button type="button" label="Emitir DTE" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" (onClick)="emitirDte()"></p-button>
-                <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
+                <p-button type="button" [label]="emitirDteLabel()" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" (onClick)="emitirDte()"></p-button>
+                @if (!esRegistroSinDte()) {
+                  <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
+                }
               </div>
             </div>
           </div>
@@ -633,11 +627,14 @@
                 </div>
                 <div class="field-item line-qty">
                   <label for="linea-cant">Cantidad</label>
-                  <input pInputText id="linea-cant" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaCantidad" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                  <input pInputText id="linea-cant" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaCantidad" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (keydown.enter)="agregarDetalleManual()" (input)="sanitizeNumericInput($event)" />
                 </div>
                    <div class="field-item line-price">
                      <label for="linea-precio">Precio</label>
                      <input pInputText id="linea-precio" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaPrecio" [readonly]="isReadOnlyField() || !canEditPrecioLinea()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                     @if ((facForm.get('LineaPrecioMayoreo')?.value ?? 0) > 0) {
+                       <small class="mayoreo-hint">Mayoreo: ${{ facForm.get('LineaPrecioMayoreo')?.value | number:'1.2-2' }} (mín. {{ facForm.get('LineaCantidadMinimaMayoreo')?.value }} unds)</small>
+                     }
                 </div>
                 <div class="line-side-actions">
                   <div class="field-item include-iva-field">

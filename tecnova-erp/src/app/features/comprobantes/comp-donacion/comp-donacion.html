@@ -1,0 +1,476 @@
+<section class="cd-page">
+  <p-toast position="top-right"></p-toast>
+  <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
+  <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
+
+  <header class="cd-header">
+    <div><h1>Comprobantes de Donación</h1></div>
+    <div class="header-actions">
+      @if (!showForm()) {
+        <span class="search-box">
+          <i class="pi pi-search"></i>
+          <input pInputText type="text" placeholder="Buscar cliente o donante"
+            [value]="filterText()" (input)="filterText.set($any($event.target).value)"
+            (keyup.enter)="loadListado()" />
+        </span>
+        <input pInputText type="date" [value]="filterDesde()"
+          (change)="filterDesde.set($any($event.target).value)" />
+        <input pInputText type="date" [value]="filterHasta()"
+          (change)="filterHasta.set($any($event.target).value)" />
+        <div class="header-buttons">
+          <p-button label="Buscar" icon="pi pi-search" (onClick)="loadListado()" [loading]="loading()"></p-button>
+          <p-button label="Nuevo CD" icon="pi pi-plus" severity="info" (onClick)="openCreateForm()"></p-button>
+        </div>
+      } @else {
+        <div class="detail-actions">
+          <p-button label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+        </div>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage()) {
+    <p-message severity="error" [text]="errorMessage()"></p-message>
+  }
+
+  @if (!showForm()) {
+    <section class="maestro-section">
+      @if (loading()) {
+        <div class="loading-box"><p-progressSpinner></p-progressSpinner></div>
+      } @else {
+        <!-- Cards: listado principal en tablet/mobile -->
+        <div class="cd-cards" aria-label="Listado de comprobantes de donación en formato tarjeta">
+          @for (item of pagedListado(); track item.idFactura) {
+            <article class="cd-list-card">
+              <div class="cd-list-card-top">
+                <div class="cd-list-card-primary">
+                  <span class="cd-list-card-fecha">{{ item.FECHA }}</span>
+                  <p-tag [value]="item.Estado" [severity]="estadoSeverity(item.Estado)"></p-tag>
+                </div>
+                <div class="cd-list-card-actions">
+                  <p-button icon="pi pi-pencil" [text]="true" severity="info"
+                    styleClass="action-icon-btn" ariaLabel="Editar"
+                    (onClick)="openEditForm(item)"></p-button>
+                  @if (item.Estado !== 'EMITIDO') {
+                    <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                      styleClass="action-icon-btn" ariaLabel="Eliminar"
+                      (onClick)="solicitarEliminarCD(item)"></p-button>
+                  }
+                  <p-button icon="pi pi-envelope" [text]="true" severity="secondary"
+                    styleClass="action-icon-btn" ariaLabel="Reenviar correo"
+                    title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
+                </div>
+              </div>
+              <div class="cd-list-card-cliente">{{ item.NOMBRE || item.CLIENTE }}</div>
+              <div class="cd-list-card-bottom">
+                <span class="cd-list-card-label">Total</span>
+                <span class="cd-list-card-total">{{ formatCurrency(item.TOTAL) }}</span>
+              </div>
+              @if (item.NoControl || item.CodGeneracion || item.SelloRecepcion) {
+                <div class="cd-list-card-meta">
+                  @if (item.NoControl) { <span>No. Control: {{ item.NoControl }}</span> }
+                  @if (item.CodGeneracion) { <span>Cód. Gen: {{ item.CodGeneracion }}</span> }
+                  @if (item.SelloRecepcion) { <span>Sello: {{ item.SelloRecepcion }}</span> }
+                </div>
+              }
+            </article>
+          } @empty {
+            <div class="cd-list-cards-empty">
+              <i class="pi pi-inbox"></i>
+              <span>Sin resultados. Use los filtros y presione Buscar.</span>
+            </div>
+          }
+        </div>
+
+        <!-- Tabla: listado principal en desktop -->
+        <div class="table-wrap compact cd-listado-table-wrap">
+          <table class="cd-table" aria-label="Listado de comprobantes de donación">
+            <thead>
+              <tr>
+                <th class="actions-col">Acciones</th>
+                <th class="col-nowrap">Estado</th>
+                <th class="col-nowrap">Fecha</th>
+                <th>Cliente / Donante</th>
+                <th class="col-nowrap">Total</th>
+                <th>No. Control</th>
+                <th>Cod. Generación</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pagedListado(); track item.idFactura) {
+                <tr>
+                  <td class="actions-col">
+                    <p-button icon="pi pi-pencil" [text]="true" severity="info"
+                      styleClass="action-icon-btn" (onClick)="openEditForm(item)"></p-button>
+                    @if (item.Estado !== 'EMITIDO') {
+                      <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                        styleClass="action-icon-btn" (onClick)="solicitarEliminarCD(item)"></p-button>
+                    }
+                    <p-button icon="pi pi-envelope" [text]="true" severity="secondary"
+                      styleClass="action-icon-btn" ariaLabel="Reenviar correo"
+                      title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
+                  </td>
+                  <td class="col-nowrap">
+                    <p-tag [value]="item.Estado" [severity]="estadoSeverity(item.Estado)"></p-tag>
+                  </td>
+                  <td class="col-nowrap">{{ item.FECHA }}</td>
+                  <td>{{ item.NOMBRE || item.CLIENTE }}</td>
+                  <td class="col-nowrap">{{ formatCurrency(item.TOTAL) }}</td>
+                  <td class="col-mono">{{ item.NoControl }}</td>
+                  <td class="col-mono">{{ item.CodGeneracion }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="7">Sin resultados. Use los filtros y presione Buscar.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (listado().length > pageSize) {
+          <div class="pagination-bar">
+            <span class="pagination-info">
+              {{ pageInfo().start }}–{{ pageInfo().end }} de {{ pageInfo().total }}
+            </span>
+            <div class="pagination-controls">
+              <p-button icon="pi pi-angle-double-left" [text]="true" size="small"
+                [disabled]="currentPage() === 1" (onClick)="goToPage(1)"></p-button>
+              <p-button icon="pi pi-angle-left" [text]="true" size="small"
+                [disabled]="currentPage() === 1" (onClick)="prevPage()"></p-button>
+              <span class="page-indicator">{{ currentPage() }} / {{ totalPages() }}</span>
+              <p-button icon="pi pi-angle-right" [text]="true" size="small"
+                [disabled]="currentPage() === totalPages()" (onClick)="nextPage()"></p-button>
+              <p-button icon="pi pi-angle-double-right" [text]="true" size="small"
+                [disabled]="currentPage() === totalPages()" (onClick)="goToPage(totalPages())"></p-button>
+            </div>
+          </div>
+        }
+      }
+    </section>
+  }
+
+  @if (showForm()) {
+    <section class="form-panel">
+      <p-card>
+        <ng-template pTemplate="title">
+          {{ isNuevo() ? 'Nuevo Comprobante de Donación' : 'Comprobante de Donación' }}
+        </ng-template>
+
+        @if (encabezado()) {
+          <div class="estado-bar">
+            <p-tag [value]="estado()" [severity]="estadoSeverity(estado())"></p-tag>
+            @if (encabezado()?.NoControl) {
+              <span class="info-chip">No. Control: {{ encabezado()?.NoControl }}</span>
+            }
+            @if (encabezado()?.TOTAL_FACTURA) {
+              <span class="info-chip total-chip">Total: {{ formatCurrency(encabezado()!.TOTAL_FACTURA) }}</span>
+            }
+          </div>
+        }
+
+        @if (loading()) {
+          <div class="loading-box"><p-progressSpinner></p-progressSpinner></div>
+        } @else {
+          <div class="form-actions-top">
+            @if (canEdit()) {
+              <p-button label="Guardar" icon="pi pi-save" [loading]="saving()"
+                (onClick)="saveHeader()" severity="info"></p-button>
+            }
+            @if (canAplicar()) {
+              <p-button label="Aplicar" icon="pi pi-check" [loading]="aplicando()"
+                (onClick)="aplicar(true)"></p-button>
+            }
+            @if (canDesaplicar()) {
+              <p-button label="Desaplicar" icon="pi pi-undo" severity="secondary" [loading]="aplicando()"
+                (onClick)="aplicar(false)"></p-button>
+            }
+            @if (canEmit()) {
+              <p-button label="Emitir DTE" icon="pi pi-send" [loading]="emitting()"
+                (onClick)="emitirDTE()"></p-button>
+            }
+            @if (isEmitido()) {
+              <p-button label="Ver Comprobante" icon="pi pi-file-pdf" severity="secondary"
+                (onClick)="verComprobante()"></p-button>
+            }
+            @if (canAnular()) {
+              <p-button label="Anular" icon="pi pi-ban" severity="danger" [outlined]="true"
+                (onClick)="openAnulacion()"></p-button>
+            }
+          </div>
+
+          <p-tabs [value]="activeTab()" (valueChange)="activeTab.set($any($event))">
+            <p-tablist>
+              <p-tab value="encabezado">Encabezado</p-tab>
+              <p-tab value="detalle" [disabled]="!encabezado()?.PREFIJO">Detalle</p-tab>
+              <p-tab value="fpago" [disabled]="!encabezado()?.idFactura">Forma de Pago</p-tab>
+            </p-tablist>
+            <p-tabpanels>
+
+              <!-- TAB ENCABEZADO -->
+              <p-tabpanel value="encabezado">
+                <form [formGroup]="headerForm" class="enc-form">
+                  <div class="field-grid">
+
+                    <div class="field-item field-wide">
+                      <label>Cliente *</label>
+                      <p-autocomplete
+                        [suggestions]="clienteSugerencias()"
+                        [dropdown]="true"
+                        [forceSelection]="true"
+                        [minLength]="2"
+                        [appendTo]="'body'"
+                        [autoZIndex]="true"
+                        [baseZIndex]="1300"
+                        optionLabel="NOMBRE"
+                        (completeMethod)="buscarClientes($event.query)"
+                        (onSelect)="onClienteSelected($event.value)"
+                        formControlName="CLIENTE_DISPLAY"
+                        placeholder="Buscar cliente…"
+                        [disabled]="!canEdit()"
+                      ></p-autocomplete>
+                    </div>
+
+                    <div class="field-item field-wide">
+                      <label>Razón Social / Donante</label>
+                      <input pInputText formControlName="FACTURAR_A" [readonly]="!canEdit()" />
+                    </div>
+
+                    <div class="field-item">
+                      <label>Fecha *</label>
+                      <input pInputText type="date" formControlName="FECHA" [readonly]="!canEdit()" />
+                    </div>
+
+                    <div class="field-item">
+                      <label>NIT</label>
+                      <input pInputText formControlName="NIT" [readonly]="!canEdit()" />
+                    </div>
+
+                    <div class="field-item">
+                      <label>NRC</label>
+                      <input pInputText formControlName="NRC" [readonly]="!canEdit()" />
+                    </div>
+
+                    <div class="field-item">
+                      <label>Correo</label>
+                      <input pInputText formControlName="CorreoCliente" [readonly]="!canEdit()" />
+                    </div>
+
+                    <div class="field-item field-wide">
+                      <label>Observaciones</label>
+                      <input pInputText formControlName="OBSERVACIONES" [readonly]="!canEdit()" />
+                    </div>
+
+                  </div>
+
+                  <div class="ref-section">
+                    <h3>Referencia del Documento</h3>
+                    <div class="field-grid">
+                      <div class="field-item">
+                        <label>Doc. Asociado (Emisor/Receptor)</label>
+                        <input pInputText formControlName="codDocAsociado" [readonly]="!canEdit()"
+                          placeholder="EMISOR / RECEPTOR" />
+                      </div>
+                      <div class="field-item">
+                        <label>Descripción del Documento</label>
+                        <input pInputText formControlName="descDocumento" [readonly]="!canEdit()" />
+                      </div>
+                      <div class="field-item field-wide">
+                        <label>Detalle del Documento</label>
+                        <input pInputText formControlName="detalleDocumento" [readonly]="!canEdit()" />
+                      </div>
+                    </div>
+                  </div>
+
+                  @if (clientePerfil(); as p) {
+                    <div class="cliente-info">
+                      <h3>Datos del Cliente</h3>
+                      <div class="info-grid">
+                        <div class="info-row"><span>NIT</span><span>{{ p.NIT }}</span></div>
+                        <div class="info-row"><span>NRC</span><span>{{ p.REGISTRO_COMERCIO }}</span></div>
+                        <div class="info-row"><span>Giro</span><span>{{ p.Giro }}</span></div>
+                        <div class="info-row"><span>Correo</span><span>{{ p.CORREO_ELECTRONICO }}</span></div>
+                        <div class="info-row field-wide"><span>Dirección</span><span>{{ p.DIRECCION }}</span></div>
+                      </div>
+                    </div>
+                  }
+                </form>
+              </p-tabpanel>
+
+              <!-- TAB DETALLE -->
+              <p-tabpanel value="detalle">
+                @if (isAnulado()) {
+                  <p-message severity="warn" text="Este comprobante está anulado."></p-message>
+                } @else if (canAddDetalle()) {
+                  <form [formGroup]="detalleForm" class="detalle-form">
+                    <div class="field-grid">
+
+                      <div class="field-item">
+                        <label>Tipo Donación *</label>
+                        <p-select [options]="tipoDonacionOpts()" optionLabel="Descripcion" optionValue="ID"
+                          formControlName="TipoDonacion" placeholder="Seleccione..."></p-select>
+                      </div>
+
+                      <div class="field-item">
+                        <label>Artículo *</label>
+                        <p-select [options]="articulosOpts()" optionLabel="label" optionValue="value"
+                          formControlName="Articulo"
+                          (onChange)="onArticuloChange($event.value)"
+                          placeholder="Seleccione..."></p-select>
+                      </div>
+
+                      <div class="field-item field-wide">
+                        <label>Descripción</label>
+                        <input pInputText formControlName="Descripcion" />
+                      </div>
+
+                      <div class="field-item">
+                        <label>Unidad de Medida *</label>
+                        <p-select [options]="unidadesOpts()" optionLabel="label" optionValue="value"
+                          formControlName="Unidad_Medida" placeholder="Seleccione..."></p-select>
+                      </div>
+
+                      <div class="field-item">
+                        <label>Cantidad *</label>
+                        <input pInputText type="number" formControlName="Cantidad" min="0.01" step="0.01" />
+                      </div>
+
+                      <div class="field-item">
+                        <label>Precio Unitario *</label>
+                        <input pInputText type="number" formControlName="PrecioUnitario" min="0" step="0.01" />
+                      </div>
+
+                      <div class="field-item">
+                        <label>Depreciación</label>
+                        <input pInputText type="number" formControlName="Depreciacion" min="0" step="0.01" />
+                      </div>
+
+                    </div>
+
+                    @if (errorDetalle()) {
+                      <p-message severity="error" [text]="errorDetalle()"></p-message>
+                    }
+
+                    <div class="detalle-add-btn">
+                      <p-button label="Agregar" icon="pi pi-plus" severity="info"
+                        [loading]="addingDetalle()" (onClick)="addDetalle()"></p-button>
+                    </div>
+                  </form>
+                }
+
+                @if (loadingDetalle()) {
+                  <div class="loading-box"><p-progressSpinner></p-progressSpinner></div>
+                } @else {
+                  <div class="table-wrap">
+                    <table class="detalle-table" aria-label="Detalle del comprobante">
+                      <thead>
+                        <tr>
+                          @if (canAddDetalle()) { <th class="actions-col">Acción</th> }
+                          <th>Artículo</th>
+                          <th>Descripción</th>
+                          <th>Unidad</th>
+                          <th>Cantidad</th>
+                          <th>Precio</th>
+                          <th>Total</th>
+                          <th>Deprec.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (row of detalle(); track row.ID) {
+                          <tr>
+                            @if (canAddDetalle()) {
+                              <td class="actions-col">
+                                <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                                  (onClick)="deleteDetalle(row)"></p-button>
+                              </td>
+                            }
+                            <td>{{ row.ARTICULO }}</td>
+                            <td>{{ row.DESCRIPCION }}</td>
+                            <td>{{ row.UNIDAD_MEDIDA }}</td>
+                            <td>{{ row.CANTIDAD }}</td>
+                            <td>{{ formatCurrency(row.PRECIO_UNITARIO) }}</td>
+                            <td>{{ formatCurrency(row.TOTAL) }}</td>
+                            <td>{{ formatCurrency(row.Depreciacion) }}</td>
+                          </tr>
+                        } @empty {
+                          <tr><td [attr.colspan]="canAddDetalle() ? 8 : 7">Sin líneas de detalle.</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </p-tabpanel>
+
+              <!-- TAB FORMA DE PAGO -->
+              <p-tabpanel value="fpago">
+                @if (errorFP()) {
+                  <p-message severity="error" [text]="errorFP()"></p-message>
+                }
+
+                @if (!isAnulado() && encabezado()) {
+                  <div class="fp-add-form">
+                    <p-select [options]="formasPagoCatOpts()" optionLabel="label" optionValue="value"
+                      [ngModel]="fpCodigo()" (ngModelChange)="fpCodigo.set($event)"
+                      [ngModelOptions]="{ standalone: true }"
+                      placeholder="Forma de pago"></p-select>
+                    <input pInputText type="number" [value]="fpMonto()"
+                      (input)="fpMonto.set(+$any($event.target).value)"
+                      placeholder="Monto" min="0" step="0.01" />
+                    <p-button label="Agregar" icon="pi pi-plus" severity="info"
+                      [disabled]="!fpCodigo() || fpMonto() <= 0"
+                      (onClick)="addFormaPago()"></p-button>
+                  </div>
+                }
+
+                <div class="table-wrap">
+                  <table class="fp-table" aria-label="Formas de pago">
+                    <thead>
+                      <tr>
+                        @if (!isAnulado()) { <th class="actions-col">Acción</th> }
+                        <th>Forma de Pago</th>
+                        <th>Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (fp of formasPago(); track fp.CODIGO) {
+                        <tr>
+                          @if (!isAnulado()) {
+                            <td class="actions-col">
+                              <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                                (onClick)="deleteFormaPago(fp)"></p-button>
+                            </td>
+                          }
+                          <td>{{ fp.DESCRIPCION }}</td>
+                          <td>{{ formatCurrency(fp.MONTO) }}</td>
+                        </tr>
+                      } @empty {
+                        <tr><td [attr.colspan]="isAnulado() ? 2 : 3">Sin formas de pago.</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </p-tabpanel>
+
+            </p-tabpanels>
+          </p-tabs>
+        }
+      </p-card>
+    </section>
+  }
+
+</section>
+
+<!-- Diálogo Anulación -->
+<p-dialog header="Anular Comprobante de Donación" [visible]="anulacionDialogVisible()"
+  (visibleChange)="anulacionDialogVisible.set($event)"
+  [modal]="true" [style]="{ width: '420px' }">
+  <div class="anulacion-body">
+    <p>Motivo de la anulación:</p>
+    <input pInputText [value]="anulacionMotivo()"
+      (input)="anulacionMotivo.set($any($event.target).value)"
+      placeholder="Motivo" style="width:100%" />
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" (onClick)="anulacionDialogVisible.set(false)"></p-button>
+    <p-button label="Confirmar Anulación" severity="danger" icon="pi pi-ban"
+      [loading]="anulando()" [disabled]="!anulacionMotivo().trim()"
+      (onClick)="confirmarAnulacion()"></p-button>
+  </ng-template>
+</p-dialog>

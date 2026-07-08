@@ -153,6 +153,13 @@ export interface ArticuloPorBodegaDto {
   cantidadmayoreo: number;
 }
 
+export interface InfoVentaArticuloDto {
+  ultimoPrecio: number;
+  precioMayoreo: number;
+  cantidadMayoreo: number;
+  existencia: number;
+}
+
 export interface FormaPagoDto {
   Codigo: string;
   Descripcion: string;
@@ -399,3 +406,65 @@ export interface UpdatePrecioConIvaDto {
   IdFactura: number;
   PrecioConIva: boolean;
 }
+
+export interface CcfParaNcDto {
+  Prefijo: string;
+  Factura: string;
+  Sucursal: string;
+  PuntoVenta: string;
+  Fecha: string;
+  TotalFacturar: number;
+  Sumas: number;
+  TotalImpuesto1: number;
+  Cliente: string;
+  FacturarA: string;
+  NumeroControl: string;
+  CodigoGeneracion: string;
+  TipoFactura: string;
+  TotalRegistros: number;
+}
+
+export interface UpdateDetalleFacturaDescuentoDto {
+  CodGeneracion: string;
+  Sucursal: string;
+  PuntoVenta: string;
+  TipoFactura: string;
+  Cantidad: number;
+  Articulo: string;
+  Descripcion: string;
+  PrecioUnitario: number;
+  CostoUnitario: number;
+  Calidad: string;
+  Bodega: string;
+  UnidadMedida: string;
+  Usuario: string;
+  TipoMtto: string;
+  Linea: number;
+  SubTotal: number;
+  IVA: number;
+  Impuesto2: number;
+  Impuesto3: number;
+  Retencion: number;
+  TipoDescuento: string;
+  Descuento: number;
+  TipoColor: string;
+  IdColor: number;
+  IdAcabado: string;
+}
+
+export interface UpdateFacturaDevolucionDto {
+  PrefijoNc: string;
+  FacturaNc: string;
+  SucursalNc: string;
+  PuntoVentaNc: string;
+  TipoFacturaNc: string;
+  PrefijoCcf: string;
+  FacturaCcf: string;
+  SucursalCcf: string;
+  PuntoVentaCcf: string;
+  TipoFacturaCcf: string;
+  TipoMtto: string;
+  Usuario: string;
+}
+
+export type NcModo = 'DESCUENTO' | 'DEVOLUCION';

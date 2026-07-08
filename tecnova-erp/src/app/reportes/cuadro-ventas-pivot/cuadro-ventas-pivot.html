@@ -1,0 +1,31 @@
+<p-toast />
+
+<div class="pivot-wrapper">
+
+  <div class="top-bar">
+    <div class="top-bar-title">
+      <i class="bi bi-table"></i>
+      <span>Cuadro de Ventas</span>
+    </div>
+
+    <div class="top-bar-filters">
+      <label class="inline-label">Desde</label>
+      <input type="date" class="date-input" [ngModel]="fechaDesde()" (ngModelChange)="fechaDesde.set($event)" />
+      <label class="inline-label">Hasta</label>
+      <input type="date" class="date-input" [ngModel]="fechaHasta()" (ngModelChange)="fechaHasta.set($event)" />
+      <p-button label="Generar" icon="pi pi-play" size="small" [loading]="loading()" (onClick)="generarReporte()" />
+    </div>
+
+    @if (totalReg() > 0 && !loading()) {
+      <div class="reg-badge">
+        <i class="bi bi-check-circle-fill"></i>
+        {{ totalReg() | number }} reg.
+      </div>
+    }
+  </div>
+
+  <div class="pivot-container-wrapper">
+    <div #pivotContainer class="pivot-host"></div>
+  </div>
+
+</div>

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
@@ -41,7 +41,10 @@ import {
 import { environment } from '../../../../environments/environment';
 import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
 import { FacturacionService } from '../services/facturacion';
+import { ReciboService, ReciboDatos } from '../services/recibo';
 import { ArticulosLazyService } from '../services/articulos-lazy.service';
+import { ReenviarCorreoDialogComponent } from '../../../shared/components/reenviar-correo-dialog/reenviar-correo-dialog';
+import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
 
 @Component({
   selector: 'app-fac',
@@ -55,19 +58,32 @@ import { ArticulosLazyService } from '../services/articulos-lazy.service';
     InputTextModule,
     ProgressSpinnerModule,
     ToastModule,
-    DialogModule
+    DialogModule,
+    ReenviarCorreoDialogComponent,
+    EliminarConfirmDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './fac.html',
   styleUrls: ['./fac.scss']
 })
 export class FacComponent {
+  @ViewChild(ReenviarCorreoDialogComponent) reenviarCorreoDialog!: ReenviarCorreoDialogComponent;
+  @ViewChild(EliminarConfirmDialogComponent) eliminarConfirmDialog!: EliminarConfirmDialogComponent;
+
   private fb = inject(FormBuilder);
   private platformId = inject(PLATFORM_ID);
   private cdr = inject(ChangeDetectorRef);
   private authService = inject(AuthService);
   private facturacionService = inject(FacturacionService);
+  private reciboService = inject(ReciboService);
   private articulosLazyService = inject(ArticulosLazyService);
+
+  // Excepción ambiente de pruebas (00): igual que en fac-pos, se registra la venta con un recibo
+  // local sin contactar Hacienda. fac.ts solo maneja FAC, así que no hace falta filtrar por tipo.
+  // En ambiente 1 esAmbientePrueba() siempre es false y no cambia nada del comportamiento actual.
+  esAmbientePrueba = computed(() => this.getAmbiente() === '00');
+  esRegistroSinDte = computed(() => this.esAmbientePrueba());
+  emitirDteLabel = computed(() => (this.esRegistroSinDte() ? 'Registrar factura' : 'Emitir DTE'));
   private messageService = inject(MessageService);
   private currencyFormatter = new Intl.NumberFormat('es-SV', {
     style: 'currency',
@@ -83,7 +99,6 @@ export class FacComponent {
   saving = signal(false);
   showDetail = signal(false);
   confirmClienteDialogVisible = signal(false);
-  confirmDeleteFacturaDialogVisible = signal(false);
   anulacionDialogVisible = signal(false);
   confirmAnulacionDialogVisible = signal(false);
   anulacionMotivo = signal('');
@@ -134,13 +149,36 @@ filtrarClientesSelector(event: Event): void {
 cancelarSelectorCliente(): void {
   this.showClienteSelectorDialog.set(false);
 }
+
+refreshClientes(): void {
+  this.loadingClientes.set(true);
+  this.facturacionService.clearClientesCache();
+  this.facturacionService.getPerfilClientes()
+    .pipe(finalize(() => this.loadingClientes.set(false)))
+    .subscribe({
+      next: (rows) => {
+        const profiles = rows ?? [];
+        this.perfilClientes.set(profiles);
+        this.clientesFiltradosParaTabla.set(profiles);
+        const clientes = Array.from(
+          new Set(profiles.map((item) => String(item.NOMBRE ?? '').trim()).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b));
+        this.clientesOptions.set(clientes);
+        this.clienteSuggestions.set([...clientes]);
+      },
+      error: () => {
+        this.perfilClientes.set([]);
+        this.clientesOptions.set([]);
+        this.clienteSuggestions.set([]);
+      }
+    });
+}
   private facturaTotalesRequestInFlightForId: number | null = null;
 
   facturas = signal<FacturaGeneralDto[]>([]);
   detalleRows = signal<FacturaDetalleDto[]>([]);
   sucursalPuntoRows = signal<SucursalPuntoVendedorDto[]>([]);
   selectedFactura = signal<FacturaGeneralDto | null>(null);
-  facturaToDelete = signal<FacturaGeneralDto | null>(null);
 
   emisionPanelOpen = signal(false);
   emisionSteps = signal<EmisionStep[]>([]);
@@ -157,6 +195,7 @@ cancelarSelectorCliente(): void {
   articuloSuggestions = signal<string[]>([]);
   articuloAutoLoading = signal(false);
   articuloAutoTotal = signal(0);
+  loadingClientes = signal(false);
   formasPagoOptions = signal<FormaPagoDto[]>([]);
   retencionesOptions = signal<RetencionCatalogoDto[]>([]);
   condicionesPagoOptions = signal<CondicionPagoCatalogoDto[]>([]);
@@ -242,6 +281,8 @@ cancelarSelectorCliente(): void {
     LineaDescripcion: [''],
     LineaCantidad: this.fb.control(1, { nonNullable: true }),
     LineaPrecio: this.fb.control(0, { nonNullable: true }),
+    LineaPrecioMayoreo: this.fb.control(0, { nonNullable: true }),
+    LineaCantidadMinimaMayoreo: this.fb.control(0, { nonNullable: true }),
     Sumas: this.fb.control(0, { nonNullable: true }),
     Descuentos: this.fb.control(0, { nonNullable: true }),
     TotalOperacion: this.fb.control(0, { nonNullable: true }),
@@ -601,6 +642,22 @@ cancelarSelectorCliente(): void {
     });
   }
 
+  onReenviarCorreo(item: FacturaGeneralDto): void {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const idFactura = this.toNumber(item.iddoc);
+    const perfil = this.perfilClientes().find((c) => String(c.CLIENTE ?? '').trim() === String(item.CLIENTE ?? '').trim());
+    const correoDefault = String(perfil?.CORREO_ELECTRONICO ?? '').trim();
+
+    if (this.esAmbientePrueba()) {
+      this.reenviarCorreoDialog.abrir(idEmpresa, idFactura, 'FAC', correoDefault, (correoDestino) =>
+        this.enviarReciboDesdeListado(item, correoDestino)
+      );
+      return;
+    }
+
+    this.reenviarCorreoDialog.abrir(idEmpresa, idFactura, 'FAC', correoDefault);
+  }
+
   guardar() {
     if (!this.canSave()) {
       this.showError('Facturación FAC', 'Solo las facturas en elaboración permiten guardar cambios.');
@@ -741,25 +798,7 @@ cancelarSelectorCliente(): void {
       return;
     }
 
-    this.facturaToDelete.set(item);
-    this.confirmDeleteFacturaDialogVisible.set(true);
-  }
-
-  cancelarEliminarFactura() {
-    this.confirmDeleteFacturaDialogVisible.set(false);
-    this.facturaToDelete.set(null);
-  }
-
-  confirmarEliminarFactura() {
-    const target = this.facturaToDelete();
-    this.confirmDeleteFacturaDialogVisible.set(false);
-
-    if (!target) {
-      this.showError('Facturación FAC', 'No hay factura seleccionada para eliminar.');
-      return;
-    }
-
-    this.eliminarFactura(target);
+    this.eliminarConfirmDialog.abrir(() => this.eliminarFactura(item));
   }
 
   eliminarFactura(item: FacturaGeneralDto, retryAfterDesaplicar: boolean = true) {
@@ -1002,6 +1041,11 @@ cancelarSelectorCliente(): void {
       return;
     }
 
+    if (this.esRegistroSinDte() && this.currentEstado() === 'APLICADO') {
+      this.imprimirRecibo();
+      return;
+    }
+
     const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
     if (!idEmpresa) {
       this.showError('Facturación FAC', 'No se encontró IdEmpresa en la sesión.');
@@ -1034,6 +1078,11 @@ cancelarSelectorCliente(): void {
     const idFactura = this.facForm.controls.IdFactura.value;
     if (!idFactura) {
       this.showError('Facturación FAC', 'Debe guardar la factura antes de emitir DTE.');
+      return;
+    }
+
+    if (this.esRegistroSinDte()) {
+      this.registrarFacturaSinDte();
       return;
     }
 
@@ -1153,6 +1202,9 @@ cancelarSelectorCliente(): void {
     const normalized = this.normalizeEstadoValue(estado);
 
     if (normalized === 'APLICADO') {
+      if (this.esRegistroSinDte()) {
+        return 'EMITIDO';
+      }
       return this.isSelloRecepcionEmpty(selloRecepcion) ? 'PENDIENTE_EMITIR' : 'EMITIDO';
     }
 
@@ -1399,8 +1451,11 @@ cancelarSelectorCliente(): void {
       LineaArticuloDisplay: this.toArticuloDisplay(articulo),
       LineaArticulo: articulo.ARTICULO,
       LineaDescripcion: articulo.DESCRIPCION,
-      LineaPrecio: articulo.ULTIMO_PRECIO ?? 0
+      LineaPrecio: articulo.ULTIMO_PRECIO ?? 0,
+      LineaPrecioMayoreo: articulo.PRECIO_MAYOREO ?? 0,
+      LineaCantidadMinimaMayoreo: articulo.cantidadmayoreo ?? 0
     });
+    this.focusLineaCantidadInput();
   }
 
   onRetencionChange(value: string) {
@@ -1426,6 +1481,52 @@ cancelarSelectorCliente(): void {
     this.facForm.patchValue({ RetencionIvaCodigo: '' });
     this.syncTotalsFromDetalle();
     this.updateFacturaRetencion('');
+  }
+
+  private focusLineaCantidadInput() {
+    if (!isPlatformBrowser(this.platformId) || typeof document === 'undefined') return;
+    requestAnimationFrame(() => {
+      const input = document.getElementById('linea-cant') as HTMLInputElement | null;
+      if (!input || input.readOnly || input.disabled) return;
+      input.focus();
+      input.select();
+    });
+  }
+
+  private refreshDetalleYTotales() {
+    const raw = this.facForm.getRawValue();
+    const selected = this.selectedFactura();
+    let prefijo = selected?.Prefijo || '';
+    let factura = selected?.Factura || '';
+
+    if (!prefijo && !factura) {
+      const codGeneracion = String(raw.CodGeneracion ?? '').trim();
+      if (codGeneracion && codGeneracion.length >= 36) {
+        prefijo = codGeneracion.substring(0, 18);
+        factura = codGeneracion.substring(18, 36);
+      }
+    }
+
+    const sucursal = String(selected?.CODIGOSUCURSAL || selected?.SUCURSAL || raw.Sucursal || '').trim();
+    const puntoVenta = String(selected?.PUNTO_VENTA || raw.PuntoVenta || '').trim();
+
+    if (!prefijo || !factura) return;
+
+    this.loadingDetail.set(true);
+    this.facturacionService.getFacturaDetalle(prefijo, factura, sucursal, puntoVenta, 'FAC')
+      .pipe(finalize(() => {
+        this.loadingDetail.set(false);
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: (detalle) => {
+          this.detalleRows.set(detalle ?? []);
+          this.syncTotalsFromDetalle();
+        },
+        error: (error) => {
+          this.showError('Facturación FAC', this.extractError(error, 'No se pudo recargar el detalle actualizado.'));
+        }
+      });
   }
 
   private loadFacturaRetenciones(
@@ -1668,6 +1769,23 @@ cancelarSelectorCliente(): void {
     return this.currencyFormatter.format(this.toNumber(value));
   }
 
+  fmtFecha(value: unknown): string {
+    const text = String(value ?? '').trim();
+    if (!text) return '—';
+    const m1 = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+.*)?$/);
+    if (m1) {
+      const hasMeridiem = /\b(?:AM|PM)\b/i.test(text);
+      let day = Number(m1[1]), month = Number(m1[2]);
+      if (hasMeridiem || month > 12) { month = day; day = Number(m1[2]); }
+      return `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${m1[3]}`;
+    }
+    const m2 = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+.*)?$/);
+    if (m2) return `${m2[3]}/${m2[2]}/${m2[1]}`;
+    const d = new Date(text.includes('T') ? text : text.replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return text;
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
+
   agregarDetalleManual(skipAutoSave: boolean = false) {
     if (this.isReadOnlyField()) {
       return;
@@ -1751,15 +1869,15 @@ cancelarSelectorCliente(): void {
 
     this.facturacionService.updateDetalleFactura(payload).subscribe({
       next: () => {
-        this.detalleRows.update((rows) => [...rows, newRow]);
-        this.syncTotalsFromDetalle();
-
+        this.refreshDetalleYTotales();
         this.facForm.patchValue({
           LineaArticuloDisplay: '',
           LineaArticulo: '',
           LineaDescripcion: '',
           LineaCantidad: 1,
-          LineaPrecio: 0
+          LineaPrecio: 0,
+          LineaPrecioMayoreo: 0,
+          LineaCantidadMinimaMayoreo: 0
         });
       },
       error: (error) => {
@@ -1825,8 +1943,7 @@ cancelarSelectorCliente(): void {
 
     this.facturacionService.updateDetalleFactura(payload).subscribe({
       next: () => {
-        this.detalleRows.set(rowsAfter);
-        this.syncTotalsFromDetalle();
+        this.refreshDetalleYTotales();
       },
       error: (error) => {
         this.showError('Facturación FAC', this.extractError(error, 'No se pudo eliminar el detalle de factura.'));
@@ -2436,6 +2553,129 @@ this.clientesFiltradosParaTabla.set(profiles);
       { key: 'sync', label: 'Sincronizando datos', status: 'pending' },
       { key: 'correo', label: 'Correo y formato visual', status: 'pending' }
     ]);
+  }
+
+  // Ambiente de pruebas: se salta el contacto con Hacienda y va directo al recibo + correo directo.
+  // Ambiente de pruebas: el recibo se muestra de inmediato y el correo se envía en segundo
+  // plano (si falla se avisa; si no, se asume enviado).
+  private registrarFacturaSinDte() {
+    const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
+    if (!idFactura) {
+      this.showError('Facturación FAC', 'Debe guardar la factura antes de continuar.');
+      return;
+    }
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const datos = this.buildReciboDatosDesdeForm();
+    const correoDestino = String(this.facForm.controls.CorreoElectronico?.value ?? '').trim();
+
+    // 1. Recibo al instante + UI liberada + listado actualizado. No esperamos al PDF ni al correo.
+    this.emitting.set(false);
+    this.openDteVisualPreview(this.reciboService.buildDocumentoVisual(datos));
+    this.showInfo('Facturación FAC', 'Factura registrada correctamente.');
+    this.loadMaestro();
+
+    // 2. Envío del recibo por correo en segundo plano.
+    if (!correoDestino) {
+      this.showInfo('Facturación FAC', 'El cliente no tiene correo registrado; el recibo no se envió.');
+      return;
+    }
+    this.enviarReciboEnSegundoPlano(idEmpresa, idFactura, datos, correoDestino);
+  }
+
+  // El rasterizado (html2canvas) congela el hilo principal; con el defer el recibo ya está
+  // pintado antes de empezar, y el envío SMTP es async y no bloquea.
+  private enviarReciboEnSegundoPlano(idEmpresa: number, idFactura: number, datos: ReciboDatos, correoDestino: string): void {
+    setTimeout(() => {
+      this.reciboService.generarReciboPdfBase64(datos)
+        .then((pdfBase64) => {
+          this.facturacionService
+            .enviarReciboDirecto(idEmpresa, idFactura, 'FAC', correoDestino, pdfBase64, `Recibo_${idFactura}.pdf`)
+            .subscribe({
+              next: () => this.showInfo('Facturación FAC', 'Recibo enviado por correo.'),
+              error: (err) => this.showError('Facturación FAC', this.extractError(err, 'No se pudo enviar el recibo por correo.'))
+            });
+        })
+        .catch(() => this.showError('Facturación FAC', 'No se pudo generar el PDF del recibo para el envío.'));
+    }, 50);
+  }
+
+  private imprimirRecibo() {
+    const datos = this.buildReciboDatosDesdeForm();
+    const ok = this.reciboService.imprimirRecibo(datos);
+    if (!ok) {
+      this.showError('Facturación FAC', 'El navegador bloqueó la vista de la factura. Asegúrese de permitir ventanas emergentes.');
+    }
+  }
+
+  private formatDateDisplay(value: unknown): string {
+    const text = String(value ?? '').trim();
+    if (!text) return '—';
+
+    const yyyyMmDdWithOptionalTime = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+.*)?$/);
+    if (yyyyMmDdWithOptionalTime) {
+      return `${yyyyMmDdWithOptionalTime[3]}/${yyyyMmDdWithOptionalTime[2]}/${yyyyMmDdWithOptionalTime[1]}`;
+    }
+
+    const normalized = text.includes('T') ? text : text.replace(' ', 'T');
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) {
+      return text;
+    }
+
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  }
+
+  private buildReciboDatosDesdeForm(): ReciboDatos {
+    return this.buildReciboDatos(this.facForm.getRawValue(), this.detalleRows(), this.isAnonimoClient());
+  }
+
+  private buildReciboDatos(raw: Record<string, unknown>, detalles: FacturaDetalleDto[], anonimo: boolean): ReciboDatos {
+    const empresa = this.authService.currentUser()?.selectedEmpresa;
+    const logoSrc = empresa?.logo ? (empresa.logo.startsWith('http') ? empresa.logo : `data:image/png;base64,${empresa.logo}`) : '';
+    const nombreEmpresa = empresa?.nombreComercial || empresa?.nombre || 'EMPRESA';
+    const codigoDocumento = String(raw['CodGeneracion'] ?? '').trim() || '---';
+    const fechaEmision = this.formatDateDisplay(raw['Fecha']);
+    const clienteNombre = anonimo
+      ? (String(raw['NombreFacturarA'] ?? '').trim() || 'Sr(a)')
+      : (String(raw['FacturarA'] ?? '').trim() || String(raw['Cliente'] ?? '').trim() || 'Consumidor Final');
+
+    return {
+      nombreEmpresa,
+      logoSrc,
+      clienteNombre,
+      codigoDocumento,
+      fechaEmision,
+      lineas: detalles.map((item) => ({
+        cantidad: this.toNumber(item.CANTIDAD),
+        descripcion: item.DESCRIPCION,
+        precioUnitario: this.toNumber(item.PRECIO_UNITARIO),
+        total: this.toNumber((item as unknown as { TotalVenta?: number }).TotalVenta ?? item.TOTAL)
+      })),
+      subtotal: this.toNumber(raw['Sumas']),
+      descuento: this.toNumber(raw['Descuentos']),
+      total: this.toNumber(raw['TotalFactura'])
+    };
+  }
+
+  // Reenvío directo (sin maildte) para documentos FAC registrados en ambiente de pruebas.
+  private enviarReciboDesdeListado(item: FacturaGeneralDto, correoDestino: string): Observable<unknown> {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const idFactura = this.toNumber(item.iddoc);
+    const sucursal = String((item as unknown as { CODIGOSUCURSAL?: string; SUCURSAL?: string }).CODIGOSUCURSAL || (item as unknown as { SUCURSAL?: string }).SUCURSAL || '').trim();
+    const puntoVenta = String((item as unknown as { PUNTO_VENTA?: string }).PUNTO_VENTA || '').trim();
+
+    return forkJoin({
+      encabezado: this.facturacionService.getFacturaEncabezado(item.Prefijo, item.Factura, sucursal, puntoVenta, idEmpresa),
+      detalle: this.facturacionService.getFacturaDetalle(item.Prefijo, item.Factura, sucursal, puntoVenta, 'FAC')
+    }).pipe(
+      switchMap(({ encabezado, detalle }) => {
+        const datos = this.buildReciboDatos(encabezado as unknown as Record<string, unknown>, detalle ?? [], false);
+        return this.reciboService.generarReciboPdfBase64(datos).then((pdfBase64) => pdfBase64);
+      }),
+      switchMap((pdfBase64) =>
+        this.facturacionService.enviarReciboDirecto(idEmpresa, idFactura, 'FAC', correoDestino, pdfBase64, `Recibo_${idFactura}.pdf`)
+      )
+    );
   }
 
   private setStep(key: string, status: EmisionStep['status'], detail?: string) {

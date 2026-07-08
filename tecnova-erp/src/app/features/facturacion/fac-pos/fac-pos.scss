@@ -218,9 +218,16 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   .pi { font-size: 2.5rem; }
 }
 
+.pos-venta-tipo-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
 /* Botón de pago pendiente dentro de la card POS */
 .pos-venta-pago-btn {
-  margin-left: auto;
   width: 1.65rem;
   height: 1.65rem;
   border-radius: 50%;
@@ -237,6 +244,28 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
 
   &:hover {
     background: #bbf7d0;
+    transform: scale(1.12);
+  }
+}
+
+/* Botón de reenviar correo dentro de la card POS */
+.pos-venta-correo-btn {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  border: 1.5px solid #64748b;
+  background: #f1f5f9;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.12s;
+
+  &:hover {
+    background: #e2e8f0;
     transform: scale(1.12);
   }
 }
@@ -1103,9 +1132,13 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   gap: 0.65rem;
 }
 
+// Apila verticalmente: la fila de autocomplete + "Ver información" arriba y el
+// campo Correo (.pos-client-meta) abajo a ancho completo. Antes era una fila y el
+// correo quedaba aplastado con el espacio sobrante (~150px) en tablet/escritorio.
 .pos-client-compact-search {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.5rem;
   min-width: 0;
 }
@@ -1188,6 +1221,21 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+
+  input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 2.15rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid $pos-border;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    outline: none;
+
+    &:focus { border-color: $pos-primary; }
+    &[readonly] { background: #f9fafb; color: $pos-text-muted; }
+  }
 }
 
 .pos-client-meta-row {
@@ -1806,6 +1854,20 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
   }
 }
 
+// ── Tablet/móvil: campo de correo cómodo para lectura y escritura (≤1024px) ──
+@media (max-width: 1024px) {
+  .pos-client-meta-label {
+    font-size: 0.82rem;
+  }
+
+  .pos-client-meta-item input {
+    width: 100%;
+    height: 2.75rem;
+    font-size: 1rem; // ≥16px: evita el zoom automático de iOS al enfocar
+    padding: 0.5rem 0.75rem;
+  }
+}
+
 // ── Móvil: mejoras generales (≤600px) ─────────────────────────────────────
 @media (max-width: 600px) {
   // Reposicionar "Ver más información": mostrar en pos-left, ocultar en pos-right
@@ -1852,5 +1914,26 @@ $pos-shadow:      0 1px 4px rgba(0, 0, 0, 0.08);
 
   .pos-client-dialog-field-wide {
     grid-column: auto;
+  }
+}
+
+// Aviso de existencia en el diálogo de selección de artículo (imágenes)
+.pos-existencia-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+
+  &--danger {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
   }
 }

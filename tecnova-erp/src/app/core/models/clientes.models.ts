@@ -37,6 +37,7 @@ export interface ClienteDetalleDTO {
   IDMUNICIPIO: string;
   TELEFONO: string;
   NIT: string;
+  DUI: string;
   REGISTRO_COMERCIO: string;
   CORREO_ELECTRONICO: string;
   CONDICION_PAGO: string;

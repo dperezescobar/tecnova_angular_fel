@@ -1,0 +1,138 @@
+:host {
+  display: block;
+  --man-primary: #2563eb;
+  --man-ink: #1f2937;
+  --man-muted: #64748b;
+  --man-border: #e2e8f0;
+  --man-surface: #ffffff;
+  --man-bg: #f6f8fb;
+}
+
+.man-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.man-hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--man-ink);
+  }
+
+  p {
+    margin: 0.25rem 0 0;
+    color: var(--man-muted);
+    font-size: 0.95rem;
+  }
+}
+
+.man-hero-icon {
+  flex-shrink: 0;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--man-primary), #1e40af);
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.man-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.man-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.1rem 1.15rem;
+  background: var(--man-surface);
+  border: 1px solid var(--man-border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+
+  &:hover {
+    border-color: var(--man-primary);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
+    transform: translateY(-2px);
+  }
+}
+
+.man-card--soon {
+  opacity: 0.6;
+  cursor: default;
+
+  &:hover {
+    border-color: var(--man-border);
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+.man-card-icon {
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff4ff;
+  color: var(--man-primary);
+  font-size: 1.25rem;
+}
+
+.man-card-body {
+  flex: 1;
+  min-width: 0;
+
+  h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--man-ink);
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+    font-size: 0.85rem;
+    color: var(--man-muted);
+    line-height: 1.35;
+  }
+}
+
+.man-card-arrow {
+  flex-shrink: 0;
+  color: var(--man-muted);
+  font-size: 1.1rem;
+}
+
+.man-badge-soon {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--man-muted);
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+@media (max-width: 600px) {
+  .man-hero { flex-direction: column; align-items: flex-start; }
+}

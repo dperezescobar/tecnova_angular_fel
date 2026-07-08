@@ -1,0 +1,628 @@
+<section class="nc-page">
+  <p-toast position="top-right"></p-toast>
+  <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
+  <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
+
+  <!-- Anulación dialog -->
+  <p-dialog
+    header="Anular Nota de Crédito"
+    [(visible)]="anulacionDialogVisible"
+    [modal]="true" [closable]="false" [draggable]="false" [resizable]="false"
+    [style]="{ width: '26rem', maxWidth: '96vw' }"
+  >
+    <div class="nc-anulacion-content">
+      <label class="nc-anulacion-label">Motivo de anulación</label>
+      <input pInputText
+        [ngModel]="anulacionMotivo()"
+        (ngModelChange)="anulacionMotivo.set($event)"
+        placeholder="Descripción del motivo..."
+        class="w-full"
+      />
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancelar" severity="secondary" [outlined]="true"
+        (onClick)="anulacionDialogVisible.set(false)"></p-button>
+      <p-button label="Anular NC" severity="danger" icon="pi pi-ban"
+        [loading]="anulandoDte()"
+        (onClick)="confirmarAnulacion()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+
+  <!-- Quitar CCF dialog -->
+  <p-dialog
+    header="Quitar CCF vinculado"
+    [(visible)]="quitarCcfDialogVisible"
+    [modal]="true" [closable]="false" [draggable]="false" [resizable]="false"
+    [style]="{ width: '30rem', maxWidth: '90vw' }"
+  >
+    <p>¿Desea quitar el CCF vinculado? Se eliminarán las líneas de detalle asociadas para poder seleccionar otro CCF.</p>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancelar" severity="secondary" [disabled]="saving()"
+        (onClick)="cancelarQuitarCcf()"></p-button>
+      <p-button label="Quitar CCF" severity="danger" [loading]="saving()"
+        (onClick)="confirmarQuitarCcf()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Emission panel dialog -->
+  <p-dialog
+    header="Panel de emisión DTE"
+    [(visible)]="emisionPanelOpen"
+    [modal]="false"
+    [closable]="true"
+    [draggable]="true"
+    [resizable]="false"
+    [style]="{ width: '26rem', maxWidth: '90vw' }"
+  >
+    <div class="emision-panel">
+      <ul>
+        @for (step of emisionSteps(); track step.key) {
+          <li [class]="'step-' + step.status">
+            <span class="step-label">{{ step.label }}</span>
+            @if (step.detail) { <span class="step-detail">{{ step.detail }}</span> }
+          </li>
+        }
+      </ul>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button type="button" label="Nueva NC" icon="pi pi-plus-circle"
+        severity="info" [disabled]="emitting()" (onClick)="nuevaNc()"></p-button>
+      <p-button type="button" label="Cerrar" icon="pi pi-times"
+        severity="secondary" [disabled]="emitting()" (onClick)="cerrarEmisionPanel()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- CCF picker dialog -->
+  <p-dialog
+    header="Seleccionar CCF"
+    [(visible)]="ccfPickerVisible"
+    [modal]="true" [closable]="true" [draggable]="false" [resizable]="false"
+    [style]="{ width: '42rem', maxWidth: '96vw', height: '70vh' }"
+  >
+    <div class="ccf-picker-search">
+      <input pInputText placeholder="Buscar por factura, prefijo o fecha..."
+        [ngModel]="ccfPickerBusqueda()"
+        (ngModelChange)="onCcfPickerBusquedaChange($event)"
+        class="w-full"
+      />
+    </div>
+    <div class="ccf-picker-list" (scroll)="onCcfPickerScroll($event)">
+      @if (loadingCcfs() && ccfPickerItems().length === 0) {
+        <div class="loading-box"><p-progressSpinner strokeWidth="4" animationDuration=".6s"></p-progressSpinner></div>
+      }
+      @for (ccf of ccfPickerItems(); track ccf.Factura) {
+        <div class="ccf-picker-item" (click)="onSelectCcf(ccf)">
+          <div class="ccf-picker-item-main">
+            <span class="ccf-num">{{ ccf.Prefijo }}{{ ccf.Factura }}</span>
+            <span class="ccf-fecha">{{ ccf.Fecha }}</span>
+          </div>
+          <div class="ccf-picker-item-sub">
+            <span>{{ ccf.FacturarA || ccf.Cliente }}</span>
+            <span class="ccf-total">{{ formatCurrency(ccf.TotalFacturar) }}</span>
+          </div>
+          @if (ccf.NumeroControl) {
+            <div class="ccf-nocontrol">NC: {{ ccf.NumeroControl }}</div>
+          }
+        </div>
+      }
+      @if (ccfPickerItems().length === 0 && !loadingCcfs()) {
+        <div class="ccf-picker-empty">No hay CCFs emitidos disponibles para este cliente.</div>
+      }
+      @if (loadingCcfs() && ccfPickerItems().length > 0) {
+        <div class="loading-box"><p-progressSpinner strokeWidth="4" animationDuration=".6s"></p-progressSpinner></div>
+      }
+    </div>
+  </p-dialog>
+
+  <!-- ── LIST VIEW ─────────────────────────────────────────────────── -->
+  @if (!showDetail()) {
+    <div class="nc-header">
+      <div class="nc-title-row">
+        <h1>Notas de Crédito</h1>
+        <p-button label="Nueva NC" icon="pi pi-plus" (onClick)="nuevaNc()"></p-button>
+      </div>
+      <div class="header-toolbar">
+        <div class="search-box">
+          <i class="pi pi-search"></i>
+          <input type="text" placeholder="Buscar NC..."
+            [ngModel]="searchText()"
+            (ngModelChange)="searchText.set($event)"
+          />
+        </div>
+        <div class="toolbar-dates">
+          <div class="date-field">
+            <label>Desde</label>
+            <input type="date" [ngModel]="dateDesde()"
+              (ngModelChange)="dateDesde.set($event); onFiltroFechaChange()" />
+          </div>
+          <div class="date-field">
+            <label>Hasta</label>
+            <input type="date" [ngModel]="dateHasta()"
+              (ngModelChange)="dateHasta.set($event); onFiltroFechaChange()" />
+          </div>
+        </div>
+        <div class="toolbar-recargar">
+          <p-button icon="pi pi-refresh" severity="secondary" [outlined]="true"
+            [loading]="loadingList()" (onClick)="loadMaestro()"></p-button>
+        </div>
+      </div>
+    </div>
+
+    @if (loadingList()) {
+      <div class="loading-box"><p-progressSpinner strokeWidth="4" animationDuration=".6s"></p-progressSpinner></div>
+    } @else {
+      <!-- Cards: listado principal en tablet/mobile -->
+      <div class="nc-cards" aria-label="Listado de notas de crédito en formato tarjeta">
+        @for (nc of filteredFacturas(); track nc.CodGeneracion) {
+          <article class="nc-list-card">
+            <div class="nc-list-card-top">
+              <div class="nc-list-card-primary">
+                <span class="nc-list-card-num">{{ nc.Prefijo }}{{ nc.Factura }}</span>
+                <span class="fac-estado-badge" [attr.data-estado]="estadoVisualKey(nc.ESTADO, nc.SelloRecepcion)">
+                  {{ estadoVisualLabel(nc.ESTADO, nc.SelloRecepcion) }}
+                </span>
+              </div>
+              <div class="nc-list-card-actions">
+                <p-button icon="pi pi-pencil" [text]="true" severity="info"
+                  styleClass="action-icon-btn action-edit" ariaLabel="Editar NC"
+                  (onClick)="openEdit(nc)"></p-button>
+                <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                  styleClass="action-icon-btn action-delete" ariaLabel="Eliminar NC"
+                  [disabled]="!canEliminarNc(nc)"
+                  (onClick)="solicitarEliminarNc(nc)"></p-button>
+                <p-button icon="pi pi-envelope" [text]="true" severity="secondary"
+                  styleClass="action-icon-btn" ariaLabel="Reenviar correo"
+                  title="Reenviar correo" (onClick)="onReenviarCorreo(nc)"></p-button>
+              </div>
+            </div>
+            <div class="nc-list-card-cliente">{{ nc.FACTURAR_A || nc.CLIENTE }}</div>
+            <div class="nc-list-card-bottom">
+              <span class="nc-list-card-fecha">{{ fmtFecha(nc.FECHA) }}</span>
+              <span class="nc-list-card-total">{{ formatCurrency(nc.TOTAL) }}</span>
+            </div>
+          </article>
+        } @empty {
+          <div class="nc-list-cards-empty">
+            <i class="pi pi-inbox"></i>
+            <span>Sin notas de crédito en el período</span>
+          </div>
+        }
+      </div>
+
+      <!-- Tabla: listado principal en desktop -->
+      <div class="table-wrap compact nc-listado-table-wrap">
+        <table class="fac-table">
+          <thead>
+            <tr>
+              <th class="actions-col"></th><th>NC</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (nc of filteredFacturas(); track nc.CodGeneracion) {
+              <tr>
+                <td class="actions-col">
+                  <p-button icon="pi pi-pencil" [text]="true" severity="info"
+                    styleClass="action-icon-btn action-edit" ariaLabel="Editar NC"
+                    (onClick)="openEdit(nc)"></p-button>
+                  <p-button icon="pi pi-trash" [text]="true" severity="danger"
+                    styleClass="action-icon-btn action-delete" ariaLabel="Eliminar NC"
+                    [disabled]="!canEliminarNc(nc)"
+                    (onClick)="solicitarEliminarNc(nc)"></p-button>
+                  <p-button icon="pi pi-envelope" [text]="true" severity="secondary"
+                    styleClass="action-icon-btn" ariaLabel="Reenviar correo"
+                    title="Reenviar correo" (onClick)="onReenviarCorreo(nc)"></p-button>
+                </td>
+                <td>{{ nc.Prefijo }}{{ nc.Factura }}</td>
+                <td>{{ nc.FACTURAR_A || nc.CLIENTE }}</td>
+                <td>{{ fmtFecha(nc.FECHA) }}</td>
+                <td>{{ formatCurrency(nc.TOTAL) }}</td>
+                <td>
+                  <span class="fac-estado-badge" [attr.data-estado]="estadoVisualKey(nc.ESTADO, nc.SelloRecepcion)">
+                    {{ estadoVisualLabel(nc.ESTADO, nc.SelloRecepcion) }}
+                  </span>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" style="text-align:center; color:#64748b; padding:1.5rem">Sin notas de crédito en el período</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  <!-- ── DETAIL VIEW ────────────────────────────────────────────────── -->
+  @if (showDetail()) {
+    <div class="nc-header">
+      <div class="nc-title-row">
+        <p-button icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
+          (onClick)="goBack()"></p-button>
+        <h1>{{ hasSavedCurrentRecord() ? 'Nota de Crédito' : 'Nueva Nota de Crédito' }}</h1>
+        @if (ncEstado()) {
+          <span class="fac-estado-badge"
+            [attr.data-estado]="estadoVisualKey(ncEstado(), facForm.controls.SelloRecepcion.value)">
+            {{ estadoVisualLabel(ncEstado(), facForm.controls.SelloRecepcion.value) }}
+          </span>
+        }
+      </div>
+
+      <!-- Actions top -->
+      <div class="form-actions form-actions-top">
+        <div class="action-group">
+          <span class="action-group-label">Documento</span>
+          <div class="action-group-btns">
+            <p-button label="Guardar" icon="pi pi-save" severity="info"
+              [loading]="saving()" [disabled]="!canSave() || saving()"
+              (onClick)="guardar()"></p-button>
+            <p-button label="Vista Previa" icon="pi pi-eye" severity="contrast"
+              [loading]="previewLoading()" [disabled]="previewLoading() || !canVistaPrevia()"
+              (onClick)="vistaPrevia()"></p-button>
+          </div>
+        </div>
+        <div class="action-group-divider"></div>
+        <div class="action-group">
+          <span class="action-group-label">Flujo</span>
+          <div class="action-group-btns">
+            <p-button label="Aplicar" icon="pi pi-check-circle" severity="success"
+              [disabled]="!canApply() || saving()" (onClick)="aplicar()"></p-button>
+            <p-button label="Desaplicar" icon="pi pi-undo" severity="secondary"
+              [disabled]="!canDesapply() || saving()" (onClick)="desaplicar()"></p-button>
+          </div>
+        </div>
+        <div class="action-group-divider"></div>
+        <div class="action-group">
+          <span class="action-group-label">Transmisión DTE</span>
+          <div class="action-group-btns">
+            <p-button label="Emitir DTE" icon="pi pi-send" severity="success"
+              [disabled]="!canEmit()" [loading]="emitting()"
+              (onClick)="emitirDte()"></p-button>
+          </div>
+        </div>
+        <div class="action-group-divider"></div>
+        <div class="action-group">
+          <span class="action-group-label">Anulación</span>
+          <div class="action-group-btns">
+            <p-button label="Anular NC" icon="pi pi-ban" severity="danger"
+              [disabled]="!canAnular() || saving()"
+              (onClick)="openAnulacionDialog()"></p-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    @if (loadingDetail()) {
+      <div class="loading-box"><p-progressSpinner strokeWidth="4" animationDuration=".6s"></p-progressSpinner></div>
+    } @else {
+      <!-- Client section -->
+      <div class="section-card client-card">
+        <div class="section-head"><h3>Cliente</h3></div>
+        <div class="client-grid field-grid">
+          <div class="field-item field-wide">
+            <label>Cliente</label>
+            <p-autocomplete
+              [suggestions]="clienteSuggestions()"
+              [optionLabel]="'NOMBRE'"
+              [dropdown]="true"
+              [forceSelection]="true"
+              [minLength]="0"
+              [delay]="0"
+              [dropdownMode]="'blank'"
+              [completeOnFocus]="true"
+              [ngModel]="facForm.controls.FacturarA.value"
+              (ngModelChange)="facForm.patchValue({ FacturarA: $event })"
+              (completeMethod)="onSearchClientes($event)"
+              (onSelect)="onSelectCliente($event)"
+              [disabled]="isLocked()"
+              appendTo="body"
+              styleClass="w-full"
+              [inputStyle]="{ width: '100%' }"
+              placeholder="Buscar cliente por coincidencia"
+            ></p-autocomplete>
+          </div>
+          <div class="field-item">
+            <label>NIT</label>
+            <div class="field-value">{{ facForm.controls.NIT.value || '—' }}</div>
+          </div>
+          <div class="field-item">
+            <label>NRC</label>
+            <div class="field-value">{{ facForm.controls.RegistroComercio.value || '—' }}</div>
+          </div>
+          <div class="field-item">
+            <label>Correo</label>
+            <div class="field-value">{{ facForm.controls.CorreoElectronico.value || '—' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Datos generales (colapsable, mismo patrón que CCF) -->
+      <section class="section-card datos-generales-card">
+        <details class="section-details" open>
+          <summary>
+            <span class="summary-open">Datos generales</span>
+            <span class="summary-closed">Datos generales</span>
+            <span class="summary-icon-wrap" aria-hidden="true">
+              <i class="pi pi-chevron-down icon-open"></i>
+              <i class="pi pi-chevron-right icon-closed"></i>
+            </span>
+          </summary>
+
+          <div class="datos-generales-grid">
+            <div class="datos-generales-block encabezado-card">
+              <h4>Encabezado</h4>
+              <div class="field-grid encabezado-grid">
+                <div class="field-item">
+                  <label>Fecha</label>
+                  <input type="date" [formControl]="facForm.controls.Fecha" [disabled]="isLocked()" />
+                </div>
+                <div class="field-item">
+                  <label>Condición de pago</label>
+                  <select [formControl]="facForm.controls.CondicionPago" [disabled]="isLocked()">
+                    <option value="">— Seleccione —</option>
+                    @for (c of condicionPagoOptions(); track c.CONDICION_PAGO) {
+                      <option [value]="c.CONDICION_PAGO">{{ c.DESCRIPCION }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="field-item">
+                  <label>Sucursal</label>
+                  <select [ngModel]="facForm.controls.Sucursal.value"
+                    (ngModelChange)="onSucursalChange($event); facForm.patchValue({ Sucursal: $event })"
+                    [disabled]="isLocked()">
+                    @for (s of sucursalOptions(); track s.value) {
+                      <option [value]="s.value">{{ s.label }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="field-item">
+                  <label>Punto de Venta</label>
+                  <select [formControl]="facForm.controls.PuntoVenta" [disabled]="isLocked()">
+                    @for (p of puntoVentaOptions(); track p.value) {
+                      <option [value]="p.value">{{ p.label }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="field-item field-wide">
+                  <label>Observaciones</label>
+                  <textarea [formControl]="facForm.controls.Observaciones" rows="2"
+                    [disabled]="isLocked()"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="datos-generales-block dte-info-card">
+              <h4>Datos de Transmisión DTE</h4>
+              <div class="field-grid dte-info-grid">
+                <div class="field-item field-wide">
+                  <label for="nc-cod-gen">Codigo de Generacion</label>
+                  <input pInputText id="nc-cod-gen" [formControl]="facForm.controls.CodGeneracion" readonly />
+                </div>
+                <div class="field-item">
+                  <label for="nc-no-control">Numero de Control</label>
+                  <input pInputText id="nc-no-control" [formControl]="facForm.controls.NoControl" readonly />
+                </div>
+                <div class="field-item field-wide">
+                  <label for="nc-sello">Sello de Recepcion</label>
+                  <input pInputText id="nc-sello" [formControl]="facForm.controls.SelloRecepcion" readonly />
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- CCF reference + mode -->
+      <div class="section-card">
+        <div class="section-head"><h3>Datos de la NC</h3></div>
+
+        <!-- CCF reference -->
+        <div class="ccf-ref-section">
+          <div class="ccf-ref-label">CCF relacionado</div>
+          @if (selectedCcf()) {
+            <div class="ccf-ref-value">
+              {{ selectedCcf()!.Prefijo }}{{ selectedCcf()!.Factura }}
+              — {{ selectedCcf()!.FacturarA || selectedCcf()!.Cliente }}
+              — {{ selectedCcf()!.Fecha }}
+              — {{ formatCurrency(selectedCcf()!.TotalFacturar) }}
+            </div>
+          } @else {
+            <div class="ccf-ref-empty">No se ha seleccionado CCF</div>
+          }
+          @if (!isLocked()) {
+            @if (!selectedCcf()) {
+              <p-button label="Buscar CCF" icon="pi pi-search" severity="secondary"
+                [outlined]="true" size="small"
+                (onClick)="onBuscarCcf()"></p-button>
+            } @else {
+              <p-button label="Quitar CCF" icon="pi pi-times-circle" severity="danger"
+                [outlined]="true" size="small" [disabled]="saving()"
+                (onClick)="solicitarQuitarCcf()"></p-button>
+            }
+          }
+        </div>
+
+        <!-- Mode selector -->
+        @if (!isLocked()) {
+          <div class="nc-mode-section">
+            <span class="nc-mode-label">Tipo de NC:</span>
+            <div class="nc-mode-btns">
+              <p-button
+                label="Descuento por valor"
+                icon="pi pi-percentage"
+                [severity]="ncModo() === 'DESCUENTO' ? 'info' : 'secondary'"
+                [outlined]="ncModo() !== 'DESCUENTO'"
+                (onClick)="setModo('DESCUENTO')"
+                size="small"
+              ></p-button>
+              <p-button
+                label="Devolución de existencias"
+                icon="pi pi-replay"
+                [severity]="ncModo() === 'DEVOLUCION' ? 'success' : 'secondary'"
+                [outlined]="ncModo() !== 'DEVOLUCION'"
+                [disabled]="!aplicaInventarios()"
+                (onClick)="setModo('DEVOLUCION')"
+                size="small"
+              ></p-button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Lines section -->
+      <div class="section-card detalle-section">
+        @if (hasUnsavedLines()) {
+          <div class="nc-unsaved-banner">
+            <i class="pi pi-exclamation-triangle"></i>
+            Hay cambios en las líneas sin guardar — haz clic en <strong>Guardar</strong> para confirmarlos.
+          </div>
+        }
+        <div class="section-head">
+          <h3>Líneas de la NC</h3>
+          @if (loadingCcfDetalle()) {
+            <p-progressSpinner strokeWidth="4" animationDuration=".6s" [style]="{ width: '1.4rem', height: '1.4rem' }"></p-progressSpinner>
+          }
+        </div>
+
+        @if (ncLineas().length === 0) {
+          <div class="detalle-card-empty">
+            @if (loadingCcfDetalle()) {
+              Cargando líneas del CCF...
+            } @else {
+              Seleccione un CCF para cargar las líneas a aplicar.
+            }
+          </div>
+        } @else {
+          <!-- Cards: líneas en tablet/mobile -->
+          <div class="nc-lineas-cards" aria-label="Líneas de la NC en formato tarjeta">
+            @for (linea of ncLineas(); track linea.articulo + linea.linea) {
+              <article class="detalle-card" [class.nc-row-dirty]="linea.isDirty">
+                <div class="detalle-card-top">
+                  <div class="detalle-card-primary">
+                    <span class="detalle-card-linea">Artículo</span>
+                    <span class="detalle-card-articulo">{{ linea.articulo }}</span>
+                  </div>
+                </div>
+
+                <div class="detalle-card-description">
+                  <span class="detalle-card-label">Descripción</span>
+                  @if (!isLocked()) {
+                    <input type="text" class="nc-line-input nc-line-desc"
+                      [ngModel]="linea.descripcion"
+                      (ngModelChange)="onDescripcionChange(linea, $event)"
+                    />
+                  } @else {
+                    <span class="detalle-card-value">{{ linea.descripcion }}</span>
+                  }
+                </div>
+
+                <div class="detalle-card-metrics nc-lineas-card-metrics">
+                  <div class="detalle-card-metric">
+                    <span class="detalle-card-label">Cant. Orig.</span>
+                    <span class="detalle-card-value">{{ linea.cantidad }}</span>
+                  </div>
+                  <div class="detalle-card-metric">
+                    <span class="detalle-card-label">Precio Unit.</span>
+                    <span class="detalle-card-value">{{ formatCurrency(linea.precioUnitario) }}</span>
+                  </div>
+                  @if (ncModo() === 'DESCUENTO') {
+                    <div class="detalle-card-metric">
+                      <span class="detalle-card-label">Descuento ($)</span>
+                      <span class="detalle-card-value">{{ formatCurrency(linea.montoDescuento) }}</span>
+                    </div>
+                  } @else {
+                    <div class="detalle-card-metric">
+                      <span class="detalle-card-label">Cant. Devol.</span>
+                      <span class="detalle-card-value">{{ linea.cantidadDevolucion }}</span>
+                    </div>
+                  }
+                  <div class="detalle-card-metric">
+                    <span class="detalle-card-label">Subtotal</span>
+                    <span class="detalle-card-value">{{ formatCurrency(linea.subtotal) }}</span>
+                  </div>
+                  <div class="detalle-card-metric">
+                    <span class="detalle-card-label">IVA</span>
+                    <span class="detalle-card-value">{{ formatCurrency(linea.iva) }}</span>
+                  </div>
+                  <div class="detalle-card-metric total-metric">
+                    <span class="detalle-card-label">Total</span>
+                    <span class="detalle-card-value">{{ formatCurrency(linea.subtotal + linea.iva) }}</span>
+                  </div>
+                </div>
+              </article>
+            }
+          </div>
+
+          <!-- Tabla: líneas en desktop -->
+          <div class="table-wrap compact nc-lineas-table-wrap">
+            <table class="fac-table nested-table">
+              <thead>
+                <tr>
+                  <th>Artículo</th>
+                  <th>Descripción</th>
+                  <th class="col-right">Cant. Orig.</th>
+                  <th class="col-right">Precio Unit.</th>
+                  @if (ncModo() === 'DESCUENTO') {
+                    <th class="col-right">Descuento ($)</th>
+                  } @else {
+                    <th class="col-right">Cant. Devol.</th>
+                  }
+                  <th class="col-right">Subtotal</th>
+                  <th class="col-right">IVA</th>
+                  <th class="col-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (linea of ncLineas(); track linea.articulo + linea.linea) {
+                  <tr [class.nc-row-dirty]="linea.isDirty">
+                    <td>{{ linea.articulo }}</td>
+                    <td>
+                      @if (!isLocked()) {
+                        <input type="text" class="nc-line-input nc-line-desc"
+                          [ngModel]="linea.descripcion"
+                          (ngModelChange)="onDescripcionChange(linea, $event)"
+                        />
+                      } @else {
+                        {{ linea.descripcion }}
+                      }
+                    </td>
+                    <td class="col-right">{{ linea.cantidad }}</td>
+                    <td class="col-right">{{ formatCurrency(linea.precioUnitario) }}</td>
+                    @if (ncModo() === 'DESCUENTO') {
+                      <td class="col-right">{{ formatCurrency(linea.montoDescuento) }}</td>
+                    } @else {
+                      <td class="col-right">{{ linea.cantidadDevolucion }}</td>
+                    }
+                    <td class="col-right">{{ formatCurrency(linea.subtotal) }}</td>
+                    <td class="col-right">{{ formatCurrency(linea.iva) }}</td>
+                    <td class="col-right">{{ formatCurrency(linea.subtotal + linea.iva) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+      </div>
+
+      <!-- Summary -->
+      <div class="section-card summary-card">
+        <h3>Totales</h3>
+        <div class="summary-totals">
+          <div class="summary-total-row">
+            <span class="summary-total-label">Subtotal (sin IVA)</span>
+            <span class="summary-total-value">{{ formatCurrency(sumasNc()) }}</span>
+          </div>
+          <div class="summary-total-row">
+            <span class="summary-total-label">IVA (13%)</span>
+            <span class="summary-total-value">{{ formatCurrency(ivaNc()) }}</span>
+          </div>
+          <div class="summary-total-row summary-total-row-final">
+            <span class="summary-total-label" style="font-weight:700">Total NC</span>
+            <span class="summary-total-value" style="font-size:1.15rem; font-weight:700">{{ formatCurrency(totalNc()) }}</span>
+          </div>
+        </div>
+      </div>
+
+    }
+  }
+</section>

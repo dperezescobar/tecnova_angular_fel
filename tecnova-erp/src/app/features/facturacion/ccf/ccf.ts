@@ -1,4 +1,4 @@
-﻿import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+﻿import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
@@ -41,6 +41,8 @@ import {
 import { environment } from '../../../../environments/environment';
 import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
 import { FacturacionService } from '../services/facturacion';
+import { ReenviarCorreoDialogComponent } from '../../../shared/components/reenviar-correo-dialog/reenviar-correo-dialog';
+import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
 
 @Component({
   selector: 'app-ccf',
@@ -54,13 +56,18 @@ import { FacturacionService } from '../services/facturacion';
     InputTextModule,
     ProgressSpinnerModule,
     ToastModule,
-    DialogModule
+    DialogModule,
+    ReenviarCorreoDialogComponent,
+    EliminarConfirmDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './ccf.html',
   styleUrls: ['./ccf.scss']
 })
 export class CcfComponent {
+  @ViewChild(ReenviarCorreoDialogComponent) reenviarCorreoDialog!: ReenviarCorreoDialogComponent;
+  @ViewChild(EliminarConfirmDialogComponent) eliminarConfirmDialog!: EliminarConfirmDialogComponent;
+
   private fb = inject(FormBuilder);
   private platformId = inject(PLATFORM_ID);
   private cdr = inject(ChangeDetectorRef);
@@ -81,7 +88,6 @@ export class CcfComponent {
   saving = signal(false);
   showDetail = signal(false);
   confirmClienteDialogVisible = signal(false);
-  confirmDeleteFacturaDialogVisible = signal(false);
   anulacionDialogVisible = signal(false);
   confirmAnulacionDialogVisible = signal(false);
   anulacionMotivo = signal('');
@@ -96,7 +102,6 @@ export class CcfComponent {
   detalleRows = signal<FacturaDetalleDto[]>([]);
   sucursalPuntoRows = signal<SucursalPuntoVendedorDto[]>([]);
   selectedFactura = signal<FacturaGeneralDto | null>(null);
-  facturaToDelete = signal<FacturaGeneralDto | null>(null);
 
   emisionPanelOpen = signal(false);
   emisionSteps = signal<EmisionStep[]>([]);
@@ -111,6 +116,7 @@ export class CcfComponent {
   clienteSuggestions = signal<string[]>([]);
   articulosOptions = signal<ArticuloPorBodegaDto[]>([]);
   articuloSuggestions = signal<string[]>([]);
+  loadingClientes = signal(false);
   formasPagoOptions = signal<FormaPagoDto[]>([]);
   retencionesOptions = signal<RetencionCatalogoDto[]>([]);
   condicionesPagoOptions = signal<CondicionPagoCatalogoDto[]>([]);
@@ -205,6 +211,31 @@ filtrarClientesSelector(event: Event): void {
 cancelarSelectorCliente(): void {
   this.showClienteSelectorDialog.set(false);
 }
+
+refreshClientes(): void {
+  this.loadingClientes.set(true);
+  this.facturacionService.clearClientesCache();
+  this.facturacionService.getPerfilClientes()
+    .pipe(finalize(() => this.loadingClientes.set(false)))
+    .subscribe({
+      next: (rows) => {
+        const profiles = rows ?? [];
+        this.perfilClientes.set(profiles);
+        this.clientesFiltradosParaTabla.set(profiles);
+        const clientes = Array.from(
+          new Set(profiles.map((item) => String(item.NOMBRE ?? '').trim()).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b));
+        this.clientesOptions.set(clientes);
+        this.clienteSuggestions.set([...clientes]);
+      },
+      error: () => {
+        this.perfilClientes.set([]);
+        this.clientesOptions.set([]);
+        this.clienteSuggestions.set([]);
+      }
+    });
+}
+
   facForm = this.fb.group({
     IdFactura: this.fb.control(0, { nonNullable: true }),
     Estado: ['BORRADOR'],
@@ -237,6 +268,8 @@ cancelarSelectorCliente(): void {
     LineaDescripcion: [''],
     LineaCantidad: this.fb.control(1, { nonNullable: true }),
     LineaPrecio: this.fb.control(0, { nonNullable: true }),
+    LineaPrecioMayoreo: this.fb.control(0, { nonNullable: true }),
+    LineaCantidadMinimaMayoreo: this.fb.control(0, { nonNullable: true }),
     Sumas: this.fb.control(0, { nonNullable: true }),
     Descuentos: this.fb.control(0, { nonNullable: true }),
     TotalOperacion: this.fb.control(0, { nonNullable: true }),
@@ -594,6 +627,14 @@ cancelarSelectorCliente(): void {
     });
   }
 
+  onReenviarCorreo(item: FacturaGeneralDto): void {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const idFactura = this.toNumber(item.iddoc);
+    const perfil = this.perfilClientes().find((c) => String(c.CLIENTE ?? '').trim() === String(item.CLIENTE ?? '').trim());
+    const correoDefault = String(perfil?.CORREO_ELECTRONICO ?? '').trim();
+    this.reenviarCorreoDialog.abrir(idEmpresa, idFactura, 'CCF', correoDefault);
+  }
+
   guardar() {
     if (!this.canSave()) {
       this.showError('Facturación CCF', 'Solo las facturas en elaboración permiten guardar cambios.');
@@ -734,25 +775,7 @@ cancelarSelectorCliente(): void {
       return;
     }
 
-    this.facturaToDelete.set(item);
-    this.confirmDeleteFacturaDialogVisible.set(true);
-  }
-
-  cancelarEliminarFactura() {
-    this.confirmDeleteFacturaDialogVisible.set(false);
-    this.facturaToDelete.set(null);
-  }
-
-  confirmarEliminarFactura() {
-    const target = this.facturaToDelete();
-    this.confirmDeleteFacturaDialogVisible.set(false);
-
-    if (!target) {
-      this.showError('Facturación CCF', 'No hay factura seleccionada para eliminar.');
-      return;
-    }
-
-    this.eliminarFactura(target);
+    this.eliminarConfirmDialog.abrir(() => this.eliminarFactura(item));
   }
 
   eliminarFactura(item: FacturaGeneralDto, retryAfterDesaplicar: boolean = true) {
@@ -1392,8 +1415,11 @@ cancelarSelectorCliente(): void {
       LineaArticuloDisplay: this.toArticuloDisplay(articulo),
       LineaArticulo: articulo.ARTICULO,
       LineaDescripcion: articulo.DESCRIPCION,
-      LineaPrecio: articulo.ULTIMO_PRECIO ?? 0
+      LineaPrecio: articulo.ULTIMO_PRECIO ?? 0,
+      LineaPrecioMayoreo: articulo.PRECIO_MAYOREO ?? 0,
+      LineaCantidadMinimaMayoreo: articulo.cantidadmayoreo ?? 0
     });
+    this.focusLineaCantidadInput();
   }
 
   onRetencionChange(value: string) {
@@ -1419,6 +1445,52 @@ cancelarSelectorCliente(): void {
     this.facForm.patchValue({ RetencionIvaCodigo: '' });
     this.syncTotalsFromDetalle();
     this.updateFacturaRetencion('');
+  }
+
+  private focusLineaCantidadInput() {
+    if (!isPlatformBrowser(this.platformId) || typeof document === 'undefined') return;
+    requestAnimationFrame(() => {
+      const input = document.getElementById('linea-cant') as HTMLInputElement | null;
+      if (!input || input.readOnly || input.disabled) return;
+      input.focus();
+      input.select();
+    });
+  }
+
+  private refreshDetalleYTotales() {
+    const raw = this.facForm.getRawValue();
+    const selected = this.selectedFactura();
+    let prefijo = selected?.Prefijo || '';
+    let factura = selected?.Factura || '';
+
+    if (!prefijo && !factura) {
+      const codGeneracion = String(raw.CodGeneracion ?? '').trim();
+      if (codGeneracion && codGeneracion.length >= 36) {
+        prefijo = codGeneracion.substring(0, 18);
+        factura = codGeneracion.substring(18, 36);
+      }
+    }
+
+    const sucursal = String(selected?.CODIGOSUCURSAL || selected?.SUCURSAL || raw.Sucursal || '').trim();
+    const puntoVenta = String(selected?.PUNTO_VENTA || raw.PuntoVenta || '').trim();
+
+    if (!prefijo || !factura) return;
+
+    this.loadingDetail.set(true);
+    this.facturacionService.getFacturaDetalle(prefijo, factura, sucursal, puntoVenta, 'CCF')
+      .pipe(finalize(() => {
+        this.loadingDetail.set(false);
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: (detalle) => {
+          this.detalleRows.set(detalle ?? []);
+          this.syncTotalsFromDetalle();
+        },
+        error: (error) => {
+          this.showError('Facturación CCF', this.extractError(error, 'No se pudo recargar el detalle actualizado.'));
+        }
+      });
   }
 
   private loadFacturaRetenciones(
@@ -1661,6 +1733,23 @@ cancelarSelectorCliente(): void {
     return this.currencyFormatter.format(this.toNumber(value));
   }
 
+  fmtFecha(value: unknown): string {
+    const text = String(value ?? '').trim();
+    if (!text) return '—';
+    const m1 = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+.*)?$/);
+    if (m1) {
+      const hasMeridiem = /\b(?:AM|PM)\b/i.test(text);
+      let day = Number(m1[1]), month = Number(m1[2]);
+      if (hasMeridiem || month > 12) { month = day; day = Number(m1[2]); }
+      return `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${m1[3]}`;
+    }
+    const m2 = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+.*)?$/);
+    if (m2) return `${m2[3]}/${m2[2]}/${m2[1]}`;
+    const d = new Date(text.includes('T') ? text : text.replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return text;
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
+
   agregarDetalleManual(skipAutoSave: boolean = false) {
     if (this.isReadOnlyField()) {
       return;
@@ -1744,18 +1833,15 @@ cancelarSelectorCliente(): void {
 
     this.facturacionService.updateDetalleFactura(payload).subscribe({
       next: () => {
-        newRow.PRECIO_UNITARIO = incluyeIva ? Number((precioUnitarioDetalle / 1.13).toFixed(2)) : precioUnitarioDetalle;
-        newRow.TOTAL = Number((newRow.CANTIDAD * newRow.PRECIO_UNITARIO).toFixed(2));
-        newRow.TotalVenta= newRow.TOTAL;
-        this.detalleRows.update((rows) => [...rows, newRow]);
-        this.syncTotalsFromDetalle();
-
+        this.refreshDetalleYTotales();
         this.facForm.patchValue({
           LineaArticuloDisplay: '',
           LineaArticulo: '',
           LineaDescripcion: '',
           LineaCantidad: 1,
-          LineaPrecio: 0
+          LineaPrecio: 0,
+          LineaPrecioMayoreo: 0,
+          LineaCantidadMinimaMayoreo: 0
         });
       },
       error: (error) => {
@@ -1787,7 +1873,9 @@ cancelarSelectorCliente(): void {
           }
           this.saving.set(false);
           this.hasSavedCurrentRecord.set(true);
-          this.showInfo('Facturación CCF', 'Encabezado guardado con cliente Sr(a).');
+          const raw = this.facForm.getRawValue();
+          const clienteGuardado = String(raw.FacturarA ?? raw.Cliente ?? '').trim() || 'Sr(a)';
+          this.showInfo('Facturación CCF', `Encabezado guardado con cliente ${clienteGuardado}.`);
           this.agregarDetalleManual(true);
         },
         error: (error) => {
@@ -1821,8 +1909,7 @@ cancelarSelectorCliente(): void {
 
     this.facturacionService.updateDetalleFactura(payload).subscribe({
       next: () => {
-        this.detalleRows.set(rowsAfter);
-        this.syncTotalsFromDetalle();
+        this.refreshDetalleYTotales();
       },
       error: (error) => {
         this.showError('Facturación CCF', this.extractError(error, 'No se pudo eliminar el detalle de factura.'));

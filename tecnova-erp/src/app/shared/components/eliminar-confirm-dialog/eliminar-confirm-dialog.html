@@ -1,0 +1,25 @@
+<p-dialog
+  header="Confirmar eliminación"
+  [(visible)]="visible"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [dismissableMask]="false"
+  [style]="{ width: '28rem', maxWidth: '92vw' }"
+>
+  <p class="eliminar-confirm-mensaje">{{ mensaje() }}</p>
+  <input
+    pInputText
+    type="text"
+    class="w-full"
+    [ngModel]="texto()"
+    (ngModelChange)="texto.set($event)"
+    (keyup.enter)="procesar()"
+    placeholder="Eliminar"
+    autocomplete="off"
+  />
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" (onClick)="cancelar()"></p-button>
+    <p-button label="Procesar" severity="danger" [disabled]="!esValido()" (onClick)="procesar()"></p-button>
+  </ng-template>
+</p-dialog>

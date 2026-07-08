@@ -1,0 +1,20 @@
+.eliminar-confirm-mensaje {
+  margin: 0 0 0.85rem;
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+input {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+
+  &:focus {
+    outline: none;
+    border-color: #0b63f3;
+    box-shadow: 0 0 0 3px rgba(11, 99, 243, 0.14);
+  }
+}

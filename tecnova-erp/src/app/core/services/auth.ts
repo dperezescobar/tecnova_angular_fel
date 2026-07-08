@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, Empresa, UserSession } from '../models/auth.models';
+import { AuthResponse, CompletarCambioPasswordRequest, Empresa, UserSession } from '../models/auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -39,20 +39,36 @@ export class AuthService {
     tipoUsuario?: string;
     Bloqueado?: boolean | string | number;
     bloqueado?: boolean | string | number;
+    EsRoot?: boolean | string | number;
+    esRoot?: boolean | string | number;
+    RequierePasswordChange?: boolean;
+    requierePasswordChange?: boolean;
   }): AuthResponse {
+    const toBool = (raw: boolean | string | number | undefined) =>
+      typeof raw === 'boolean' ? raw : ['1', 'true', 'si', 'sí'].includes(String(raw ?? '').trim().toLowerCase());
+
+    const username = response.username ?? response.Username ?? '';
+    const requierePasswordChange = !!(response.requierePasswordChange ?? response.RequierePasswordChange);
+
+    if (requierePasswordChange) {
+      return {
+        token: '',
+        refreshToken: '',
+        username,
+        expiration: new Date().toISOString(),
+        requierePasswordChange: true
+      };
+    }
+
     const token = response.token ?? response.Token;
     const refreshToken = response.refreshToken ?? response.RefreshToken;
-    const username = response.username ?? response.Username ?? '';
     const expiration = response.expiration ?? response.Expiration ?? new Date().toISOString();
     const fechaActual = String(response.fechaActual ?? response.FechaActual ?? '').trim() || undefined;
     const dui = String(response.dui ?? response.DUI ?? '').trim() || undefined;
     const nombreUsuario = String(response.nombreUsuario ?? response.NombreUsuario ?? '').trim() || undefined;
     const tipoUsuario = String(response.tipoUsuario ?? response.TipoUsuario ?? '').trim() || undefined;
-    const bloqueadoRaw = response.bloqueado ?? response.Bloqueado;
-    const bloqueado =
-      typeof bloqueadoRaw === 'boolean'
-        ? bloqueadoRaw
-        : ['1', 'true', 'si', 'sí'].includes(String(bloqueadoRaw ?? '').trim().toLowerCase());
+    const bloqueado = toBool(response.bloqueado ?? response.Bloqueado);
+    const esRoot = toBool(response.esRoot ?? response.EsRoot);
 
     if (!token || !refreshToken) {
       throw new Error('Respuesta de autenticación inválida: faltan token o refreshToken');
@@ -67,7 +83,9 @@ export class AuthService {
       dui,
       nombreUsuario,
       tipoUsuario,
-      bloqueado
+      bloqueado,
+      esRoot,
+      requierePasswordChange: false
     };
   }
 
@@ -164,6 +182,7 @@ export class AuthService {
       nombreUsuario: authData?.nombreUsuario ?? previous?.nombreUsuario,
       tipoUsuario: authData?.tipoUsuario ?? previous?.tipoUsuario,
       bloqueado: authData?.bloqueado ?? previous?.bloqueado,
+      esRoot: authData?.esRoot ?? previous?.esRoot,
       selectedEmpresa: empresa
     };
 
@@ -184,12 +203,27 @@ export class AuthService {
     return !!this.currentUser()?.bloqueado;
   }
 
+  isRoot(): boolean {
+    return !!this.currentUser()?.esRoot;
+  }
+
   // Paso 1: Obtener Token
   login(user: string, pass: string, idsistema: number = this.systemId): Observable<AuthResponse> {
     return this.http
       .post<Partial<AuthResponse> & { Token?: string; RefreshToken?: string; Username?: string; Expiration?: string }>(
         `${this.apiUrl}/Auth/PostToken`,
         { user, pass, idsistema }
+      )
+      .pipe(map((response) => this.normalizeAuthResponse(response)));
+  }
+
+  // Completa el cambio de contraseña cuando el login detecta PoliticaNuevoPassword activa.
+  // Si la contraseña actual/nueva son válidas, la API responde con un login completo (token + refreshToken).
+  completarCambioPasswordReiniciado(request: CompletarCambioPasswordRequest): Observable<AuthResponse> {
+    return this.http
+      .post<Partial<AuthResponse> & { Token?: string; RefreshToken?: string; Username?: string; Expiration?: string }>(
+        `${this.apiUrl}/Auth/CompletarCambioPasswordReiniciado`,
+        request
       )
       .pipe(map((response) => this.normalizeAuthResponse(response)));
   }
@@ -375,6 +409,7 @@ export class AuthService {
               nombreUsuario: response.nombreUsuario ?? user.nombreUsuario,
               tipoUsuario: response.tipoUsuario ?? user.tipoUsuario,
               bloqueado: response.bloqueado ?? user.bloqueado,
+              esRoot: response.esRoot ?? user.esRoot,
               selectedEmpresa: null
             };
             localStorage.setItem('contask_session', JSON.stringify(updatedSession));

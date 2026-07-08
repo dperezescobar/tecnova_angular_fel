@@ -3,11 +3,8 @@
 
   <div class="perfil-container">
 
-    <!-- Hero / cabecera de empresa -->
     <header class="perfil-hero">
-      <div class="perfil-avatar" aria-hidden="true">
-        <i class="bi bi-building"></i>
-      </div>
+      <div class="perfil-avatar" aria-hidden="true">{{ empresaInicial() }}</div>
       <div class="perfil-hero-info">
         <h1 class="perfil-hero-nombre">
           {{ perfil()?.nombreComercial || perfil()?.nombre || 'Mi empresa' }}
@@ -17,6 +14,20 @@
         }
         @if (perfil()?.giro) {
           <span class="perfil-hero-sub perfil-hero-giro">{{ perfil()!.giro }}</span>
+        }
+        @if (!loadingAbonos() && abonos().length > 0) {
+          <div class="hero-stats">
+            <span class="hero-chip hero-chip--ok">
+              <i class="bi bi-check-circle" aria-hidden="true"></i>
+              {{ totalAbonado() | currency:'USD':'symbol':'1.2-2' }} abonado
+            </span>
+            @if (abonosPendientes() > 0) {
+              <span class="hero-chip hero-chip--warn">
+                <i class="bi bi-clock" aria-hidden="true"></i>
+                {{ abonosPendientes() }} pendiente{{ abonosPendientes() !== 1 ? 's' : '' }}
+              </span>
+            }
+          </div>
         }
       </div>
       <div class="perfil-hero-actions">
@@ -31,15 +42,14 @@
       </div>
     </header>
 
-    <!-- Pestañas -->
     <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)">
       <p-tablist>
         <p-tab value="mis-datos">
-          <i class="pi pi-id-card" aria-hidden="true"></i>
+          <i class="bi bi-person-badge" aria-hidden="true"></i>
           <span>Mis datos</span>
         </p-tab>
         <p-tab value="historial-pagos">
-          <i class="pi pi-credit-card" aria-hidden="true"></i>
+          <i class="bi bi-credit-card" aria-hidden="true"></i>
           <span>Historial de Pagos</span>
         </p-tab>
       </p-tablist>
@@ -57,7 +67,7 @@
 
               <div class="perfil-group">
                 <h2 class="perfil-group-title">
-                  <i class="pi pi-building" aria-hidden="true"></i>
+                  <i class="bi bi-building" aria-hidden="true"></i>
                   Información general
                 </h2>
                 <div class="perfil-fields">
@@ -86,7 +96,7 @@
 
               <div class="perfil-group">
                 <h2 class="perfil-group-title">
-                  <i class="pi pi-envelope" aria-hidden="true"></i>
+                  <i class="bi bi-envelope" aria-hidden="true"></i>
                   Contacto
                 </h2>
                 <div class="perfil-fields">
@@ -103,7 +113,7 @@
 
               <div class="perfil-group perfil-group-full">
                 <h2 class="perfil-group-title">
-                  <i class="pi pi-map-marker" aria-hidden="true"></i>
+                  <i class="bi bi-geo-alt" aria-hidden="true"></i>
                   Ubicación
                 </h2>
                 <div class="perfil-fields">
@@ -125,10 +135,47 @@
             </div>
           } @else {
             <div class="perfil-empty">
-              <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+              <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
               <span>No se encontraron datos del perfil.</span>
             </div>
           }
+
+          <!-- ── Configuración de precios ── -->
+          <div class="perfil-group perfil-group-full config-section">
+            <h2 class="perfil-group-title">
+              <i class="bi bi-sliders" aria-hidden="true"></i>
+              Configuración de precios
+            </h2>
+            <div class="perfil-fields">
+              <div class="perfil-field">
+                <span class="pf-label">Mínimo Global Precio Mayoreo (unidades)</span>
+                @if (loadingConfig()) {
+                  <span class="pf-value">Cargando...</span>
+                } @else {
+                  <div class="config-row">
+                    <input
+                      pInputText
+                      type="number"
+                      min="0"
+                      step="1"
+                      class="config-input"
+                      [value]="minimoGlobalInput()"
+                      (input)="minimoGlobalInput.set(+$any($event.target).value)"
+                    />
+                    <p-button
+                      label="Guardar"
+                      icon="pi pi-check"
+                      severity="success"
+                      size="small"
+                      [loading]="savingConfig()"
+                      [disabled]="savingConfig()"
+                      (onClick)="saveMinimoGlobal()"
+                    ></p-button>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
         </p-tabpanel>
 
         <!-- ══ PESTAÑA: Historial de Pagos ══ -->
@@ -138,30 +185,27 @@
               <p-progressSpinner></p-progressSpinner>
             </div>
           } @else if (abonos().length > 0) {
-            <div class="abonos-grid">
+            <div class="abono-list-head" aria-hidden="true">
+              <span>Referencia</span>
+              <span>Fecha</span>
+              <span class="text-right">Monto</span>
+              <span class="text-center">Estado</span>
+            </div>
+            <div class="abono-list" role="list">
               @for (abono of abonos(); track abono.fecha + (abono.referencia ?? '')) {
-                <article class="abono-card">
-                  <div class="abono-card-top">
-                    <span class="abono-ref">{{ abono.referencia || '—' }}</span>
-                    <span [class]="'abono-estado ' + estadoBadgeClass(abono.estado)">
-                      {{ abono.estado }}
-                    </span>
-                  </div>
-                  <div class="abono-card-body">
-                    <div class="abono-meta">
-                      <i class="pi pi-calendar" aria-hidden="true"></i>
-                      <span>{{ abono.fecha | date:'dd/MM/yyyy' }}</span>
-                    </div>
-                    <div class="abono-monto">
-                      {{ abono.monto | currency:'USD':'symbol':'1.2-2' }}
-                    </div>
-                  </div>
-                </article>
+                <div [class]="'abono-row abono-row--' + estadoBadgeClass(abono.estado)" role="listitem">
+                  <span class="abono-ref">{{ abono.referencia || '—' }}</span>
+                  <span class="abono-date">{{ abono.fecha | date:'dd/MM/yyyy' }}</span>
+                  <span class="abono-monto">{{ abono.monto | currency:'USD':'symbol':'1.2-2' }}</span>
+                  <span [class]="'abono-badge abono-badge--' + estadoBadgeClass(abono.estado)">
+                    {{ abono.estado }}
+                  </span>
+                </div>
               }
             </div>
           } @else {
             <div class="perfil-empty">
-              <i class="pi pi-inbox" aria-hidden="true"></i>
+              <i class="bi bi-inbox" aria-hidden="true"></i>
               <span>No hay historial de pagos registrado.</span>
             </div>
           }

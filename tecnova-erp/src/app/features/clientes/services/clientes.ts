@@ -109,6 +109,7 @@ export class ClientesService {
           ),
           TELEFONO: String(this.pick(raw, 'TELEFONO', 'telefono') ?? ''),
           NIT: String(this.pick(raw, 'NIT', 'nit') ?? ''),
+          DUI: String(this.pick(raw, 'DUI', 'IDENTIFICACION', 'identificacion', 'dui') ?? ''),
           REGISTRO_COMERCIO: String(
             this.pick(raw, 'REGISTRO_COMERCIO', 'registro_comercio', 'registrO_COMERCIO') ?? ''
           ),

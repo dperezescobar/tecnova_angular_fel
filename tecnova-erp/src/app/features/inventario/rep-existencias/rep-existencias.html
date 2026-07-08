@@ -1,0 +1,211 @@
+<p-toast position="top-right" />
+
+<div class="rep-wrapper animate-fadein">
+
+  <!-- ── Encabezado ─────────────────────────────────────────────────────────── -->
+  <div class="rep-header">
+    <div class="rep-header-left">
+      <i class="pi pi-warehouse rep-header-icon"></i>
+      <div>
+        <h1 class="rep-title">Existencias de inventario</h1>
+        <p class="rep-subtitle">Saldo acumulado de artículos a una fecha de corte</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Panel de filtros ───────────────────────────────────────────────────── -->
+  <div class="filter-card">
+    <div class="filter-grid">
+
+      <div class="filter-field">
+        <label class="filter-label" for="fecha-corte">
+          <i class="pi pi-calendar"></i> Existencia al
+        </label>
+        <input
+          id="fecha-corte"
+          type="date"
+          class="date-input"
+          [ngModel]="fechaCorte()"
+          (ngModelChange)="fechaCorte.set($event)"
+          aria-label="Fecha de corte"
+        />
+      </div>
+
+      <div class="filter-field">
+        <label class="filter-label">
+          <i class="pi pi-box"></i> Bodega
+        </label>
+        <p-select
+          [options]="bodegas()"
+          [ngModel]="bodegaSeleccionada()"
+          (ngModelChange)="bodegaSeleccionada.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Todas las bodegas"
+          [filter]="false"
+          styleClass="filter-select"
+        />
+      </div>
+
+      <div class="filter-field">
+        <label class="filter-label">
+          <i class="pi pi-sitemap"></i> Grupo
+        </label>
+        <p-select
+          [options]="grupos()"
+          [ngModel]="grupoSeleccionado()"
+          (ngModelChange)="grupoSeleccionado.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Todos los grupos"
+          [filter]="true"
+          filterBy="label"
+          styleClass="filter-select"
+        />
+      </div>
+
+      <div class="filter-field filter-field--articulo">
+        <label class="filter-label">
+          <i class="pi pi-tag"></i> Artículo
+        </label>
+        <p-select
+          [options]="articulos()"
+          [ngModel]="articuloSeleccionado()"
+          (ngModelChange)="articuloSeleccionado.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Todos los artículos"
+          [filter]="true"
+          filterBy="label"
+          styleClass="filter-select"
+        />
+      </div>
+
+      <div class="filter-actions">
+        <p-button
+          label="Generar"
+          icon="pi pi-search"
+          (onClick)="generarReporte()"
+          [loading]="loading()"
+          [disabled]="cargandoCatalogos()"
+        />
+        <p-button
+          icon="pi pi-refresh"
+          severity="secondary"
+          [outlined]="true"
+          title="Limpiar filtros"
+          (onClick)="limpiar()"
+          [disabled]="loading()"
+        />
+        <p-button
+          label="PDF"
+          icon="pi pi-file-pdf"
+          severity="danger"
+          [outlined]="true"
+          title="Exportar a PDF (A4)"
+          (onClick)="exportarPdf()"
+          [loading]="exportando()"
+          [disabled]="loading() || resultados().length === 0"
+        />
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Tarjetas resumen ───────────────────────────────────────────────────── -->
+  @if (hasBuscado() && !loading() && resultados().length > 0) {
+    <div class="summary-row animate-fadein">
+      <div class="stat-card">
+        <span class="stat-value">{{ totalArticulos() }}</span>
+        <span class="stat-label">Artículos con existencia</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ totalUnidades() | number:'1.0-2' }}</span>
+        <span class="stat-label">Total unidades en stock</span>
+      </div>
+    </div>
+  }
+
+  <!-- ── Tabla de resultados ────────────────────────────────────────────────── -->
+  <div class="results-card">
+
+    @if (loading()) {
+      <div class="state-center">
+        <p-progressSpinner strokeWidth="3" styleClass="state-spinner" />
+        <p class="state-text">Calculando existencias…</p>
+      </div>
+    } @else if (hasBuscado() && resultados().length === 0) {
+      <div class="state-center">
+        <i class="pi pi-inbox state-icon state-icon--empty"></i>
+        <p class="state-text">No se encontraron artículos con existencia para los filtros seleccionados.</p>
+      </div>
+    } @else if (!hasBuscado()) {
+      <div class="state-center">
+        <i class="pi pi-filter state-icon state-icon--idle"></i>
+        <p class="state-text">Configura los filtros y presiona <strong>Generar</strong> para ver las existencias.</p>
+      </div>
+    } @else {
+      <p-table
+        [value]="resultados()"
+        [paginator]="true"
+        [rows]="50"
+        [rowsPerPageOptions]="[50, 100, 200]"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="{first}–{last} de {totalRecords} artículos"
+        [scrollable]="true"
+        scrollHeight="flex"
+        styleClass="p-datatable-sm existencias-table"
+        [sortField]="'articulo'"
+        [sortOrder]="1"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="articulo" class="col-code">
+              Código <p-sortIcon field="articulo" />
+            </th>
+            <th pSortableColumn="descripcion" class="col-desc">
+              Descripción <p-sortIcon field="descripcion" />
+            </th>
+            <th class="col-um">U/M</th>
+            <th pSortableColumn="bodega" class="col-bodega">
+              Bodega <p-sortIcon field="bodega" />
+            </th>
+            <th pSortableColumn="saldo" class="col-saldo">
+              Existencia <p-sortIcon field="saldo" />
+            </th>
+            <th pSortableColumn="precioUnitario" class="col-precio">
+              P. Unitario <p-sortIcon field="precioUnitario" />
+            </th>
+            <th pSortableColumn="precioMayoreo" class="col-precio">
+              P. Mayoreo <p-sortIcon field="precioMayoreo" />
+            </th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td class="col-code">
+              <span class="codigo-badge">{{ row.articulo }}</span>
+            </td>
+            <td class="col-desc">{{ row.descripcion }}</td>
+            <td class="col-um">{{ row.unidadMedida }}</td>
+            <td class="col-bodega">{{ row.bodega }}</td>
+            <td class="col-saldo">
+              <span class="saldo-value" [class.saldo-negativo]="row.saldo < 0">
+                {{ row.saldo | number:'1.0-4' }}
+              </span>
+            </td>
+            <td class="col-precio">{{ row.precioUnitario | number:'1.2-2' }}</td>
+            <td class="col-precio">{{ row.precioMayoreo | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="7" class="text-center p-4">Sin resultados</td></tr>
+        </ng-template>
+      </p-table>
+    }
+
+  </div>
+
+</div>

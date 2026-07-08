@@ -1876,7 +1876,9 @@ export class FacPosReplicaComponent implements OnDestroy {
   private guardarEncabezadoConSrAParaAgregarDetalle() {
     if (this.saving()) return;
 
-    this.applyDefaultSrCliente();
+    if (this.requiresClienteConfirmation()) {
+      this.applyDefaultSrCliente();
+    }
     const payload = this.buildUpdateFacturaPayload();
 
     this.saving.set(true);
@@ -1893,7 +1895,9 @@ export class FacPosReplicaComponent implements OnDestroy {
           this.saving.set(false);
           this.hasSavedCurrentRecord.set(true);
           this.syncDisabledControls();
-          this.showInfo('FAC POS', 'Encabezado guardado con cliente Sr(a).');
+          const raw = this.facForm.getRawValue();
+          const clienteGuardado = String(raw.FacturarA ?? raw.Cliente ?? '').trim() || 'Sr(a)';
+          this.showInfo('FAC POS', `Encabezado guardado con cliente ${clienteGuardado}.`);
           this.agregarDetalleManual(true);
         },
         error: (error) => {

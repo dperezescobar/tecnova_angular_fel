@@ -104,11 +104,16 @@ export class Dashboard implements OnInit {
   calculateBarHeight(valor: number): number {
     const data = this.dashboardData();
     if (!data || !data.historialVentas.length) return 0;
-    
-    // Encontrar el valor máximo para que sea el 100%
     const max = Math.max(...data.historialVentas.map(v => v.valor));
-    const divisor = max > 0 ? max : 1;
-    
-    return (valor * 100) / divisor;
+    return max > 0 ? (valor * 100) / max : 0;
+  }
+
+  promedioMensual(data: DashboardDTO): number {
+    return this.selectedMonth > 0 ? data.ingresosTotalesAnio / this.selectedMonth : 0;
+  }
+
+  calcTipoPct(data: DashboardDTO, cantidad: number): number {
+    const max = Math.max(...data.facturasPorTipo.map(t => +t.cantidad));
+    return max > 0 ? (cantidad * 100) / max : 0;
   }
 }

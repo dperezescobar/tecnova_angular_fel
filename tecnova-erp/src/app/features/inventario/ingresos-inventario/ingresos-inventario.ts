@@ -1,11 +1,11 @@
-import { Component, signal, computed, inject, viewChild } from '@angular/core';
+import { Component, signal, computed, inject, viewChild, effect } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { IngresosInventarioService, MovimientoInventarioGuardarDto, MovimientoInventarioDetalleGuardarDto, DetalleMovimientoUpdateDto } from './ingresos-inventario.service';
 import { ArticuloPorBodegaDto } from '../../../core/models/facturacion.models';
-import { FacturacionService } from '../../facturacion/services/facturacion';
-import { AutoCompleteModule } from 'primeng/autocomplete';
+import { ArticulosLazyService } from '../../facturacion/services/articulos-lazy.service';
+import { AutoCompleteModule, AutoCompleteCompleteEvent, AutoCompleteLazyLoadEvent, AutoCompleteSelectEvent } from 'primeng/autocomplete';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { TagModule } from 'primeng/tag';
 import {  ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -16,7 +16,8 @@ import { ArticulosService } from '../../articulos/services/articulos';
 import { ArticuloPrecioService } from '../../precios/precios';
 import { DialogModule } from 'primeng/dialog';
 import { ArticulosComponent } from '../../articulos/articulos';
-import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { catchError, finalize, map, of } from 'rxjs';
+import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
 
 interface MaestroForm {
   fecha: Date;
@@ -45,13 +46,13 @@ interface DetalleForm {
   idColor: number;
   idAcabado: string;
 }
-  
+
 @Component({
   selector: 'app-ingresos-inventario',
   templateUrl: './ingresos-inventario.html',
   styleUrl: './ingresos-inventario.scss',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonModule, AutoCompleteModule,ToastModule, ProgressSpinnerModule, TagModule, InputNumberModule, DialogModule, ArticulosComponent],
+  imports: [CommonModule, ReactiveFormsModule, ButtonModule, AutoCompleteModule, ToastModule, ProgressSpinnerModule, TagModule, InputNumberModule, DialogModule, ArticulosComponent, EliminarConfirmDialogComponent],
    providers: [MessageService]
 })
 export class IngresosInventarioComponent {
@@ -59,14 +60,15 @@ export class IngresosInventarioComponent {
   fechaDesde = signal< string >(this.getPrimerDiaMesAnterior());
   fechaHasta = signal< string >(this.getFechaActual());
 
-      private facturacionService = inject(FacturacionService);
       private authService = inject(AuthService);
         private messageService = inject(MessageService);
           private articulosService = inject(ArticulosService);
             private preciosService = inject(ArticuloPrecioService);
-          private readonly articuloChunkSize = 80;
+            private articulosLazyService = inject(ArticulosLazyService);
+          private readonly articuloPageSize = 20;
           showArticuloDialog = signal(false);
   articuloChild = viewChild(ArticulosComponent);
+  eliminarConfirmDialog = viewChild(EliminarConfirmDialogComponent);
   modo = signal<'listado' | 'nuevo' | 'edicion'>('listado');
   maestroForm: FormGroup;
   detalleForm: FormGroup;
@@ -79,35 +81,96 @@ puedoDesaplicar = computed(() => this.estadoDocumento() === 'APLICADO' && this.d
   detallesApi = signal<any[]>([]);
   loading = signal(false);
   loadingDetail = signal(false);
-  articulosOptions = signal<ArticuloPorBodegaDto[]>([]);
-  articuloSuggestions = signal<string[]>([]);
-    articuloCardSearch = signal('');
   articleViewMode = signal<'listado' | 'imagenes'>('listado');
-  articuloVisibleLimit = signal(this.articuloChunkSize);
   articuloImagenUrls = signal<Record<string, string>>({});
   articuloImagenDialogVisible = signal(false);
-  // Agrega este Signal a tu clase
-articuloSeleccionadoCodigo = signal<string | null>(null);
+  articuloSeleccionadoCodigo = signal<string | null>(null);
   private api = inject(IngresosInventarioService);
     selectedArticuloImagen = signal<ArticuloPorBodegaDto | null>(null);
   private articuloImagenLoading = new Set<string>();
-filteredArticuloCards = computed(() => {
-    const query = this.articuloCardSearch().trim().toLowerCase();
-    const options = this.articulosOptions();
-    if (!query) {
-      return options;
-    }
+  lightboxVisible = signal(false);
+  lightboxCodigoActual = signal<string | null>(null);
+  lightboxUrl = computed(() => {
+    const codigo = this.lightboxCodigoActual();
+    return codigo ? this.articuloImagenUrl(codigo) : null;
+  });
+  lightboxArticuloLabel = computed(() => {
+    const codigo = this.lightboxCodigoActual();
+    if (!codigo) return '';
+    const art = this.articuloImgResults().find(a => a.ARTICULO === codigo);
+    return art ? `${codigo} — ${art.DESCRIPCION}` : codigo;
+  });
 
-    return options.filter((item) => {
-      const codigo = String(item.ARTICULO ?? '').toLowerCase();
-      const descripcion = String(item.DESCRIPCION ?? '').toLowerCase();
-      return codigo.includes(query) || descripcion.includes(query);
-    });
+  // ===== Listado: autocomplete nativo con virtual scroll + lazy load =====
+  // Recupera la sensación de "dropdown compacto" del autocomplete original, pero ya no trae
+  // el catálogo completo: cada tecleo pide 20 resultados, y el scroll dentro del propio
+  // dropdown pide los siguientes 20 (misma API paginada que Imágenes, GetArticulosPorBodegaLazy).
+  readonly articuloListItemSize = 40;
+  articuloListSuggestions = signal<string[]>([]);
+  articuloListLoading = signal(false);
+  private articuloListQuery = '';
+  private articuloListSkip = 0;
+  private articuloListHasMore = true;
+  private articuloListLoadingFlag = false;
+  private articuloListItemsByDisplay = new Map<string, ArticuloPorBodegaDto>();
+
+  // ===== Imágenes: grid con búsqueda y scroll infinito propios =====
+  articuloImgQuery = signal('');
+  articuloImgResults = signal<ArticuloPorBodegaDto[]>([]);
+  private articuloImgSkip = 0;
+  articuloImgHasMore = signal(true);
+  articuloImgLoading = signal(false);
+  private articuloImgSearchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // ===== Carrito del documento: paginado + búsqueda en memoria =====
+  // Un documento puede tener cientos de líneas ya guardadas; pintarlas todas de golpe y pedir
+  // la imagen de cada una satura la pantalla. Se pagina y solo se piden imágenes de la página visible.
+  private readonly detallePageSize = 20;
+  detalleFiltro = signal('');
+  detallePagina = signal(1);
+
+  detallesFiltrados = computed(() => {
+    const term = this.detalleFiltro().trim().toLowerCase();
+    const items = this.detallesApi();
+    if (!term) return items;
+    return items.filter((d) =>
+      String(d.articulo ?? '').toLowerCase().includes(term) ||
+      String(d.descripcion ?? '').toLowerCase().includes(term)
+    );
   });
-    articuloCardsRemaining = computed(() => {
-    const remaining = this.filteredArticuloCards().length - this.articuloVisibleLimit();
-    return remaining > 0 ? remaining : 0;
+
+  detalleTotalPaginas = computed(() => Math.max(1, Math.ceil(this.detallesFiltrados().length / this.detallePageSize)));
+
+  detallesPagina = computed(() => {
+    const pagina = this.detallePagina();
+    const inicio = (pagina - 1) * this.detallePageSize;
+    return this.detallesFiltrados().slice(inicio, inicio + this.detallePageSize);
   });
+
+  onDetalleFiltroChange(value: string) {
+    this.detalleFiltro.set(String(value ?? ''));
+    this.detallePagina.set(1);
+  }
+
+  irPaginaDetalleAnterior() {
+    this.detallePagina.update((p) => Math.max(1, p - 1));
+  }
+
+  irPaginaDetalleSiguiente() {
+    this.detallePagina.update((p) => Math.min(this.detalleTotalPaginas(), p + 1));
+  }
+
+  abrirLightbox(codigo: string, event: Event): void {
+    event.stopPropagation();
+    if (!this.articuloImagenUrl(codigo)) return;
+    this.lightboxCodigoActual.set(codigo);
+    this.lightboxVisible.set(true);
+  }
+
+  cerrarLightbox(): void {
+    this.lightboxVisible.set(false);
+  }
+
   constructor(private fb: FormBuilder) {
     this.maestroForm = this.fb.group({
       fecha: [new Date(), Validators.required],
@@ -144,6 +207,13 @@ filteredArticuloCards = computed(() => {
     }, { emitEvent: false }); // false para no disparar eventos infinitos
   });
     this.cargarMovimientos();
+
+    // Las imágenes del carrito solo se piden para la página actualmente visible (ver
+    // detallesPagina) — nunca para las cientos de líneas que pueda tener el documento completo.
+    effect(() => {
+      this.detallesPagina();
+      this.ensureCartImages();
+    });
   }
 
   // Utilidades para fechas por defecto
@@ -167,11 +237,11 @@ onArticuloCreado(codigoArticulo: string) {
     // 1. Obtener datos del hijo ANTES de cerrarlo
     const hijo = this.articuloChild();
     const descripcion = hijo?.articuloForm.get('Descripcion')?.value || 'Nuevo Artículo';
-    const tieneImagen = !!hijo?.imagenPreview(); 
+    const tieneImagen = !!hijo?.imagenPreview();
 
     // 2. Cerrar el modal
     this.showArticuloDialog.set(false);
-    
+
     // 3. Crear el registro optimista ROBUSTO (con valores por defecto seguros)
     const nuevoArticulo: ArticuloPorBodegaDto = {
       ARTICULO: codigoArticulo,
@@ -183,41 +253,47 @@ onArticuloCreado(codigoArticulo: string) {
       TIPO_ARTICULO: 'TM'
     };
 
-    // 4. Inyectar limpiamente en los Signals locales
-    this.articulosOptions.update(opts => {
-      const filt = opts.filter(o => o.ARTICULO !== codigoArticulo);
-      return [nuevoArticulo, ...filt];
-    });
-    
+    // 4. Inyectarlo al inicio de ambas listas de resultados visibles actualmente
     const display = this.toArticuloDisplay(nuevoArticulo);
-    this.articuloSuggestions.update(suggs => {
-      const filt = suggs.filter(s => s !== display);
-      return [display, ...filt];
-    });
+    this.articuloListItemsByDisplay.set(display, nuevoArticulo);
+    this.articuloListSuggestions.update(items => [display, ...items.filter(d => d !== display)]);
+    this.articuloImgResults.update(items => [nuevoArticulo, ...items.filter(i => i.ARTICULO !== codigoArticulo)]);
 
     // 5. Seleccionarlo automáticamente (con precios en 0 iniciales)
-    this.detalleForm.patchValue({ 
+    this.detalleForm.patchValue({
       LineaArticulo: display,
       precioUnitario: 0,
       precioMayoreo: 0,
       cantidadMinimaMayoreo: 0
     });
     this.articuloSeleccionadoCodigo.set(codigoArticulo);
-    
+    // Artículo recién creado: sin precio previo. Cualquier precio que se capture es un cambio.
+    this.precioOrigUnidad = 0;
+    this.precioOrigMayoreo = 0;
+    this.cantMinOrigMayoreo = 0;
+
     // 6. FORZAR CARGA DE IMAGEN (pasamos 'true' para limpiar la caché de URL)
     if (tieneImagen) {
-      this.ensureArticuloImageLoaded(codigoArticulo, true);
+      this.ensureArticuloImageLoaded(codigoArticulo, { forceRefresh: true });
     }
 
     this.showInfo('Éxito', `Artículo ${codigoArticulo} registrado.`);
-    
-    // 7. Mover foco 
+
+    // 7. Mover foco
     setTimeout(() => document.getElementById('cantidad-input')?.focus(), 150);
 
-    // 8. DELAY DE CONTROL: Esperamos 800ms antes de llamar a la BD 
-    // para dar tiempo a la API de procesar el registro en base de datos.
+    // 8. Refrescar SOLO ese artículo desde la API (precio/imagen definitivos), dando tiempo
+    // a que el backend termine de procesar el registro. Ya no se recarga el catálogo completo.
     setTimeout(() => {
-      this.CargarArticulos();
+      this.articulosLazyService.getArticulosPorBodegaLazy('BOD01', codigoArticulo, 0, 1).subscribe({
+        next: (rows) => {
+          const actualizado = (rows ?? [])[0];
+          if (!actualizado) return;
+          const displayActualizado = this.toArticuloDisplay(actualizado);
+          this.articuloListItemsByDisplay.set(displayActualizado, actualizado);
+          this.articuloImgResults.update(items => items.map(i => i.ARTICULO === codigoArticulo ? actualizado : i));
+        }
+      });
     }, 800);
   }
   nuevoIngreso() {
@@ -288,9 +364,9 @@ usuario: this.authService.currentUser()?.username ?? ''
         this.modo.set('edicion');
         this.estadoDocumento.set('ELABORACION');
         this.cargarDetallesApi(resp.documentoInv);
+        this.reiniciarBusquedaArticulos();
       }
     });
-    this.CargarArticulos();
   }
   guardarCambios() {
     if (!this.maestroForm.valid) return;
@@ -329,56 +405,136 @@ usuario: this.authService.currentUser()?.username ?? ''
     this.messageService.add({ severity: 'error', summary, detail });
   }
 
-private CargarArticulos() {
-    this.facturacionService.getArticulosPorBodega('BOD01').subscribe({
-      next: (rows) => {
-        let items = rows ?? [];
-        
-        // Fusión limpia por ID: Preservar el artículo seleccionado si la API viene con retraso
-        const seleccionado = this.articuloSeleccionadoCodigo();
-        if (seleccionado) {
-          const enApi = items.find(a => a.ARTICULO === seleccionado);
-          const enLocal = this.articulosOptions().find(a => a.ARTICULO === seleccionado);
-          
-          if (!enApi && enLocal) {
-            items.unshift(enLocal);
-          } else if (enApi && enLocal?.TIENE_IMAGEN) {
-            enApi.TIENE_IMAGEN = true; 
-          }
-          
-          // Autocompletar precios actualizados
-          const actual = enApi || enLocal;
-          if (actual) {
-            this.detalleForm.patchValue({
-              precioUnitario: actual.ULTIMO_PRECIO ?? actual.ULTIMO_PRECIO ?? 0,
-              precioMayoreo: actual.PRECIO_MAYOREO ?? actual.PRECIO_MAYOREO ?? 0,
-              cantidadMinimaMayoreo: actual.cantidadmayoreo ?? actual.cantidadmayoreo ?? 0
-            }, { emitEvent: false });
-          }
-        }
-        
-        this.articulosOptions.set(items);
-        this.articuloSuggestions.set(items.map((item) => this.toArticuloDisplay(item)));
-      },
-      error: () => {
-        this.articulosOptions.set([]);
-        this.articuloSuggestions.set([]);
-      }
-    });
+  // ===== Listado: autocomplete con virtual scroll + lazy load =====
+
+  private reiniciarBusquedaArticulos() {
+    this.articuloListSuggestions.set([]);
+    this.articuloListItemsByDisplay.clear();
+    this.articuloListQuery = '';
+    this.articuloListSkip = 0;
+    this.articuloListHasMore = true;
+    this.reiniciarBusquedaImagenes();
   }
+
+  onArticuloListComplete(event: AutoCompleteCompleteEvent) {
+    this.articuloListQuery = String(event.query ?? '');
+    this.articuloListSkip = 0;
+    this.articuloListHasMore = true;
+    this.cargarPaginaListado(true);
+  }
+
+  onArticuloListLazyLoad(event: AutoCompleteLazyLoadEvent) {
+    const last = Number(event.last ?? 0);
+    const cargados = this.articuloListSuggestions().length;
+    if (last >= cargados - 1 && this.articuloListHasMore && !this.articuloListLoadingFlag) {
+      this.cargarPaginaListado(false);
+    }
+  }
+
+  private cargarPaginaListado(reemplazar: boolean) {
+    if (this.articuloListLoadingFlag) return;
+    this.articuloListLoadingFlag = true;
+    this.articuloListLoading.set(true);
+    const skip = this.articuloListSkip;
+    this.articulosLazyService.getArticulosPorBodegaLazy('BOD01', this.articuloListQuery, skip, this.articuloPageSize)
+      .pipe(finalize(() => { this.articuloListLoadingFlag = false; this.articuloListLoading.set(false); }))
+      .subscribe({
+        next: (rows) => {
+          const items = rows ?? [];
+          const displays = items.map(item => this.toArticuloDisplay(item));
+          items.forEach((item, idx) => this.articuloListItemsByDisplay.set(displays[idx], item));
+          this.articuloListSuggestions.update(current => reemplazar ? displays : [...current, ...displays]);
+          this.articuloListSkip = skip + items.length;
+          this.articuloListHasMore = items.length === this.articuloPageSize;
+        },
+        error: () => { this.articuloListHasMore = false; }
+      });
+  }
+
+  onArticuloListSelect(event: AutoCompleteSelectEvent) {
+    const display = String(event.value ?? '').trim();
+    const articulo = this.articuloListItemsByDisplay.get(display);
+    if (!articulo) {
+      this.articuloSeleccionadoCodigo.set(null);
+      return;
+    }
+    this.selectArticuloCard(articulo);
+  }
+
+  // ===== Imágenes: grid con búsqueda y scroll infinito propios =====
+
+  private reiniciarBusquedaImagenes() {
+    this.articuloImgQuery.set('');
+    this.articuloImgResults.set([]);
+    this.articuloImgSkip = 0;
+    this.articuloImgHasMore.set(true);
+    if (this.articleViewMode() === 'imagenes') {
+      this.cargarPaginaImagenes();
+    }
+  }
+
+  private cargarPaginaImagenes() {
+    if (this.articuloImgLoading() || !this.articuloImgHasMore()) return;
+    this.articuloImgLoading.set(true);
+    const skip = this.articuloImgSkip;
+    this.articulosLazyService.getArticulosPorBodegaLazy('BOD01', this.articuloImgQuery(), skip, this.articuloPageSize)
+      .pipe(finalize(() => this.articuloImgLoading.set(false)))
+      .subscribe({
+        next: (rows) => {
+          const items = rows ?? [];
+          this.articuloImgResults.update(current => [...current, ...items]);
+          this.articuloImgSkip = skip + items.length;
+          this.articuloImgHasMore.set(items.length === this.articuloPageSize);
+          items.forEach(item => this.ensureArticuloImageLoaded(item.ARTICULO, { tieneImagen: item.TIENE_IMAGEN }));
+        },
+        error: () => this.articuloImgHasMore.set(false)
+      });
+  }
+
+  onArticuloImgQueryChange(value: string) {
+    this.articuloImgQuery.set(String(value ?? ''));
+    clearTimeout(this.articuloImgSearchTimer);
+    this.articuloImgSearchTimer = setTimeout(() => {
+      this.articuloImgResults.set([]);
+      this.articuloImgSkip = 0;
+      this.articuloImgHasMore.set(true);
+      this.cargarPaginaImagenes();
+    }, 300);
+  }
+
+  onArticuloImgScroll(event: Event) {
+    const el = event.target as HTMLElement;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+      this.cargarPaginaImagenes();
+    }
+  }
+
    private toArticuloDisplay(item: ArticuloPorBodegaDto): string {
     const codigo = String(item.ARTICULO ?? '').trim();
     const descripcion = String(item.DESCRIPCION ?? '').trim();
     return `${codigo} - ${descripcion}`;
   }
 
+  // Precios del artículo al seleccionarlo (baseline para detectar cambios reales antes de actualizar).
+  private precioOrigUnidad = 0;
+  private precioOrigMayoreo = 0;
+  private cantMinOrigMayoreo = 0;
+
   agregarDetalle() {
     if (!this.detalleForm.valid || !this.documentoInv()) return;
     const form = this.detalleForm.value;
     const username = this.authService.currentUser()?.username ?? '';
-    // Obtenemos el código limpio desde la señal
-  const codigoArticulo = this.articuloSeleccionadoCodigo();
-  if(!codigoArticulo) return;
+    const codigoArticulo = this.articuloSeleccionadoCodigo();
+    if(!codigoArticulo) return;
+
+    // Snapshot de precios ANTES de resetear el formulario. El precio se actualizará
+    // únicamente si el movimiento se guarda (sin RAISERROR) y solo si realmente cambió.
+    const precioUnitario = Number(form.precioUnitario ?? 0);
+    const precioMayoreo = Number(form.precioMayoreo ?? 0);
+    const cantidadMinimaMayoreo = Number(form.cantidadMinimaMayoreo ?? 0);
+    const unidadCambio = precioUnitario !== this.precioOrigUnidad;
+    const mayoreoCambio = precioMayoreo !== this.precioOrigMayoreo || cantidadMinimaMayoreo !== this.cantMinOrigMayoreo;
+
     const dto: DetalleMovimientoUpdateDto = {
       articulo: codigoArticulo,
       cantidad: form.cantidad,
@@ -386,9 +542,12 @@ private CargarArticulos() {
       usuario: username,
       documentoInv: this.documentoInv()
     };
+    this.loadingDetail.set(true);
+    this.articuloSeleccionadoCodigo.set(null);
     this.api.guardarMovimientoDetalle(dto).subscribe({
       next: () => {
-        this.cargarDetallesApi(this.documentoInv()!);
+        // Regla 1: los precios se actualizan solo aquí (el SP no lanzó validación/RAISERROR).
+        this.actualizarPreciosSiCambio(codigoArticulo, username, precioUnitario, precioMayoreo, cantidadMinimaMayoreo, unidadCambio, mayoreoCambio);
         this.detalleForm.reset({
           LineaArticulo: '',
           cantidad: 0,
@@ -403,11 +562,15 @@ private CargarArticulos() {
           precioMayoreo: 0,
           cantidadMinimaMayoreo: 0
         });
+        this.showInfo('Ingreso de Inventario', 'Producto agregado correctamente.');
+        this.cargarDetallesApi(this.documentoInv()!);
+      },
+      error: (err) => {
+        this.loadingDetail.set(false);
+        const msg = err.error?.message || 'Error al agregar el producto.';
+        this.showError('Ingreso de Inventario', msg);
       }
     });
-    this.showInfo('Ingreso de Inventario', 'Producto agregado correctamente.');
-    this.guardarDoblePrecio();
-    this.articuloSeleccionadoCodigo.set(null);
   }
 
   aplicarDocumento() {
@@ -422,9 +585,9 @@ private CargarArticulos() {
         this.maestroForm.patchValue({ aplicado: 'APLICADO' });
         this.showInfo('Ingreso de Inventario', 'Documento aplicado correctamente.');
 
-      } 
+      }
     });
-    
+
   }
 
   desaplicarDocumento() {
@@ -439,14 +602,14 @@ private CargarArticulos() {
       this.maestroForm.patchValue({ aplicado: 'ELABORACION' });
       }
     });
-   
+
   }
 
   editarDocumento(documentoInv: number) {
     this.modo.set('edicion');
-    this.documentoInv.set(documentoInv);   
+    this.documentoInv.set(documentoInv);
     this.cargarDetallesApi(documentoInv);
-    this.CargarArticulos();
+    this.reiniciarBusquedaArticulos();
     const mov = this.movimientos().find(m => m.documentoInv === documentoInv);
     if (mov) {
       const fechaFormateada = new Date(mov.fecha).toISOString().split('T')[0];
@@ -455,15 +618,19 @@ private CargarArticulos() {
         documentoInv: mov.documentoInv,
         fecha: fechaFormateada,
         observacion: mov.comentario,
-        aplicado: mov.aplicado     
+        aplicado: mov.aplicado
       });
     }
   }
-eliminarDocumento(documentoInv: number) {
+solicitarEliminarDocumento(documentoInv: number) {
   if(!this.adminAccess()) {
       this.showError('Acceso Denegado', 'No tiene permisos para esta accion.');
       return;
     }
+    this.eliminarConfirmDialog()?.abrir(() => this.eliminarDocumento(documentoInv));
+  }
+
+  eliminarDocumento(documentoInv: number) {
     this.api.eliminarMovimientoInventario(documentoInv).subscribe({
       next: () => {
         this.cargarMovimientos();
@@ -475,10 +642,10 @@ eliminarDocumento(documentoInv: number) {
 
   cargarDetallesApi(documentoInv: number) {
     this.loadingDetail.set(true);
+    this.detalleFiltro.set('');
+    this.detallePagina.set(1);
     this.api.getMovimientoDetalle(documentoInv).subscribe({
-      next: (data) => {
-        this.detallesApi.set(data);
-      },
+      next: (data) => this.detallesApi.set(data),
       complete: () => this.loadingDetail.set(false),
       error: () => {
         this.detallesApi.set([]);
@@ -494,17 +661,6 @@ eliminarDocumento(documentoInv: number) {
     this.cargarMovimientos();
   }
 
-  onArticuloComplete(query: string) {
-    const normalized = String(query ?? '').trim().toLowerCase();
-    const options = this.articulosOptions().map((item) => this.toArticuloDisplay(item));
-
-    if (!normalized) {
-      this.articuloSuggestions.set(options);
-      return;
-    }
-
-    this.articuloSuggestions.set(options.filter((item) => item.toLowerCase().includes(normalized)));
-  }
 eliminarDetalle(docInv:number, correlativo: number) {
   if(!this.adminAccess()) {
       this.showError('Acceso Denegado', 'No tiene permisos para esta accion.');
@@ -520,43 +676,7 @@ eliminarDetalle(docInv:number, correlativo: number) {
       this.showError('Error de Inventario', errorMessage);
     }
     });
-    
-  }
-  onArticuloSelect(displayValue: string) {
-    const display = String(displayValue ?? '').trim();
-    const articulo = this.findArticuloByDisplay(display);
 
-    if (!articulo) {
-      this.detalleForm.patchValue({
-        LineaArticulo: ''
-      });
-      this.articuloSeleccionadoCodigo.set(null);
-      return;
-    }
-
-    // AUTOCOMPLETAR LOS PRECIOS AL SELECCIONAR
-    this.detalleForm.patchValue({
-      LineaArticulo: display,
-      precioUnitario: articulo.ULTIMO_PRECIO ?? articulo.ULTIMO_PRECIO ?? 0,
-      precioMayoreo: articulo.PRECIO_MAYOREO ?? articulo.PRECIO_MAYOREO ?? 0,
-      cantidadMinimaMayoreo: articulo.cantidadmayoreo ?? articulo.cantidadmayoreo ?? 0
-    });
-    this.articuloSeleccionadoCodigo.set(articulo.ARTICULO);
-
-  }
-
-  private findArticuloByDisplay(displayValue: string): ArticuloPorBodegaDto | undefined {
-    const normalized = String(displayValue ?? '').trim().toLowerCase();
-    if (!normalized) {
-      return undefined;
-    }
-
-    return this.articulosOptions().find((item) => {
-      const codigo = String(item.ARTICULO ?? '').trim().toLowerCase();
-      const descripcion = String(item.DESCRIPCION ?? '').trim().toLowerCase();
-      const display = this.toArticuloDisplay(item).toLowerCase();
-      return display === normalized || codigo === normalized || descripcion === normalized;
-    });
   }
   canSave(): boolean {
     return this.puedoEditar();
@@ -577,45 +697,28 @@ currentEstado(): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
 
   setArticleViewMode(mode: 'listado' | 'imagenes') {
     this.articleViewMode.set(mode);
-    if (mode === 'imagenes') {
-      this.articuloVisibleLimit.set(this.articuloChunkSize);
-      this.ensureVisibleArticuloImages();
+    if (mode === 'imagenes' && this.articuloImgResults().length === 0) {
+      this.cargarPaginaImagenes();
     }
   }
 
-  onArticuloCardSearch(value: string) {
-    this.articuloCardSearch.set(String(value ?? '').trim());
-    this.articuloVisibleLimit.set(this.articuloChunkSize);
-    if (this.articleViewMode() === 'imagenes') {
-      this.ensureVisibleArticuloImages();
+  private ensureCartImages(): void {
+    for (const det of this.detallesPagina()) {
+      // Sin comprobación previa de catálogo: cada línea del carrito intenta su propia imagen
+      // directamente; si el artículo no tiene imagen, la petición simplemente falla en silencio.
+      this.ensureArticuloImageLoaded(String(det.articulo ?? '').trim());
     }
   }
-  visibleArticuloCards = computed(() => {
-    const limit = this.articuloVisibleLimit();
-    return this.filteredArticuloCards().slice(0, limit);
-  });
-  loadMoreArticuloCards() {
-    this.articuloVisibleLimit.update((current) => current + this.articuloChunkSize);
-    this.ensureVisibleArticuloImages();
-  }
-  private ensureVisibleArticuloImages(): void {
-    if (this.articleViewMode() !== 'imagenes') {
-      return;
-    }
 
-    for (const item of this.visibleArticuloCards()) {
-      this.ensureArticuloImageLoaded(item.ARTICULO);
-    }
-  }
-private ensureArticuloImageLoaded(codigo: string, forceRefresh: boolean = false): void {
+private ensureArticuloImageLoaded(codigo: string, opts: { forceRefresh?: boolean; tieneImagen?: boolean } = {}): void {
     const key = String(codigo ?? '').trim();
     if (!key) return;
 
-    if (forceRefresh) {
+    if (opts.forceRefresh) {
       // Limpiar caché local y revocar el Blob anterior para forzar descarga
       const currentUrl = this.articuloImagenUrls()[key];
       if (currentUrl) URL.revokeObjectURL(currentUrl);
-      
+
       this.articuloImagenUrls.update(urls => {
         const copy = { ...urls };
         delete copy[key];
@@ -624,14 +727,13 @@ private ensureArticuloImageLoaded(codigo: string, forceRefresh: boolean = false)
       this.articuloImagenLoading.delete(key);
     } else {
       if (this.articuloImagenUrls()[key] || this.articuloImagenLoading.has(key)) return;
-      const articulo = this.articulosOptions().find((item) => String(item.ARTICULO ?? '').trim() === key);
-      if (!articulo?.TIENE_IMAGEN) return;
+      if (opts.tieneImagen === false) return;
     }
 
     this.articuloImagenLoading.add(key);
-    
+
     // El servicio getArticuloImagen enviará ?_ts=... para romper el caché HTTP
-    this.articulosService.getArticuloImagen(key, forceRefresh).pipe(
+    this.articulosService.getArticuloImagen(key, !!opts.forceRefresh).pipe(
       map((blob) => ({ codigo: key, url: URL.createObjectURL(blob) })),
       catchError(() => of(null)),
       finalize(() => this.articuloImagenLoading.delete(key))
@@ -644,42 +746,10 @@ private ensureArticuloImageLoaded(codigo: string, forceRefresh: boolean = false)
       }
     });
   }
-  // private ensureArticuloImageLoaded(codigo: string): void {
-  //     const key = String(codigo ?? '').trim();
-  //     if (!key) {
-  //       return;
-  //     }
-  
-  //     const urls = this.articuloImagenUrls();
-  //     if (urls[key] || this.articuloImagenLoading.has(key)) {
-  //       return;
-  //     }
-  
-  //     const articulo = this.articulosOptions().find((item) => String(item.ARTICULO ?? '').trim() === key);
-  //     if (!articulo?.TIENE_IMAGEN) {
-  //       return;
-  //     }
-  
-  //     this.articuloImagenLoading.add(key);
-  //     this.articulosService.getArticuloImagen(key).pipe(
-  //       map((blob) => ({ codigo: key, url: URL.createObjectURL(blob) })),
-  //       catchError(() => of(null)),
-  //       finalize(() => this.articuloImagenLoading.delete(key))
-  //     ).subscribe((result) => {
-  //       if (!result) {
-  //         return;
-  //       }
-  
-  //       this.articuloImagenUrls.update((current) => ({
-  //         ...current,
-  //         [result.codigo]: result.url
-  //       }));
-  //     });
-  //   }
-    selectArticuloCard(art: ArticuloPorBodegaDto) {
+  selectArticuloCard(art: ArticuloPorBodegaDto) {
   const codigo = String(art.ARTICULO ?? '').trim();
   this.articuloSeleccionadoCodigo.set(codigo);
-  
+
   // Sincronizamos con el formulario automáticamente
   const display = this.toArticuloDisplay(art);
   this.detalleForm.patchValue({
@@ -688,66 +758,64 @@ private ensureArticuloImageLoaded(codigo: string, forceRefresh: boolean = false)
       precioMayoreo: art.PRECIO_MAYOREO ?? art.PRECIO_MAYOREO ?? 0,
       cantidadMinimaMayoreo: art.cantidadmayoreo ?? art.cantidadmayoreo ?? 0
     });
+  // Baseline de precios del artículo, para detectar si el usuario realmente los cambió.
+  this.precioOrigUnidad = Number(art.ULTIMO_PRECIO ?? 0);
+  this.precioOrigMayoreo = Number(art.PRECIO_MAYOREO ?? 0);
+  this.cantMinOrigMayoreo = Number(art.cantidadmayoreo ?? 0);
   this.showInfo('Selección', `Artículo ${codigo} seleccionado.`);
 }
 articuloImagenUrl(codigo: string): string | null {
     return this.articuloImagenUrls()[codigo] ?? null;
   }
-  guardarDoblePrecio() {
-  if (this.detalleForm.invalid) return;
+  // Actualiza precios SOLO si hubo cambio real respecto al baseline del artículo (Regla 2).
+  // El mayoreo, además, solo se guarda si tiene precio > 0 y cantidad mínima > 1.
+  private actualizarPreciosSiCambio(
+    articulo: string,
+    usuario: string,
+    precioUnitario: number,
+    precioMayoreo: number,
+    cantidadMinimaMayoreo: number,
+    unidadCambio: boolean,
+    mayoreoCambio: boolean
+  ) {
+    if (!articulo) return;
+    if (!unidadCambio && !mayoreoCambio) return; // sin cambios: no se corre ningún update
 
-  const formValue = this.detalleForm.value;
-  const articulosel = this.articuloSeleccionadoCodigo(); // Tu señal o variable del artículo
-  const preciosel = formValue.precioUnitario ?? 0; // Precio por unidad del formulario
-if(!articulosel || preciosel===0){
-    this.showError('Error de validación', 'Debe seleccionar un artículo válido y precio valido.');
-    return;
+    const guardarMayoreo = () => {
+      if (!mayoreoCambio || precioMayoreo <= 0 || cantidadMinimaMayoreo <= 1) return;
+      this.preciosService.guardarPrecio({
+        articulo, tipoPrecioID: 2, precio: precioMayoreo, cantidadMinima: cantidadMinimaMayoreo, usuario
+      }).subscribe({
+        next: () => this.showInfo('Registro', 'Precios actualizados correctamente'),
+        error: () => this.showError('Precio por mayoreo', 'No se pudo guardar el precio por mayoreo.')
+      });
+    };
+
+    if (unidadCambio && precioUnitario > 0) {
+      this.preciosService.guardarPrecio({
+        articulo, tipoPrecioID: 1, precio: precioUnitario, cantidadMinima: 1, usuario
+      }).subscribe({
+        next: () => {
+          if (mayoreoCambio) {
+            guardarMayoreo();
+          } else {
+            this.showInfo('Registro', 'Precio por unidad actualizado');
+          }
+        },
+        error: () => this.showError('Precio por unidad', 'No se pudo guardar el precio por unidad.')
+      });
+    } else {
+      // La unidad no cambió (o quedó en 0): se intenta solo el mayoreo si cambió.
+      guardarMayoreo();
+    }
   }
-  // 1. Preparar registro por Unidad (Tipo 1)
-  const regUnidad = {
-    articulo: articulosel,
-    tipoPrecioID: 1,
-    precio: preciosel,
-    cantidadMinima: 1,
-    usuario: this.authService.currentUser()?.username ?? ''
-  };
-
-  // 2. Ejecutar registro Obligatorio
-  this.preciosService.guardarPrecio(regUnidad).subscribe({
-    next: () => {
-      // 3. Evaluar si se guarda el de Mayoreo (Opcional)
-      if ((formValue.precioMayoreo ?? 0 > 0) && (formValue.cantidadMinimaMayoreo ?? 0 > 1)) {
-        const preciomayoreo = formValue.precioMayoreo ?? 0;
-        const cantidadmayoreo = formValue.cantidadMinimaMayoreo ?? 0;
-        if (preciomayoreo === 0 || cantidadmayoreo === 0) {
-          return;
-        }
-        const regMayoreo = {
-          articulo: articulosel,
-          tipoPrecioID: 2,
-          precio: preciomayoreo,
-          cantidadMinima: cantidadmayoreo,
-          usuario: this.authService.currentUser()?.username ?? ''
-        };
-        
-        this.preciosService.guardarPrecio(regMayoreo).subscribe({
-          next: () => this.showInfo('Registro', 'Precios actualizados correctamente'),
-          error: () => this.showError('Error al registrar precio por mayoreo', 'El precio por unidad se guardó, pero hubo un error al guardar el precio por mayoreo.')
-        });
-      } else {
-        this.showInfo('Registro','Precio por unidad actualizado');
-      }
-    },
-    error: () => this.showError('Error al registrar precio por unidad', 'No se pudo guardar el precio por unidad. El precio por mayoreo no se intentó guardar.')
-  });
-}
 selectInputText(event: any) {
   // PrimeNG a veces envuelve el evento. Buscamos el input real:
   const input = (event.originalEvent?.target || event.target) as HTMLInputElement;
 
   if (!input || input.readOnly || input.disabled) return;
 
-  // El delay con requestAnimationFrame es CRUCIAL en p-inputNumber 
+  // El delay con requestAnimationFrame es CRUCIAL en p-inputNumber
   // porque PrimeNG realiza validaciones internas al ganar el foco.
   requestAnimationFrame(() => {
     if (typeof input.select === 'function') {

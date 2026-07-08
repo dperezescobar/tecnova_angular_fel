@@ -1,0 +1,31 @@
+.reenviar-correo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  input {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.6rem;
+    padding: 0.55rem 0.65rem;
+    font: inherit;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+
+    &:focus {
+      outline: none;
+      border-color: #0b63f3;
+      box-shadow: 0 0 0 3px rgba(11, 99, 243, 0.14);
+    }
+
+    &:disabled {
+      background: #f8fafc;
+      color: #64748b;
+    }
+  }
+}

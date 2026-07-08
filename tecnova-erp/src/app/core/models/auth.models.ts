@@ -16,6 +16,8 @@ export interface LoginResponse {
   nombreUsuario?: string;
   tipoUsuario?: string;
   bloqueado?: boolean;
+  esRoot?: boolean;
+  requierePasswordChange?: boolean;
 }
 
 // Basado en EmpresaUserInfoDTO y EmpresaSessionDataDTO
@@ -42,6 +44,8 @@ export interface AuthResponse {
   nombreUsuario?: string;
   tipoUsuario?: string;
   bloqueado?: boolean;
+  esRoot?: boolean;
+  requierePasswordChange?: boolean;
 }
 
 // Para guardar el estado del usuario en la app
@@ -54,6 +58,16 @@ export interface UserSession {
   nombreUsuario?: string;
   tipoUsuario?: string;
   bloqueado?: boolean;
+  esRoot?: boolean;
   expiration?: string;
   selectedEmpresa: Empresa | null;
+}
+
+// Body para POST /api/Auth/CompletarCambioPasswordReiniciado
+export interface CompletarCambioPasswordRequest {
+  usuario: string;
+  passwordActual: string;
+  passwordNueva: string;
+  passwordConfirmar: string;
+  idSistema: number;
 }

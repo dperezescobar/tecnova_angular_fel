@@ -1,0 +1,424 @@
+<section class="proveedores-page">
+
+  <header class="proveedores-header">
+    <div>
+      <h1>Catálogo de Proveedores</h1>
+    </div>
+
+    <div class="header-actions">
+      @if (!showForm()) {
+        <span class="search-box">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Buscar por nombre, NIT o código"
+            [value]="filterText()"
+            (input)="onFilterChange($any($event.target).value)"
+            (keyup.enter)="loadProveedores()"
+          />
+        </span>
+        <div class="header-buttons" role="group" aria-label="Acciones del listado">
+          <p-button label="Buscar" icon="pi pi-filter" (onClick)="loadProveedores()" [disabled]="loading()"></p-button>
+          <p-button label="Registrar Proveedor" icon="pi pi-plus" severity="info" (onClick)="openCreateForm()"></p-button>
+        </div>
+      } @else {
+        <div class="detail-actions">
+          <p-button type="button" label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+        </div>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage()) {
+    <p-message severity="error" [text]="errorMessage()"></p-message>
+  }
+
+  @if (!showForm()) {
+    <section class="maestro-section">
+      @if (loading()) {
+        <div class="loading-box" role="status" aria-live="polite">
+          <p-progressSpinner></p-progressSpinner>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="proveedores-table" aria-label="Listado de proveedores">
+            <thead>
+              <tr>
+                <th class="actions-col">Acciones</th>
+                <th>CÓDIGO</th>
+                <th>NOMBRE / RAZÓN SOCIAL</th>
+                <th>NOMBRE COMERCIAL</th>
+                <th>NIT</th>
+                <th>ORIGEN</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (proveedor of proveedores(); track proveedor.PROVEEDOR) {
+                <tr>
+                  <td class="actions-col">
+                    <p-button
+                      icon="pi pi-pencil"
+                      [text]="true"
+                      severity="info"
+                      styleClass="action-icon-btn action-edit"
+                      ariaLabel="Editar proveedor"
+                      (onClick)="openEditForm(proveedor)"
+                    ></p-button>
+                    <p-button
+                      icon="pi pi-trash"
+                      [text]="true"
+                      severity="danger"
+                      styleClass="action-icon-btn action-delete"
+                      ariaLabel="Eliminar proveedor"
+                      (onClick)="deleteProveedor(proveedor)"
+                    ></p-button>
+                  </td>
+                  <td>{{ proveedor.PROVEEDOR }}</td>
+                  <td>{{ proveedor.NOMBRE }}</td>
+                  <td>{{ proveedor.ALIAS }}</td>
+                  <td>{{ proveedor.NIT }}</td>
+                  <td>
+                    <p-tag
+                      [value]="proveedor.ORIGEN === 'E' ? 'Exterior' : 'Local'"
+                      [severity]="proveedor.ORIGEN === 'E' ? 'warn' : 'info'"
+                    ></p-tag>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6">No se encontraron proveedores con el filtro aplicado.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          <div class="list-mobile-cards" aria-label="Listado de proveedores en móvil">
+            @for (proveedor of proveedores(); track proveedor.PROVEEDOR) {
+              <article class="list-mobile-card">
+                <div class="card-row">
+                  <span class="card-label">Código</span>
+                  <span class="card-value">{{ proveedor.PROVEEDOR }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Nombre</span>
+                  <span class="card-value">{{ proveedor.NOMBRE }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Comercial</span>
+                  <span class="card-value">{{ proveedor.ALIAS }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">NIT</span>
+                  <span class="card-value">{{ proveedor.NIT }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Origen</span>
+                  <span class="card-value">{{ proveedor.ORIGEN === 'E' ? 'Exterior' : 'Local' }}</span>
+                </div>
+                <div class="card-actions">
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="info"
+                    styleClass="action-icon-btn action-edit"
+                    ariaLabel="Editar proveedor"
+                    (onClick)="openEditForm(proveedor)"
+                  ></p-button>
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    styleClass="action-icon-btn action-delete"
+                    ariaLabel="Eliminar proveedor"
+                    (onClick)="deleteProveedor(proveedor)"
+                  ></p-button>
+                </div>
+              </article>
+            } @empty {
+              <div class="mobile-empty">No se encontraron proveedores.</div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+
+  @if (showForm()) {
+    <section class="form-panel detalle-section">
+      <p-card>
+        <ng-template pTemplate="title">{{ formTitle() }}</ng-template>
+        <div class="mode-indicator" aria-live="polite">
+          <span class="mode-chip" [class.mode-edit]="proveedorForm.controls.TipoMtto.value === 'C'">
+            Modo: {{ modoMttoTexto() }}
+          </span>
+        </div>
+
+        @if (loadingFormData()) {
+          <div class="loading-box" role="status" aria-live="polite">
+            <p-progressSpinner></p-progressSpinner>
+          </div>
+        } @else {
+          <form [formGroup]="proveedorForm" (ngSubmit)="saveProveedor()" class="proveedor-form">
+
+            <p-tabs [value]="activeFormTab()" (valueChange)="activeFormTab.set($any($event)); errorMessage.set('')">
+              <p-tablist>
+                <p-tab value="general">General</p-tab>
+                <p-tab value="actividad">Actividad Económica</p-tab>
+                <p-tab value="retenciones">Retenciones</p-tab>
+              </p-tablist>
+
+              <p-tabpanels>
+
+                <!-- TAB 1: GENERAL -->
+                <p-tabpanel value="general">
+                  <div class="field-grid">
+                    <div class="field-item">
+                      <label for="origen">Origen</label>
+                      <p-select
+                        inputId="origen"
+                        [options]="origenOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="ORIGEN"
+                      ></p-select>
+                    </div>
+
+                    <div class="field-item">
+                      <label for="proveedor">Código Proveedor</label>
+                      <input
+                        pInputText
+                        id="proveedor"
+                        formControlName="PROVEEDOR"
+                        [readonly]="proveedorForm.controls.TipoMtto.value === 'C'"
+                      />
+                    </div>
+
+                    <div class="field-item field-wide">
+                      <label for="nombre">Nombre / Razón Social</label>
+                      <input pInputText id="nombre" formControlName="NOMBRE" />
+                    </div>
+
+                    <div class="field-item field-wide">
+                      <label for="alias">Nombre Comercial</label>
+                      <input pInputText id="alias" formControlName="ALIAS" />
+                    </div>
+
+                    <div class="field-item">
+                      <label for="telefono">Teléfono</label>
+                      <input pInputText id="telefono" formControlName="TELEFONO" />
+                    </div>
+
+                    <div class="field-item">
+                      <label for="email">Email</label>
+                      <input pInputText id="email" formControlName="EMAIL" />
+                    </div>
+
+                    <div class="field-item">
+                      <label for="pais">País</label>
+                      <p-select
+                        inputId="pais"
+                        [options]="paisesOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="IDPAIS"
+                      ></p-select>
+                    </div>
+
+                    <div class="field-item">
+                      <label for="departamento">Departamento</label>
+                      <p-select
+                        inputId="departamento"
+                        [options]="departamentosOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="IDDEPARTAMENTO"
+                      ></p-select>
+                    </div>
+
+                    <div class="field-item">
+                      <label for="municipio">Municipio</label>
+                      <p-select
+                        inputId="municipio"
+                        [options]="municipiosOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="IDMUNICIPIO"
+                      ></p-select>
+                    </div>
+
+                    <div class="field-item">
+                      <label for="activo">Estado</label>
+                      <p-select
+                        inputId="activo"
+                        [options]="activeOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="ACTIVO"
+                      ></p-select>
+                    </div>
+
+                    <div class="field-item field-wide">
+                      <label for="direccion">Dirección</label>
+                      <input pInputText id="direccion" formControlName="DIRECCION" />
+                    </div>
+                  </div>
+                </p-tabpanel>
+
+                <!-- TAB 2: ACTIVIDAD ECONÓMICA -->
+                <p-tabpanel value="actividad">
+                  <div class="field-grid">
+                    <div class="field-item">
+                      <label for="nit">NIT</label>
+                      <input pInputText id="nit" formControlName="NIT" />
+                    </div>
+
+                    <div class="field-item">
+                      <label for="dui">DUI</label>
+                      <input pInputText id="dui" formControlName="DUI" />
+                    </div>
+
+                    <div class="field-item">
+                      <label for="nrc">Registro Comercio (NRC)</label>
+                      <input pInputText id="nrc" formControlName="NRC" />
+                    </div>
+
+                    <div class="field-item">
+                      <label for="giro">Giro</label>
+                      <p-autocomplete
+                        inputId="giro"
+                        [suggestions]="giroSuggestions()"
+                        [dropdown]="true"
+                        [forceSelection]="true"
+                        [minLength]="0"
+                        [delay]="0"
+                        [dropdownMode]="'blank'"
+                        [completeOnFocus]="true"
+                        [appendTo]="'body'"
+                        [autoZIndex]="true"
+                        [baseZIndex]="1300"
+                        optionLabel="label"
+                        (completeMethod)="onGiroComplete($event.query)"
+                        formControlName="IDGIRO"
+                        placeholder="Buscar giro"
+                      ></p-autocomplete>
+                    </div>
+
+                    @if (isExterior()) {
+                      <div class="field-item field-wide">
+                        <label for="actividad">Actividad Económica (Giro Exterior)</label>
+                        <input pInputText id="actividad" formControlName="ACTIVIDAD" />
+                      </div>
+                    }
+
+                    <div class="field-item">
+                      <label for="condicion-pago">Condición de Pago</label>
+                      <p-select
+                        inputId="condicion-pago"
+                        [options]="condicionesPagoOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="CONDICION_PAGO"
+                      ></p-select>
+                    </div>
+
+                    <div class="field-item">
+                      <label for="tipo-persona">Tipo Persona</label>
+                      <p-select
+                        inputId="tipo-persona"
+                        [options]="tipoPersonaOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        formControlName="TIPOPERSONA"
+                      ></p-select>
+                    </div>
+
+                    <div class="field-item field-wide">
+                      <label for="observacion">Observación</label>
+                      <input pInputText id="observacion" formControlName="OBSERVACION" />
+                    </div>
+                  </div>
+                </p-tabpanel>
+
+                <!-- TAB 3: RETENCIONES -->
+                <p-tabpanel value="retenciones">
+                  @if (!canAddRetenciones()) {
+                    <div class="retenciones-notice">
+                      <i class="pi pi-info-circle"></i>
+                      Guarde el proveedor primero para poder agregar retenciones.
+                    </div>
+                  } @else {
+                    <div class="retenciones-form-row">
+                      <p-select
+                        [options]="tipoRetencionOptions()"
+                        optionLabel="DESCRIPCION"
+                        optionValue="RETENCION"
+                        [(ngModel)]="selectedTipoRetencionModel"
+                        [ngModelOptions]="{ standalone: true }"
+                        placeholder="Seleccione tipo de retención"
+                      ></p-select>
+                      <p-button
+                        type="button"
+                        label="Agregar"
+                        icon="pi pi-plus"
+                        severity="info"
+                        [loading]="savingRetencion()"
+                        [disabled]="!selectedTipoRetencion()"
+                        (onClick)="addRetencion()"
+                      ></p-button>
+                    </div>
+
+                    @if (loadingRetenciones()) {
+                      <div class="loading-box" role="status" aria-live="polite">
+                        <p-progressSpinner></p-progressSpinner>
+                      </div>
+                    } @else {
+                      <table class="retenciones-table" aria-label="Retenciones del proveedor">
+                        <thead>
+                          <tr>
+                            <th class="actions-col">Acción</th>
+                            <th>CÓDIGO</th>
+                            <th>DESCRIPCIÓN</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (ret of retenciones(); track ret.RETENCION) {
+                            <tr>
+                              <td class="actions-col">
+                                <p-button
+                                  icon="pi pi-trash"
+                                  [text]="true"
+                                  severity="danger"
+                                  ariaLabel="Eliminar retención"
+                                  (onClick)="deleteRetencion(ret)"
+                                ></p-button>
+                              </td>
+                              <td>{{ ret.RETENCION }}</td>
+                              <td>{{ ret.DESCRIPCION }}</td>
+                            </tr>
+                          } @empty {
+                            <tr>
+                              <td colspan="3">No hay retenciones registradas para este proveedor.</td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    }
+                  }
+                </p-tabpanel>
+
+              </p-tabpanels>
+            </p-tabs>
+
+            <div class="form-actions">
+              <p-button type="button" label="Cancelar" severity="secondary" (onClick)="closeForm()"></p-button>
+              <p-button type="submit" [label]="accionGuardarTexto()" icon="pi pi-save" [loading]="saving()"></p-button>
+            </div>
+
+          </form>
+        }
+      </p-card>
+    </section>
+  }
+
+</section>
