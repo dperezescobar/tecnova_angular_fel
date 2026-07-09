@@ -37,8 +37,9 @@ const shouldLogoutOnAuthFailure = (error: unknown): boolean => {
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
-  const isAuthEndpoint = req.url.includes('/Auth/PostToken') || req.url.includes('/Auth/RefreshToken');
+  const isAuthEndpoint = req.url.includes('/Auth/PostToken') || req.url.includes('/Auth/RefreshToken') || req.url.includes('/Auth/ResyncSession');
   const isSetEmpresaEndpoint = req.url.includes('/Auth/SetEmpresaSession');
+  const isLogoutEndpoint = req.url.includes('/Auth/Logout');
   const skipAuthHeader = shouldSkipAuthHeader(req.url, authService);
 
   if (isAuthEndpoint) {
@@ -61,7 +62,7 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   // 3. Enviar la petición y esperar respuesta
   return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (isSetEmpresaEndpoint) {
+      if (isSetEmpresaEndpoint || isLogoutEndpoint) {
         return throwError(() => error);
       }
 

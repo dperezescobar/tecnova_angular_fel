@@ -13,6 +13,7 @@ export class AuthService {
   private readonly systemId = 2;
   private empresaSessionHydrationTried = false;
   private refreshTokenRequest$: Observable<AuthResponse> | null = null;
+  private resyncRequest$: Observable<AuthResponse> | null = null;
   private restoreEmpresaSessionRequest$: Observable<void> | null = null;
   private recoverSessionRequest$: Observable<string> | null = null;
   private refreshTimer: any;
@@ -308,7 +309,7 @@ export class AuthService {
       return throwError(() => new Error('No hay sesión activa para recuperar.'));
     }
 
-    const request$ = this.refreshToken().pipe(
+    const request$ = this.resyncSession().pipe(
       map((response) => response.token),
       catchError(() => this.restoreEmpresaSession().pipe(map(() => this.getAccessToken() ?? ''))),
       switchMap((token) => {
@@ -339,18 +340,23 @@ export class AuthService {
     this.saveSession(token, refreshToken, username, empresa, authData);
     this.empresaSessionHydrationTried = false;
 
-    this.router.navigate(['/inicio']);
-
-    this.createEmpresaSession(token, username, empresa).subscribe({
-      next: () => {
+    // Registrar la EmpresaSession (SetEmpresaSession) ANTES de navegar. Si navegamos primero,
+    // el layout dispara getAplicaInventarios/getAbonos con el token nuevo antes de que la sesión
+    // quede registrada → el tenant no resuelve (EsValida) → 401 en cascada → logout.
+    return this.createEmpresaSession(token, username, empresa).pipe(
+      tap(() => {
         this.empresaSessionHydrationTried = true;
-      },
-      error: () => {
+      }),
+      catchError(() => {
+        // Si el registro falla, navegamos igual; el interceptor intentará restaurar en el primer 401.
         this.empresaSessionHydrationTried = false;
-      }
-    });
-
-    return of(void 0);
+        return of(void 0);
+      }),
+      tap(() => {
+        this.router.navigate(['/inicio']);
+      }),
+      map(() => void 0)
+    );
   }
 
   // Obtener el token de acceso actual
@@ -443,7 +449,72 @@ export class AuthService {
     return request$;
   }
 
+  // Sesión compartida (N4): pide el token vivo actual. El servidor devuelve el token vigente
+  // (si otro dispositivo ya lo refrescó) o refresca una sola vez, y él mismo sincroniza la
+  // EmpresaSession. Por eso aquí NO llamamos a createEmpresaSession (evita el SetEmpresaSession redundante).
+  resyncSession(): Observable<AuthResponse> {
+    if (this.resyncRequest$) {
+      return this.resyncRequest$;
+    }
+
+    const user = this.currentUser();
+    if (!user?.refreshToken || !user?.token) {
+      return throwError(() => new Error('No refresh token available'));
+    }
+
+    const payload = { Token: user.token, RefreshToken: user.refreshToken, Username: user.username };
+
+    const request$ = this.http
+      .post<Partial<AuthResponse> & { Token?: string; RefreshToken?: string; Username?: string; Expiration?: string }>(
+        `${this.apiUrl}/Auth/ResyncSession`,
+        payload
+      )
+      .pipe(
+        map((response) => this.normalizeAuthResponse(response)),
+        tap((response) => {
+          if (!user.selectedEmpresa) {
+            const updated: UserSession = {
+              token: response.token,
+              refreshToken: response.refreshToken || user.refreshToken,
+              username: response.username || user.username,
+              fechaActual: response.fechaActual ?? user.fechaActual,
+              dui: response.dui ?? user.dui,
+              nombreUsuario: response.nombreUsuario ?? user.nombreUsuario,
+              tipoUsuario: response.tipoUsuario ?? user.tipoUsuario,
+              bloqueado: response.bloqueado ?? user.bloqueado,
+              esRoot: response.esRoot ?? user.esRoot,
+              selectedEmpresa: null
+            };
+            localStorage.setItem('contask_session', JSON.stringify(updated));
+            this.currentUser.set(updated);
+          } else {
+            // El servidor ya sincronizó la EmpresaSession; solo persistimos localmente y reprogramamos refresh.
+            this.saveSession(
+              response.token,
+              response.refreshToken || user.refreshToken,
+              response.username || user.username,
+              user.selectedEmpresa,
+              response
+            );
+          }
+        }),
+        finalize(() => {
+          this.resyncRequest$ = null;
+        }),
+        shareReplay(1)
+      );
+
+    this.resyncRequest$ = request$;
+    return request$;
+  }
+
   logout() {
+    // Cierre global en el servidor (mejor esfuerzo): revoca refresh + invalida sesiones en todos
+    // los dispositivos. No bloquea el cierre local; el interceptor no intenta recuperar este endpoint.
+    const user = this.currentUser();
+    if (user?.token) {
+      this.http.post(`${this.apiUrl}/Auth/Logout`, {}).subscribe({ next: () => {}, error: () => {} });
+    }
     this.clearRefreshTimer();
     localStorage.removeItem('contask_session');
     this.currentUser.set(null);
@@ -474,16 +545,16 @@ export class AuthService {
       if (delay > 0) {
         //console.log(`[AuthService] Refresh proactivo programado en ${Math.round(delay / 1000 / 60)} min.`);
         this.refreshTimer = setTimeout(() => {
-          this.refreshToken().subscribe({
-            //next: () => console.log('[AuthService] Refresh proactivo exitoso.'),
-            error: (err) => console.error('[AuthService] Error en refresh proactivo:', err)
+          this.resyncSession().subscribe({
+            //next: () => console.log('[AuthService] Resync proactivo exitoso.'),
+            error: (err) => console.error('[AuthService] Error en resync proactivo:', err)
           });
         }, delay);
       } else {
-        // Si ya pasó el tiempo o falta muy poco, refrescamos de inmediato (siempre que el token no haya expirado ya)
+        // Si ya pasó el tiempo o falta muy poco, sincronizamos de inmediato (si el token no expiró ya)
         if (expirationDate > now) {
-         // console.warn('[AuthService] El token está por expirar pronto. Refrescando de inmediato.');
-          this.refreshToken().subscribe();
+         // console.warn('[AuthService] El token está por expirar pronto. Sincronizando de inmediato.');
+          this.resyncSession().subscribe();
         }
       }
     } catch (e) {
@@ -522,5 +593,37 @@ export class AuthService {
     } catch {
       this.logout();
     }
+  }
+
+  // F1 — Adopta la sesión escrita por OTRA pestaña (evento storage). No llama al servidor.
+  reloadFromStorage() {
+    const data = localStorage.getItem('contask_session');
+    if (!data) {
+      return;
+    }
+    try {
+      const session = JSON.parse(data) as UserSession;
+      const actual = this.currentUser();
+      if (actual?.token === session.token && actual?.refreshToken === session.refreshToken) {
+        return; // sin cambios: evita reprogramar en bucle entre pestañas
+      }
+      this.currentUser.set(session);
+      if (session.expiration) {
+        this.scheduleTokenRefresh(session.expiration);
+      }
+    } catch {
+      /* datos corruptos: se ignora */
+    }
+  }
+
+  // Cierre SOLO local (sin llamar al servidor): para pestañas que reciben el aviso de cierre de
+  // otra pestaña, o cuando el cierre global ya se ejecutó en otro lado. Idempotente.
+  logoutLocal() {
+    this.clearRefreshTimer();
+    localStorage.removeItem('contask_session');
+    if (this.currentUser() !== null) {
+      this.currentUser.set(null);
+    }
+    this.router.navigate(['/login']);
   }
 }

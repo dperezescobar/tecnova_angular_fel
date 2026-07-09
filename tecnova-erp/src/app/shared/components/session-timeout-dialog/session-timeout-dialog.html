@@ -1,0 +1,20 @@
+<p-dialog
+  [visible]="session.promptVisible()"
+  [modal]="true"
+  [closable]="false"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '26rem', maxWidth: '94vw' }"
+  header="¿Sigues ahí?"
+>
+  <div class="sto-body">
+    <i class="pi pi-clock sto-icon"></i>
+    <p>Tu sesión estuvo inactiva. Por seguridad se cerrará en <strong>{{ session.countdown() }}</strong> segundos.</p>
+    <p class="sto-sub">¿Deseas continuar con tu sesión?</p>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cerrar sesión" severity="secondary" [text]="true" (onClick)="session.cerrar()"></p-button>
+    <p-button label="Continuar sesión" icon="pi pi-check" severity="success" (onClick)="session.continuar()"></p-button>
+  </ng-template>
+</p-dialog>

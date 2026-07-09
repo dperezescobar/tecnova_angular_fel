@@ -5,6 +5,8 @@ import { AuthService } from '../../core/services/auth';
 import { PwaInstallService } from '../../core/services/pwa-install';
 import { NotificacionesService } from '../../core/services/notificaciones.service';
 import { FacturacionService } from '../../features/facturacion/services/facturacion';
+import { SessionActivityService } from '../../core/services/session-activity';
+import { SessionTimeoutDialogComponent } from '../../shared/components/session-timeout-dialog/session-timeout-dialog';
 
 @Component({
   selector: 'app-main-layout',
@@ -13,7 +15,7 @@ import { FacturacionService } from '../../features/facturacion/services/facturac
     '(window:resize)': 'onWindowResize()',
     '(window:orientationchange)': 'onWindowResize()'
   },
-  imports: [CommonModule, RouterModule, NgOptimizedImage],
+  imports: [CommonModule, RouterModule, NgOptimizedImage, SessionTimeoutDialogComponent],
   templateUrl: './main-layout.html',
   styleUrls: ['./main-layout.scss']
 })
@@ -23,6 +25,7 @@ export class MainLayoutComponent {
   private pwaInstallService = inject(PwaInstallService);
   private notificacionesService = inject(NotificacionesService);
   private facturacionService = inject(FacturacionService);
+  private sessionActivity = inject(SessionActivityService);
   private readonly mobileBreakpointQuery = '(max-width: 991.98px)';
   private readonly touchTabletQuery = '(pointer: coarse) and (max-width: 1366px)';
 
@@ -46,6 +49,8 @@ export class MainLayoutComponent {
     if (typeof window !== 'undefined') {
       requestAnimationFrame(() => this.onWindowResize());
     }
+    // Guardián de sesión por inactividad (idempotente; solo actúa si hay sesión activa).
+    this.sessionActivity.start();
     effect(() => {
       const user = this.authService.currentUser();
       const idEmpresa = user?.selectedEmpresa?.idEmpresa ?? 0;
