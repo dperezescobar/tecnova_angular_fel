@@ -3,32 +3,47 @@
   <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
   <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
 
-  <header class="cr-header">
-    <div>
+  <header class="fac-header">
+    <div class="fac-title-row">
+      @if (showForm()) {
+        <div class="header-back">
+          <p-button type="button" label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+        </div>
+      }
       <h1>Comprobantes de Retención</h1>
     </div>
-    <div class="header-actions">
-      @if (!showForm()) {
+
+    @if (!showForm()) {
+      <div class="header-toolbar">
+        <div class="toolbar-nuevo-fac">
+          <p-button label="Nuevo CR" icon="pi pi-plus" severity="info" (onClick)="openCreateForm()" size="small"></p-button>
+        </div>
+
         <span class="search-box">
           <i class="pi pi-search"></i>
           <input pInputText type="text" placeholder="Buscar proveedor o NIT"
             [value]="filterText()" (input)="filterText.set($any($event.target).value)"
-            (keyup.enter)="loadListado()" />
+            (keyup.enter)="loadListado()" aria-label="Buscar comprobantes" />
         </span>
-        <input pInputText type="date" [value]="filterDesde()"
-          (change)="filterDesde.set($any($event.target).value)" />
-        <input pInputText type="date" [value]="filterHasta()"
-          (change)="filterHasta.set($any($event.target).value)" />
-        <div class="header-buttons">
-          <p-button label="Buscar" icon="pi pi-search" (onClick)="loadListado()" [loading]="loading()"></p-button>
-          <p-button label="Nuevo CR" icon="pi pi-plus" severity="info" (onClick)="openCreateForm()"></p-button>
+
+        <div class="toolbar-dates">
+          <div class="date-field">
+            <label for="cr-desde">Desde</label>
+            <input id="cr-desde" type="date" [value]="filterDesde()"
+              (change)="filterDesde.set($any($event.target).value)" aria-label="Fecha inicio de rango" />
+          </div>
+          <div class="date-field">
+            <label for="cr-hasta">Hasta</label>
+            <input id="cr-hasta" type="date" [value]="filterHasta()"
+              (change)="filterHasta.set($any($event.target).value)" aria-label="Fecha fin de rango" />
+          </div>
         </div>
-      } @else {
-        <div class="detail-actions">
-          <p-button label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+
+        <div class="toolbar-recargar">
+          <p-button label="Buscar" icon="pi pi-search" (onClick)="loadListado()" [loading]="loading()" size="small"></p-button>
         </div>
-      }
-    </div>
+      </div>
+    }
   </header>
 
   @if (errorMessage()) {
@@ -46,8 +61,8 @@
             <article class="cr-list-card">
               <div class="cr-list-card-top">
                 <div class="cr-list-card-primary">
-                  <span class="cr-list-card-fecha">{{ item.FECHA }}</span>
-                  <p-tag [value]="item.ESTADO" [severity]="estadoSeverity(item.ESTADO)"></p-tag>
+                  <span class="cr-list-card-num">{{ item.NOMBRE || item.PROVEEDOR }}</span>
+                  <span class="fac-estado-badge" [attr.data-estado]="estadoBadgeKey(item.ESTADO, item.SelloRecepcion)">{{ estadoBadgeLabel(item.ESTADO, item.SelloRecepcion) }}</span>
                 </div>
                 <div class="cr-list-card-actions">
                   <p-button icon="pi pi-pencil" [text]="true" severity="info"
@@ -63,16 +78,9 @@
                     title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
                 </div>
               </div>
-              <div class="cr-list-card-proveedor">{{ item.NOMBRE || item.PROVEEDOR }}</div>
-              <div class="cr-list-card-metrics">
-                <div class="cr-list-card-metric">
-                  <span class="cr-list-card-label">Total</span>
-                  <span class="cr-list-card-value">{{ formatCurrency(item.TOTAL) }}</span>
-                </div>
-                <div class="cr-list-card-metric">
-                  <span class="cr-list-card-label">Retención</span>
-                  <span class="cr-list-card-value">{{ formatCurrency(item.TOTAL_RETENCION) }}</span>
-                </div>
+              <div class="cr-list-card-bottom">
+                <span class="cr-list-card-fecha">{{ item.FECHA }}</span>
+                <span class="cr-list-card-total">{{ formatCurrency(item.TOTAL) }} <small>· Ret. {{ formatCurrency(item.TOTAL_RETENCION) }}</small></span>
               </div>
               @if (item.REGISTRO_COMERCIO || item.NIT || item.NoControl || item.CodigoGeneracion || item.SelloRecepcion) {
                 <div class="cr-list-card-meta">
@@ -133,7 +141,7 @@
                   <td class="col-nowrap">{{ formatCurrency(item.TOTAL) }}</td>
                   <td class="col-nowrap">{{ formatCurrency(item.TOTAL_RETENCION) }}</td>
                   <td class="col-nowrap">
-                    <p-tag [value]="item.ESTADO" [severity]="estadoSeverity(item.ESTADO)"></p-tag>
+                    <span class="fac-estado-badge" [attr.data-estado]="estadoBadgeKey(item.ESTADO, item.SelloRecepcion)">{{ estadoBadgeLabel(item.ESTADO, item.SelloRecepcion) }}</span>
                   </td>
                   <td class="col-mono">{{ item.NoControl }}</td>
                   <td class="col-mono">{{ item.CodigoGeneracion }}</td>
@@ -168,246 +176,206 @@
   }
 
   @if (showForm()) {
-    <section class="form-panel">
-      <p-card>
-        <ng-template pTemplate="title">
-          {{ isNuevo() ? 'Nuevo Comprobante de Retención' : 'Comprobante #' + correl() }}
-        </ng-template>
+    <section class="form-panel" style="margin-top: 1rem;">
+      <div class="form-actions-top" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <p-button label="Guardar" (onClick)="saveHeader()" [loading]="saving()" [disabled]="!canEdit()" styleClass="p-button-info"></p-button>
+        <p-button label="Emitir DTE" (onClick)="emitirDTE()" [loading]="emitting()" [disabled]="!canEmit()" [outlined]="true" styleClass="p-button-info"></p-button>
+        <p-button label="Anular" (onClick)="openAnulacion()" [disabled]="!canAnular()" [outlined]="true" styleClass="p-button-danger"></p-button>
+        <p-button label="Ver Comp. Retención" (onClick)="verComprobante()" [disabled]="!isEmitido()" [outlined]="true" styleClass="p-button-info"></p-button>
+        <p-button label="Ver Nota Crédito" (onClick)="verComprobanteNC()" [disabled]="!isEmitido()" [outlined]="true" styleClass="p-button-info"></p-button>
+        <p-button label="Emitir NC" (onClick)="emitirNC()" [disabled]="!canEmitNC()" [outlined]="true" styleClass="p-button-danger"></p-button>
+      </div>
 
-        @if (encabezado()) {
-          <div class="estado-bar">
-            <p-tag [value]="estado()" [severity]="estadoSeverity(estado())"></p-tag>
-            @if (encabezado()?.NoControl) {
-              <span class="info-chip">No. Control: {{ encabezado()?.NoControl }}</span>
-            }
-            @if (encabezado()?.SelloRecepcion) {
-              <span class="info-chip">Sello: {{ encabezado()?.SelloRecepcion?.substring(0, 20) }}…</span>
-            }
-          </div>
-        }
-
-        @if (loading()) {
-          <div class="loading-box"><p-progressSpinner></p-progressSpinner></div>
-        } @else {
-          <div class="form-actions-top">
-            @if (canEdit()) {
-              <p-button label="Guardar" icon="pi pi-save" [loading]="saving()"
-                (onClick)="saveHeader()" severity="info"></p-button>
-            }
-            @if (canEmit()) {
-              <p-button label="Emitir DTE" icon="pi pi-send" [loading]="emitting()"
-                (onClick)="emitirDTE()"></p-button>
-            }
-            @if (isEmitido()) {
-              <p-button label="Ver Comprobante" icon="pi pi-file-pdf" severity="secondary"
-                (onClick)="verComprobante()"></p-button>
-            }
-            @if (canAnular()) {
-              <p-button label="Anular" icon="pi pi-ban" severity="danger" [outlined]="true"
-                (onClick)="openAnulacion()"></p-button>
-            }
-          </div>
-
-          <p-tabs [value]="activeTab()" (valueChange)="activeTab.set($any($event))">
-            <p-tablist>
-              <p-tab value="encabezado">Encabezado</p-tab>
-              <p-tab value="detalle" [disabled]="!correl()">Detalle</p-tab>
-            </p-tablist>
-            <p-tabpanels>
-
-              <!-- TAB ENCABEZADO -->
-              <p-tabpanel value="encabezado">
-                <form [formGroup]="headerForm" class="enc-form">
-                  <div class="field-grid">
-
-                    <div class="field-item field-wide">
-                      <label>Proveedor</label>
-                      <p-autocomplete
-                        [suggestions]="proveedorSugerencias()"
-                        [dropdown]="true"
-                        [forceSelection]="true"
-                        [minLength]="2"
-                        [appendTo]="'body'"
-                        [autoZIndex]="true"
-                        [baseZIndex]="1300"
-                        optionLabel="NOMBRE"
-                        (completeMethod)="buscarProveedores($event.query)"
-                        (onSelect)="onProveedorSelected($event.value)"
-                        formControlName="PROVEEDOR_DISPLAY"
-                        placeholder="Buscar proveedor…"
-                        [disabled]="!canEdit()"
-                      ></p-autocomplete>
-                    </div>
-
-                    <div class="field-item">
-                      <label>Fecha Emisión</label>
-                      <input pInputText type="date" formControlName="FECHA" [readonly]="!canEdit()" />
-                    </div>
-
-                    <div class="field-item">
-                      <label>Fecha del Comprobante</label>
-                      <input pInputText type="date" formControlName="FECHA_COMPROBANTE" [readonly]="!canEdit()" />
-                    </div>
-
-                    <div class="field-item">
-                      <label>No. Resolución</label>
-                      <input pInputText formControlName="NUMERO_RESOLUCION" [readonly]="!canEdit()" />
-                    </div>
-
-                    <div class="field-item">
-                      <label>Observación</label>
-                      <input pInputText formControlName="OBSERVACION" [readonly]="!canEdit()" />
-                    </div>
-
-                    <div class="field-item">
-                      <label>Cod. Generación (GUID)</label>
-                      <input pInputText formControlName="COMPROBANTE" [readonly]="true" class="guid-field" />
-                    </div>
-
+      <div class="cr-two-columns">
+        <div class="receptor-col">
+          <div class="box-panel bg-grey">
+            <h5>Datos del Receptor</h5>
+            <div class="box-panel-content">
+              <div class="receptor-form-grid" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <div class="p-inputgroup receptor-search-bar w-full">
+                  <input pInputText [value]="proveedorSearchTerm()"
+                    (input)="proveedorSearchTerm.set($any($event.target).value)"
+                    placeholder="Buscar por DUI, NIT, NRC o Nombre"
+                    [disabled]="!canEdit()"
+                    (keydown.enter)="$event.preventDefault(); onBuscarProveedorModal()" class="input-bg-white" />
+                  <button pButton type="button" icon="pi pi-search" label="Buscar" class="p-button-secondary" 
+                    [disabled]="!canEdit() || searchingProveedor()"
+                    (click)="onBuscarProveedorModal()"></button>
+                </div>
+                
+                @if (proveedorPerfil(); as p) {
+                  <div class="grid-2-1-3">
+                    <input pInputText [value]="p.Proveedor || $any(p).PROVEEDOR || ''" readonly placeholder="Código" class="w-full input-bg-white" />
+                    <input pInputText [value]="p.NOMBRE" readonly placeholder="Nombre o Razón Social" class="w-full input-bg-white" />
                   </div>
-
-                  @if (proveedorPerfil(); as p) {
-                    <div class="proveedor-info">
-                      <h3>Datos del Proveedor</h3>
-                      <div class="info-grid">
-                        <div class="info-row"><span>Nombre</span><span>{{ p.NOMBRE }}</span></div>
-                        <div class="info-row"><span>Nombre Comercial</span><span>{{ p.ALIAS }}</span></div>
-                        <div class="info-row"><span>NIT</span><span>{{ p.NIT }}</span></div>
-                        <div class="info-row"><span>DUI</span><span>{{ p.DUI }}</span></div>
-                        <div class="info-row"><span>NRC</span><span>{{ p.REGISTRO_COMERCIO }}</span></div>
-                        <div class="info-row"><span>Giro</span><span>{{ p.Giro }}</span></div>
-                        <div class="info-row"><span>Correo</span><span>{{ p.CORREO_ELECTRONICO }}</span></div>
-                        <div class="info-row field-wide"><span>Dirección</span><span>{{ p.DIRECCION }}</span></div>
-                      </div>
-                    </div>
-                  }
-                </form>
-              </p-tabpanel>
-
-              <!-- TAB DETALLE -->
-              <p-tabpanel value="detalle">
-                @if (isAnulado()) {
-                  <p-message severity="warn" text="Este comprobante está anulado."></p-message>
-                } @else if (canAddDetalle()) {
-                  <form [formGroup]="detalleForm" class="detalle-form">
-                    <div class="field-grid">
-                      <div class="field-item">
-                        <label>Tipo Documento</label>
-                        <p-select [options]="tipoDocOptions" optionLabel="label" optionValue="value"
-                          formControlName="TIPO_DOC"></p-select>
-                      </div>
-
-                      <div class="field-item check-field">
-                        <label>¿Es DTE?</label>
-                        <p-checkbox formControlName="esDTE" [binary]="true"></p-checkbox>
-                      </div>
-
-                      @if (detalleForm.controls.esDTE.value) {
-                        <div class="field-item field-wide">
-                          <label>Cod. Generación del documento</label>
-                          <input pInputText formControlName="COD_GENERACION" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
-                        </div>
-                        <div class="field-item">
-                          <label>Sello de Recepción (Hacienda)</label>
-                          <input pInputText formControlName="SELLO_RECEPCION" />
-                        </div>
-                      } @else {
-                        <div class="field-item">
-                          <label>Serie</label>
-                          <input pInputText formControlName="SERIE" />
-                        </div>
-                        <div class="field-item">
-                          <label>Número</label>
-                          <input pInputText formControlName="NUMERO" />
-                        </div>
-                      }
-
-                      <div class="field-item">
-                        <label>Monto *</label>
-                        <input pInputText type="number" formControlName="MONTO" min="0" step="0.01" />
-                      </div>
-
-                      <div class="field-item">
-                        <label>% Retención</label>
-                        <input pInputText type="number" formControlName="PORC_RETENCION" min="0" max="100" />
-                      </div>
-
-                      <div class="field-item">
-                        <label>Fecha del Documento</label>
-                        <input pInputText type="date" formControlName="FECHA_DOC" />
-                      </div>
-
-                      <div class="field-item">
-                        <label>Observación</label>
-                        <input pInputText formControlName="DESCRIPCION" />
-                      </div>
-                    </div>
-
-                    @if (errorDetalle()) {
-                      <p-message severity="error" [text]="errorDetalle()"></p-message>
-                    }
-
-                    <div class="detalle-add-btn">
-                      <p-button label="Agregar Línea" icon="pi pi-plus" severity="info"
-                        [loading]="addingDetalle()" (onClick)="addDetalle()"></p-button>
-                    </div>
-                  </form>
-                }
-
-                @if (loadingDetalle()) {
-                  <div class="loading-box"><p-progressSpinner></p-progressSpinner></div>
+                  <input pInputText [value]="p.ALIAS" readonly placeholder="Nombre Comercial" class="w-full input-bg-white" />
+                  <div class="grid-3-equal">
+                    <input pInputText [value]="p.NIT" readonly placeholder="NIT" class="w-full input-bg-white text-center" />
+                    <input pInputText [value]="p.DUI" readonly placeholder="DUI" class="w-full input-bg-white text-center" />
+                    <input pInputText [value]="p.REGISTRO_COMERCIO || $any(p).NRC || ''" readonly placeholder="NRC" class="w-full input-bg-white text-center" />
+                  </div>
+                  <input pInputText [value]="p.Giro" readonly placeholder="Giro" class="w-full input-bg-white" />
+                  <input pInputText [value]="p.CORREO_ELECTRONICO" readonly placeholder="Correo Electrónico" class="w-full input-bg-white" />
+                  <input pInputText [value]="p.Pais || 'El Salvador'" readonly placeholder="País" class="w-full input-bg-white" />
+                  <div class="grid-2-equal">
+                    <input pInputText [value]="p.Departamento || ''" readonly placeholder="Departamento" class="w-full input-bg-white text-center" />
+                    <input pInputText [value]="p.MUNICIPIO || ''" readonly placeholder="Municipio" class="w-full input-bg-white text-center" />
+                  </div>
+                  <textarea pInputTextarea [value]="p.DIRECCION" readonly rows="2" style="resize: none;" placeholder="Dirección" class="w-full input-bg-white"></textarea>
                 } @else {
-                  <div class="table-wrap">
-                    <table class="detalle-table" aria-label="Detalle del comprobante">
-                      <thead>
-                        <tr>
-                          @if (canAddDetalle()) { <th class="actions-col">Acción</th> }
-                          <th>Tipo Doc</th>
-                          <th>Documento Relacionado</th>
-                          <th>Sello</th>
-                          <th>Monto</th>
-                          <th>Retención</th>
-                          <th>Observación</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (row of detalle(); track row.LINEA) {
-                          <tr>
-                            @if (canAddDetalle()) {
-                              <td class="actions-col">
-                                <p-button icon="pi pi-trash" [text]="true" severity="danger"
-                                  (onClick)="deleteDetalle(row)"></p-button>
-                              </td>
-                            }
-                            <td>{{ row.TipoDocumentoRelacionado }}</td>
-                            <td>{{ row.DocumentoRelacionado }}</td>
-                            <td class="col-mono">{{ row.SelloRecepcion }}</td>
-                            <td>{{ formatCurrency(row.MONTO) }}</td>
-                            <td>{{ formatCurrency(row.RETENCION) }}</td>
-                            <td>{{ row.DESCRIPCION }}</td>
-                          </tr>
-                        } @empty {
-                          <tr><td [attr.colspan]="canAddDetalle() ? 7 : 6">Sin líneas de detalle.</td></tr>
-                        }
-                      </tbody>
-                      @if (detalle().length > 0) {
-                        <tfoot>
-                          <tr>
-                            <td [attr.colspan]="canAddDetalle() ? 5 : 4" class="total-label">TOTAL RETENCIÓN</td>
-                            <td class="total-value">{{ formatCurrency(totalRetencion()) }}</td>
-                            <td></td>
-                          </tr>
-                        </tfoot>
-                      }
-                    </table>
+                  <div class="grid-2-1-3">
+                    <input pInputText readonly placeholder="Código" class="w-full input-bg-white" />
+                    <input pInputText readonly placeholder="Nombre o Razón Social" class="w-full input-bg-white" />
                   </div>
+                  <input pInputText readonly placeholder="Nombre Comercial" class="w-full input-bg-white" />
+                  <div class="grid-3-equal">
+                    <input pInputText readonly placeholder="NIT" class="w-full input-bg-white text-center" />
+                    <input pInputText readonly placeholder="DUI" class="w-full input-bg-white text-center" />
+                    <input pInputText readonly placeholder="NRC" class="w-full input-bg-white text-center" />
+                  </div>
+                  <input pInputText readonly placeholder="Giro" class="w-full input-bg-white" />
+                  <input pInputText readonly placeholder="Correo Electrónico" class="w-full input-bg-white" />
+                  <input pInputText value="El Salvador" readonly placeholder="País" class="w-full input-bg-white" />
+                  <div class="grid-2-equal">
+                    <input pInputText readonly placeholder="Departamento" class="w-full input-bg-white text-center" />
+                    <input pInputText readonly placeholder="Municipio" class="w-full input-bg-white text-center" />
+                  </div>
+                  <textarea pInputTextarea readonly rows="2" style="resize: none;" placeholder="Dirección" class="w-full input-bg-white"></textarea>
                 }
-              </p-tabpanel>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            </p-tabpanels>
-          </p-tabs>
-        }
-      </p-card>
+        <div class="emision-col">
+          <div class="box-panel bg-grey">
+            <h5>DATOS DE EMISIÓN</h5>
+            <div class="box-panel-content">
+              <form [formGroup]="headerForm" class="asp-emision-grid">
+                <div class="asp-field-box">
+                  <span class="field-label">Fecha</span>
+                  <input pInputText type="date" formControlName="FECHA" [readonly]="!canEdit()" />
+                </div>
+                <div class="asp-field-box">
+                  <span class="field-label">No. Control</span>
+                  <input pInputText [value]="encabezado()?.NoControl || ''" readonly />
+                </div>
+                <div class="asp-field-box">
+                  <span class="field-label">Código</span>
+                  <input pInputText formControlName="COMPROBANTE" readonly />
+                </div>
+                <div class="asp-field-box">
+                  <span class="field-label">Sello</span>
+                  <input pInputText [value]="encabezado()?.SelloRecepcion || ''" readonly />
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="box-panel bg-white">
+            <h5>Detalles del documento</h5>
+            <div class="box-panel-content pt-2">
+              <form [formGroup]="detalleForm" class="asp-detalles-form">
+                <div class="detalles-row-1">
+                  <div class="field-item">
+                    <label>Tipo de Comprobante</label>
+                    <p-select [options]="tipoDocOptions" optionLabel="label" optionValue="value" formControlName="TIPO_DOC" styleClass="w-full p-inputtext-sm input-bg-white"></p-select>
+                  </div>
+                  <div class="field-item">
+                    <label>Fecha Documento</label>
+                    <input pInputText type="date" formControlName="FECHA_DOC" class="p-inputtext-sm w-full input-bg-white" />
+                  </div>
+                  <div class="field-item">
+                    <label>Comprobante</label>
+                    <div class="dte-inline-group">
+                      <p-checkbox formControlName="esDTE" [binary]="true" label="DTE" styleClass="text-sm"></p-checkbox>
+                      @if (detalleForm.controls.esDTE.value) {
+                        <input pInputText formControlName="COD_GENERACION" placeholder="Código Generación" class="p-inputtext-sm input-bg-white flex-1" style="min-width: 0;" />
+                      } @else {
+                        <input pInputText formControlName="SERIE" placeholder="Serie" class="p-inputtext-sm input-bg-white flex-1" style="min-width: 0;" />
+                        <input pInputText formControlName="NUMERO" placeholder="Número" class="p-inputtext-sm input-bg-white flex-1" style="min-width: 0;" />
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <div class="detalles-row-2">
+                  <div class="field-item">
+                    <label>Observaciones</label>
+                    <textarea pInputTextarea formControlName="DESCRIPCION" rows="2" class="p-inputtext-sm w-full input-bg-white" style="resize:none;" placeholder="Observaciones al documento"></textarea>
+                    <small class="text-right text-green-600 block mt-1">{{ detalleForm.controls.DESCRIPCION.value?.length || 0 }}/500 caracteres</small>
+                  </div>
+                  
+                  <div class="field-item">
+                    <label>Monto Gravado</label>
+                    <div class="monto-inline-group">
+                      <div class="p-inputgroup flex-1">
+                        <span class="p-inputgroup-addon bg-secondary font-bold">$</span>
+                        <input pInputText type="number" formControlName="MONTO" min="0" step="0.01" class="p-inputtext-sm text-right w-full input-bg-white" />
+                      </div>
+                      <p-button label="Agregar +" severity="success" icon="pi pi-plus" [loading]="addingDetalle()" (onClick)="addDetalle()" styleClass="btn-green p-button-sm"></p-button>
+                    </div>
+                  </div>
+                </div>
+
+                @if (errorDetalle()) {
+                  <p-message severity="error" [text]="errorDetalle()" styleClass="mt-2 block"></p-message>
+                }
+              </form>
+
+              @if (loadingDetalle()) {
+                <div class="loading-box" style="margin-top:1.5rem;"><p-progressSpinner></p-progressSpinner></div>
+              } @else {
+                <div class="detalle-table-container">
+                  <table class="detalle-table" aria-label="Detalle del comprobante">
+                    <thead>
+                      <tr>
+                        <th>Tipo Documento</th>
+                        <th>Fecha</th>
+                        <th>Documento</th>
+                        <th>Descripcion</th>
+                        <th class="text-right">Monto</th>
+                        <th class="text-right">Retencion</th>
+                        @if (canAddDetalle()) { <th class="text-center" style="width: 50px;"></th> }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of detalle(); track row.LINEA) {
+                        <tr>
+                          <td>{{ row.TipoDocumentoRelacionado }}</td>
+                          <td class="col-nowrap">{{ row.FECHA | date:'dd/MM/yyyy' }}</td>
+                          <td>{{ row.DocumentoRelacionado }}</td>
+                          <td>{{ row.DESCRIPCION }}</td>
+                          <td class="text-right font-mono">{{ formatCurrency(row.MONTO) }}</td>
+                          <td class="text-right text-primary font-bold font-mono">{{ formatCurrency(row.RETENCION) }}</td>
+                          @if (canAddDetalle()) {
+                            <td class="text-center">
+                              <p-button icon="pi pi-trash" severity="danger" (onClick)="deleteDetalle(row)" styleClass="p-button-sm"></p-button>
+                            </td>
+                          }
+                        </tr>
+                      } @empty {
+                        <tr><td [attr.colspan]="canAddDetalle() ? 7 : 6" class="text-center p-3 text-secondary">Sin líneas de detalle.</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="summary-card">
+                  <div class="letras-box">
+                    <span class="letras-label">Valor en letras</span>
+                    <span class="letras-value">{{ totalLetras() }}</span>
+                  </div>
+                  <div class="total-box">
+                    <span class="total-label">Total Retención</span>
+                    <span class="total-value">{{ formatCurrency(totalRetencion()) }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   }
 
@@ -430,3 +398,33 @@
       (onClick)="confirmarAnulacion()"></p-button>
   </ng-template>
 </p-dialog>
+
+<!-- Diálogo de Búsqueda de Proveedor -->
+<p-dialog header="Seleccionar Proveedor" [visible]="proveedorSearchVisible()" 
+  (visibleChange)="proveedorSearchVisible.set($event)"
+  [modal]="true" [style]="{width: '650px', maxWidth: '95vw'}">
+  <p-table [value]="proveedorSearchList()" [paginator]="true" [rows]="5" styleClass="p-datatable-sm p-datatable-gridlines mt-2">
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width:15%">Código</th>
+        <th style="width:55%">Nombre</th>
+        <th style="width:20%">NIT</th>
+        <th style="width:10%" class="text-center">Acción</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-p>
+      <tr>
+        <td>{{ p.PROVEEDOR }}</td>
+        <td>{{ p.NOMBRE }}</td>
+        <td>{{ p.NIT }}</td>
+        <td class="text-center">
+          <p-button icon="pi pi-check" [text]="true" severity="success"
+            (onClick)="seleccionarProveedorModal(p)"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-dialog>
+
+<app-reenviar-correo-dialog></app-reenviar-correo-dialog>
+<app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>

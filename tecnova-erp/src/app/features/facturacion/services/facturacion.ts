@@ -34,7 +34,10 @@ import {
   UpdateFacturaRetencionDto,
   CcfParaNcDto,
   UpdateDetalleFacturaDescuentoDto,
-  UpdateFacturaDevolucionDto
+  UpdateFacturaDevolucionDto,
+  RecintoFiscalCatalogo,
+  RegimenExportacionCatalogo,
+  TipoRegimenCatalogo
 } from '../../../core/models/facturacion.models';
 
 @Injectable({ providedIn: 'root' })
@@ -103,6 +106,10 @@ export class FacturacionService {
 
   private invalidateFacturasGeneralCache(): void {
     this.invalidateCacheByPrefix('facturasGeneral:');
+  }
+
+  clearFacturasGeneralCache(): void {
+    this.invalidateFacturasGeneralCache();
   }
 
   // Backend responses may come with inconsistent casing (e.g. noControl, NoControl, NOCONTROL).
@@ -185,6 +192,11 @@ export class FacturacionService {
       Departamento: this.toString(this.pickValue(raw, 'Departamento', 'departamento')),
       Municipio: this.toString(this.pickValue(raw, 'Municipio', 'municipio')),
       Direccion: this.toString(this.pickValue(raw, 'Direccion', 'DIRECCION', 'direccion')),
+      IdRecintoFiscal: this.toNumber(this.pickValue(raw, 'idRecintoFiscal', 'IdRecintoFiscal')),
+      IdRegimenExportacion: this.toNumber(this.pickValue(raw, 'idRegimenExportacion', 'IdRegimenExportacion')),
+      TipoRegimen: this.toString(this.pickValue(raw, 'TipoRegimen', 'tipoRegimen')),
+      Flete: this.toNumber(this.pickValue(raw, 'Flete', 'flete', 'FLETE')),
+      Seguro: this.toNumber(this.pickValue(raw, 'Seguro', 'seguro', 'SEGURO')),
       TipoVenta: this.toString(this.pickValue(raw, 'TipoVenta', 'TIPO_VENTA', 'tipoVenta')),
       TipoFactura: this.toString(this.pickValue(raw, 'TipoFactura', 'TIPO_FACTURA', 'tipoFactura')),
       CondicionPago: this.toString(this.pickValue(raw, 'CondicionPago', 'CONDICION_PAGO', 'condicionPago')),
@@ -278,7 +290,10 @@ export class FacturacionService {
       ULTIMO_PRECIO: this.toNumber(this.pickValue(raw, 'ULTIMO_PRECIO', 'ultimoPrecio', 'UltimoPrecio')),
       TIENE_IMAGEN: Boolean(this.pickValue(raw, 'TIENE_IMAGEN', 'tieneImagen')),
       PRECIO_MAYOREO: this.toNumber(this.pickValue(raw, 'PRECIO_MAYOREO', 'precioMayoreo', 'PrecioMayoreo')),
-      cantidadmayoreo: this.toNumber(this.pickValue(raw, 'cantidadmayoreo', 'cantidadMayoreo', 'CantidadMayoreo'))
+      cantidadmayoreo: this.toNumber(this.pickValue(raw, 'cantidadmayoreo', 'cantidadMayoreo', 'CantidadMayoreo')),
+      GRUPO_COD: this.toString(this.pickValue(raw, 'GRUPO_COD', 'grupo_Cod', 'grupoCod')),
+      GRUPO_DESC: this.toString(this.pickValue(raw, 'GRUPO_DESC', 'grupo_Desc', 'grupoDesc')),
+      UNIDAD_MEDIDA: this.toString(this.pickValue(raw, 'UNIDAD_MEDIDA', 'unidaD_MEDIDA', 'unidadMedida'))
     };
   }
 
@@ -478,6 +493,42 @@ export class FacturacionService {
       this.http
         .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetCatalogoCondicionPago`)
         .pipe(map((rows) => (rows ?? []).map((item) => this.mapCondicionPagoCatalogo(item))))
+    );
+  }
+
+  // Catálogos de exportación (FEX)
+  getCatalogoRecintoFiscal(): Observable<RecintoFiscalCatalogo[]> {
+    return this.getCachedRequest('catalogo:recintoFiscal', () =>
+      this.http
+        .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetCatalogoRecintoFiscal`)
+        .pipe(map((rows) => (rows ?? []).map((r) => ({
+          id: this.toNumber(this.pickValue(r, 'idRecintoFiscal', 'IdRecintoFiscal')),
+          codigo: this.toString(this.pickValue(r, 'codigoRecintoFiscal', 'CodigoRecintoFiscal')),
+          descripcion: this.toString(this.pickValue(r, 'descripcionRecintoFiscal', 'DescripcionRecintoFiscal'))
+        }))))
+    );
+  }
+
+  getCatalogoRegimenExportacion(): Observable<RegimenExportacionCatalogo[]> {
+    return this.getCachedRequest('catalogo:regimenExportacion', () =>
+      this.http
+        .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetCatalogoRegimenExportacion`)
+        .pipe(map((rows) => (rows ?? []).map((r) => ({
+          id: this.toNumber(this.pickValue(r, 'idRegimenExportacion', 'IdRegimenExportacion')),
+          codigo: this.toString(this.pickValue(r, 'codigo', 'Codigo')),
+          descripcion: this.toString(this.pickValue(r, 'regimenExportacionDescripcion', 'RegimenExportacionDescripcion'))
+        }))))
+    );
+  }
+
+  getCatalogoTipoRegimen(): Observable<TipoRegimenCatalogo[]> {
+    return this.getCachedRequest('catalogo:tipoRegimen', () =>
+      this.http
+        .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetCatalogoTipoRegimen`)
+        .pipe(map((rows) => (rows ?? []).map((r) => ({
+          codigo: this.toString(this.pickValue(r, 'codigo', 'Codigo')),
+          descripcion: this.toString(this.pickValue(r, 'descripcion', 'Descripcion'))
+        }))))
     );
   }
 

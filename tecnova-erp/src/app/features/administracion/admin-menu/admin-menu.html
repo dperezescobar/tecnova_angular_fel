@@ -1,0 +1,248 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="menu-admin">
+  <div class="breadcrumb">Administración</div>
+  <h1 class="page-title">Administrador de menú</h1>
+  <p class="page-sub">Define <b>layouts</b> de menú, migra empresas por olas y restringe opciones a usuarios puntuales.</p>
+
+  <div class="callout">
+    <i class="bi bi-info-circle"></i>
+    <p>Una empresa en <b>Clásico</b> ve el menú de hoy intacto. El menú administrado solo aplica a empresas migradas y <b>activadas</b>. Así testeas libre y evitas picos de soporte.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab" [class.on]="tab()==='layouts'" (click)="setTab('layouts')"><i class="bi bi-columns-gap"></i> Layouts <span class="count">{{ layouts().length }}</span></button>
+    <button class="tab" [class.on]="tab()==='empresas'" (click)="setTab('empresas')"><i class="bi bi-building"></i> Empresas <span class="count">{{ empresas().length }}</span></button>
+    <button class="tab" [class.on]="tab()==='usuarios'" (click)="setTab('usuarios')"><i class="bi bi-person-lock"></i> Restricciones por usuario</button>
+    <button class="tab" [class.on]="tab()==='catalogo'" (click)="setTab('catalogo')"><i class="bi bi-list-ul"></i> Catálogo <span class="count">{{ opciones().length }}</span></button>
+  </div>
+
+  <!-- ============ LAYOUTS ============ -->
+  @if (tab()==='layouts') {
+    <section class="panel">
+      <div class="toolbar">
+        <div class="tb-title">Layouts de menú</div>
+        <span class="spacer"></span>
+        <button class="btn primary" (click)="abrirNuevoLayout()"><i class="bi bi-plus-lg"></i> Nuevo layout</button>
+      </div>
+
+      <div class="cols">
+        <div class="layout-list">
+          @for (l of layouts(); track l.idLayout) {
+            <button class="layout-item" [class.on]="layoutSelId()===l.idLayout" (click)="seleccionarLayout(l)">
+              <div class="top">
+                <span class="nm">{{ l.nombre }}</span>
+                @if (l.esBase) { <span class="tag">Base · Sistema</span> }
+                @else if (!l.activo) { <span class="tag">Inactivo</span> }
+                @else { <span class="status st-ready"><span class="d"></span>Administrado</span> }
+              </div>
+              <div class="meta">
+                <span><i class="bi bi-building"></i> {{ l.empresas }} empresas</span>
+                @if (l.esBase) { <span class="lock"><i class="bi bi-lock"></i> No editable</span> }
+                @else { <span>{{ l.opciones }} / {{ totalLeaves() }} opciones</span> }
+              </div>
+            </button>
+          }
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <h3>@if (layoutSel()) { Editando: {{ layoutSel()!.nombre }} } @else { Selecciona un layout }</h3>
+            @if (layoutSel() && !layoutSel()!.esBase) { <span class="hint">{{ layoutCount() }} de {{ totalLeaves() }} opciones visibles</span> }
+          </div>
+          <div class="card-b">
+            @if (layoutSel()?.esBase) {
+              <div class="empty-note"><i class="bi bi-lock"></i> El layout Clásico muestra el menú completo y no es editable. Crea o edita un layout administrado para depurar opciones.</div>
+            }
+            <div class="tree" [class.locked]="layoutSel()?.esBase">
+              @for (g of arbol(); track g.clave) {
+                <div class="grp">
+                  <div class="grp-h">
+                    <label class="chk">
+                      <input type="checkbox" [checked]="estadoGrupo(g)==='all'" [class.some]="estadoGrupo(g)==='some'"
+                             (change)="toggleGrupo(g)" [disabled]="layoutSel()?.esBase">
+                    </label>
+                    <i class="gi" [ngClass]="g.icono || 'bi bi-dot'"></i>
+                    <span>{{ g.label }}</span>
+                    @if (g.requiereInventario) { <span class="tag inv">Requiere inventario</span> }
+                    <span class="g-count">{{ contarEnLayout(g) }}/{{ g.hijos.length }}</span>
+                  </div>
+                  @for (h of g.hijos; track h.clave) {
+                    <div class="leaf">
+                      <label class="sw">
+                        <input type="checkbox" [checked]="esClaveEnLayout(h.clave)" (change)="toggleClave(h.clave)" [disabled]="layoutSel()?.esBase">
+                        <span class="track"></span><span class="knob"></span>
+                      </label>
+                      <span>{{ h.descripcion }}</span>
+                      <span class="rt">{{ h.ruta }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+          <div class="card-foot">
+            <span class="note">La sección <b>Administración</b> siempre es root-only y no forma parte de los layouts.</span>
+            @if (layoutSel() && !layoutSel()!.esBase) {
+              <button class="btn primary" (click)="guardarLayout()" [disabled]="!layoutDirty() || savingLayout()">
+                <i class="bi bi-save"></i> {{ savingLayout() ? 'Guardando…' : 'Guardar cambios' }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- ============ EMPRESAS ============ -->
+  @if (tab()==='empresas') {
+    <section class="panel">
+      <div class="counters">
+        <div class="counter slate"><span class="n">{{ contar('CLASICO') }}</span><span class="l">En Clásico</span></div>
+        <div class="counter ok"><span class="n">{{ contar('ACTIVO') }}</span><span class="l">Migradas · activas</span></div>
+        <div class="counter warn"><span class="n">{{ contar('PREPARADO') }}</span><span class="l">Preparadas · sin activar</span></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search"><i class="bi bi-search"></i>
+          <input [ngModel]="empFiltro()" (ngModelChange)="empFiltro.set($event)" placeholder="Buscar empresa por nombre o NRC…">
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Empresa</th><th>Layout asignado</th><th>Estado</th><th>Migración</th><th class="ta-r">Acciones</th></tr></thead>
+          <tbody>
+            @for (e of empresasFiltradas(); track e.idEmpresa) {
+              <tr>
+                <td><div class="emp-nm">{{ e.nombre }}</div><div class="emp-nrc">NRC {{ e.nrc || '—' }}</div></td>
+                <td>
+                  <select class="pill" [ngModel]="e.idLayout ?? (layouts()[0]?.idLayout ?? null)" (ngModelChange)="onCambiarLayout(e, $event)">
+                    @for (l of layoutsAsignables(); track l.idLayout) { <option [ngValue]="l.idLayout">{{ l.nombre }}</option> }
+                  </select>
+                </td>
+                <td>
+                  @switch (e.estado) {
+                    @case ('ACTIVO') { <span class="status st-active"><span class="d"></span>{{ e.nombreLayout }} · Activo</span> }
+                    @case ('PREPARADO') { <span class="status st-ready"><span class="d"></span>{{ e.nombreLayout }} · Preparado</span> }
+                    @default { <span class="status st-classic"><span class="d"></span>Clásico</span> }
+                  }
+                </td>
+                <td class="muted">{{ e.fechaMigracion || '—' }}</td>
+                <td>
+                  <div class="row-actions">
+                    @if (e.estado==='PREPARADO') { <button class="btn sm primary" (click)="activar(e)"><i class="bi bi-check2"></i> Activar</button> }
+                    @if (e.estado!=='CLASICO') { <button class="btn sm danger" (click)="revertir(e)"><i class="bi bi-arrow-counterclockwise"></i> Revertir</button> }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <!-- ============ USUARIOS ============ -->
+  @if (tab()==='usuarios') {
+    <section class="panel">
+      <div class="picker">
+        <div class="field"><label>Empresa</label>
+          <select class="pill" [ngModel]="userEmpresaId()" (ngModelChange)="onSelEmpresaUser($event)">
+            <option [ngValue]="null">Seleccione…</option>
+            @for (e of empresas(); track e.idEmpresa) { <option [ngValue]="e.idEmpresa">{{ e.nombre }}</option> }
+          </select>
+        </div>
+        <div class="field"><label>Usuario</label>
+          <select class="pill" [ngModel]="userSel()" (ngModelChange)="onSelUsuario($event)" [disabled]="!userEmpresaId()">
+            <option [ngValue]="null">Seleccione…</option>
+            @for (u of usuariosEmp(); track u.usuario) { <option [ngValue]="u.usuario">{{ u.nombre }} — {{ u.usuario }}</option> }
+          </select>
+        </div>
+        @if (userSel()) {
+          <div class="eff"><div class="n">{{ efectivoUsuario() }}</div><div class="l">opciones en su menú efectivo</div></div>
+        }
+      </div>
+
+      <div class="callout">
+        <i class="bi bi-info-circle"></i>
+        <p>A nivel usuario solo puedes <b>quitar</b> opciones que su empresa ya concede (sustractivo). Nunca agrega opciones fuera del layout de la empresa.</p>
+      </div>
+
+      @if (userSel()) {
+        <div class="card">
+          <div class="card-h"><h3>Marca las opciones que quieres <b>denegar</b> a {{ userSel() }}</h3></div>
+          <div class="card-b">
+            <div class="tree">
+              @for (g of gruposConcedidos(); track g.clave) {
+                <div class="grp">
+                  <div class="grp-h"><i class="gi" [ngClass]="g.icono || 'bi bi-dot'"></i><span>{{ g.label }}</span></div>
+                  @for (h of g.hijos; track h.clave) {
+                    <div class="leaf">
+                      <label class="sw danger">
+                        <input type="checkbox" [checked]="esDenegada(h.clave)" (change)="toggleDeny(h.clave)">
+                        <span class="track"></span><span class="knob"></span>
+                      </label>
+                      <span [class.denied]="esDenegada(h.clave)">{{ h.descripcion }}</span>
+                      <span class="rt">{{ h.ruta }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="empty-note"><i class="bi bi-arrow-up"></i> Selecciona empresa y usuario para gestionar sus restricciones.</div>
+      }
+    </section>
+  }
+
+  <!-- ============ CATÁLOGO ============ -->
+  @if (tab()==='catalogo') {
+    <section class="panel">
+      <p class="hint">Registro maestro de todas las opciones del sistema. Rara vez se toca: solo al agregar un módulo nuevo. Los layouts eligen de aquí.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Clave</th><th>Descripción</th><th>Ruta</th><th>Marcas</th><th>Activo</th></tr></thead>
+          <tbody>
+            @for (o of catalogoOrdenado(); track o.clave) {
+              <tr [class.is-group]="!o.ruta">
+                <td><code>{{ o.clave }}</code></td>
+                <td [style.paddingLeft.px]="o.clavePadre ? 18 : 0">{{ o.descripcion }}</td>
+                <td><span class="rt">{{ o.ruta || '— (grupo)' }}</span></td>
+                <td>
+                  @if (o.soloRoot) { <span class="tag root">Solo root</span> }
+                  @if (o.requiereInventario) { <span class="tag inv">Req. inventario</span> }
+                  @if (!o.soloRoot && !o.requiereInventario) { <span class="muted">—</span> }
+                </td>
+                <td>@if (o.activo) { <span class="status st-active"><span class="d"></span>Activo</span> } @else { <span class="status st-classic"><span class="d"></span>Inactivo</span> }</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>
+
+<!-- Dialog: nuevo layout -->
+@if (showLayoutDialog()) {
+  <div class="modal-backdrop" (click)="showLayoutDialog.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-h"><h3>Nuevo layout</h3><button class="x" (click)="showLayoutDialog.set(false)"><i class="bi bi-x-lg"></i></button></div>
+      <div class="modal-b">
+        <div class="field"><label>Nombre</label>
+          <input class="pill" [ngModel]="nuevoNombre()" (ngModelChange)="nuevoNombre.set($event)" placeholder="Ej. Nuevo 2026" maxlength="60"></div>
+        <div class="field"><label>Descripción (opcional)</label>
+          <input class="pill" [ngModel]="nuevoDescripcion()" (ngModelChange)="nuevoDescripcion.set($event)" placeholder="Para qué sirve este layout" maxlength="200"></div>
+        <p class="hint">Nace vacío (sin opciones). Actívalas en el editor y luego migra empresas cuando quieras.</p>
+      </div>
+      <div class="modal-f">
+        <button class="btn" (click)="showLayoutDialog.set(false)">Cancelar</button>
+        <button class="btn primary" (click)="crearLayout()"><i class="bi bi-plus-lg"></i> Crear layout</button>
+      </div>
+    </div>
+  </div>
+}

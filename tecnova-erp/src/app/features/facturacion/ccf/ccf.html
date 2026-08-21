@@ -1,4 +1,4 @@
-﻿<section class="fac-page">
+<section class="fac-page">
   <p-toast position="top-right"></p-toast>
   <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
   <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
@@ -53,7 +53,7 @@
     <div class="fac-client-dialog-grid">
       <div class="fac-client-dialog-field fac-client-dialog-field-wide">
         <label>Cliente</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.FacturarA.value || facForm.controls.Cliente.value || 'â€”' }}</div>
+        <div class="fac-client-dialog-value">{{ facForm.controls.FacturarA.value || facForm.controls.Cliente.value || 'No registrado' }}</div>
       </div>
       @if (isAnonimoClient()) {
         <div class="fac-client-dialog-field fac-client-dialog-field-wide">
@@ -62,48 +62,55 @@
         </div>
       }
       <div class="fac-client-dialog-field">
-        <label>NIT</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.NIT.value || 'â€”' }}</div>
+        <label>NIT / DUI <span *ngIf="isInvalidReceptorValue(facForm.controls.NIT.value) && isInvalidReceptorValue(facForm.controls.Identificacion.value)" class="badge bg-danger ms-1" style="font-size: 0.65rem;">Requerido MH</span></label>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.NIT.value) ? (facForm.controls.Identificacion.value || 'No registrado') : facForm.controls.NIT.value }}</div>
       </div>
       <div class="fac-client-dialog-field">
         <label>Identificación</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.Identificacion.value || 'â€”' }}</div>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.Identificacion.value) ? 'No registrado' : facForm.controls.Identificacion.value }}</div>
       </div>
       <div class="fac-client-dialog-field">
-        <label>NRC</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.RegistroComercio.value || 'â€”' }}</div>
+        <label>NRC (Registro Comercio) <span *ngIf="isInvalidReceptorValue(facForm.controls.RegistroComercio.value)" class="badge bg-danger ms-1" style="font-size: 0.65rem;">Requerido MH</span></label>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.RegistroComercio.value) ? 'No registrado' : facForm.controls.RegistroComercio.value }}</div>
       </div>
       <div class="fac-client-dialog-field">
-        <label>Giro</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.Giro.value || 'â€”' }}</div>
+        <label>Giro / Actividad Económica <span *ngIf="isInvalidReceptorValue(facForm.controls.Giro.value)" class="badge bg-danger ms-1" style="font-size: 0.65rem;">Requerido MH</span></label>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.Giro.value) ? 'No registrado' : facForm.controls.Giro.value }}</div>
       </div>
       <div class="fac-client-dialog-field">
-        <label>Correo</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.CorreoElectronico.value || 'â€”' }}</div>
+        <label>Correo <span *ngIf="isInvalidReceptorValue(facForm.controls.CorreoElectronico.value)" class="badge bg-danger ms-1" style="font-size: 0.65rem;">Requerido MH</span></label>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.CorreoElectronico.value) ? 'No registrado' : facForm.controls.CorreoElectronico.value }}</div>
       </div>
       <div class="fac-client-dialog-field">
         <label>Condición de pago</label>
         <div class="fac-client-dialog-value">{{ resolveCondicionPagoLabel(facForm.controls.CondicionPago.value) }}</div>
       </div>
       <div class="fac-client-dialog-field">
-        <label>Paí­s</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.Pais.value || 'â€”' }}</div>
+        <label>País</label>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.Pais.value) ? 'No registrado' : facForm.controls.Pais.value }}</div>
       </div>
       <div class="fac-client-dialog-field">
         <label>Departamento</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.Departamento.value || 'â€”' }}</div>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.Departamento.value) ? 'No registrado' : facForm.controls.Departamento.value }}</div>
       </div>
       <div class="fac-client-dialog-field">
         <label>Municipio</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.Municipio.value || 'â€”' }}</div>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.Municipio.value) ? 'No registrado' : facForm.controls.Municipio.value }}</div>
       </div>
       <div class="fac-client-dialog-field fac-client-dialog-field-wide">
-        <label>Dirección</label>
-        <div class="fac-client-dialog-value">{{ facForm.controls.Direccion.value || 'â€”' }}</div>
+        <label>Dirección <span *ngIf="isInvalidReceptorValue(facForm.controls.Direccion.value)" class="badge bg-danger ms-1" style="font-size: 0.65rem;">Requerido MH</span></label>
+        <div class="fac-client-dialog-value">{{ isInvalidReceptorValue(facForm.controls.Direccion.value) ? 'No registrado' : facForm.controls.Direccion.value }}</div>
       </div>
     </div>
     <ng-template pTemplate="footer">
-      <p-button type="button" label="Regresar" severity="secondary" (onClick)="cerrarDatosClienteDialog()"></p-button>
+      <div class="d-flex justify-content-between w-100 align-items-center gap-3">
+        @if (hasCcfReceptorErrors()) {
+          <p-button type="button" label="Completar datos pendientes para CCF" icon="pi pi-user-edit" severity="warn" (onClick)="irAEditarCliente()"></p-button>
+        } @else {
+          <div></div>
+        }
+        <p-button type="button" label="Regresar" severity="secondary" (onClick)="cerrarDatosClienteDialog()"></p-button>
+      </div>
     </ng-template>
   </p-dialog>
 
@@ -363,7 +370,7 @@
                     styleClass="action-icon-btn action-delete" ariaLabel="Eliminar factura"
                     [disabled]="!canEliminarFactura(item)"
                     (onClick)="solicitarEliminarFactura(item)"></p-button>
-                  @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                  @if (isEmpresa2() && (item.pago || '').toLowerCase() === 'pendiente') {
                     <p-button icon="pi pi-dollar" [text]="true" severity="success"
                       styleClass="action-icon-btn" ariaLabel="Registrar pago recibido"
                       title="Registrar pago recibido" (onClick)="registrarPago(item)"></p-button>
@@ -429,7 +436,7 @@
                       [disabled]="!canEliminarFactura(item)"
                       (onClick)="solicitarEliminarFactura(item)"
                     ></p-button>
-                    @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                    @if (isEmpresa2() && (item.pago || '').toLowerCase() === 'pendiente') {
                       <p-button
                         icon="pi pi-dollar"
                         [text]="true"
@@ -492,7 +499,7 @@
             <div class="action-group">
               <span class="action-group-label">Estado</span>
               <div class="action-group-btns">
-                <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" (onClick)="aplicar()"></p-button>
+                <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" [class.action-highlight-pulse]="highlightAction() && canApply()" (onClick)="aplicar()"></p-button>
                 <p-button type="button" label="Desaplicar" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicar()"></p-button>
               </div>
             </div>
@@ -502,7 +509,7 @@
             <div class="action-group dte-group">
               <span class="action-group-label">Transmisión DTE</span>
               <div class="action-group-btns">
-                <p-button type="button" label="Emitir DTE" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" (onClick)="emitirDte()"></p-button>
+                <p-button type="button" label="Emitir DTE" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" [class.action-highlight-pulse]="highlightAction() && canEmit()" (onClick)="emitirDte()"></p-button>
                 <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
               </div>
             </div>
@@ -574,7 +581,15 @@
               <details class="section-details">
                 <summary>
                   <span class="summary-open">Datos del cliente</span>
-                  <span class="summary-closed">Datos del cliente - ({{ (isAnonimoClient() ? (facForm.controls.NombreFacturarA.value || 'Sr(a)') : facForm.controls.FacturarA.value) || facForm.controls.Cliente.value || 'Contribuyente IVA' }})</span>
+                  <span class="summary-closed d-inline-flex align-items-center gap-3 flex-wrap">
+                    <span>Datos del cliente - ({{ (isAnonimoClient() ? (facForm.controls.NombreFacturarA.value || 'Sr(a)') : facForm.controls.FacturarA.value) || facForm.controls.Cliente.value || 'Contribuyente IVA' }})</span>
+                    @if (hasCcfReceptorErrors()) {
+                      <span class="badge bg-warning text-dark border border-warning fw-semibold px-2 py-1" style="font-size: 0.78rem; background-color: #fffbe6 !important; color: #856404 !important; display: inline-flex; align-items: center; gap: 6px; margin-left: 1.5rem !important;">
+                        <i class="pi pi-exclamation-triangle text-warning"></i>
+                        <span>El cliente tiene datos incompletos requeridos por Hacienda para Crédito Fiscal</span>
+                      </span>
+                    }
+                  </span>
                   <span class="summary-icon-wrap" aria-hidden="true">
                     <i class="pi pi-chevron-down icon-open"></i>
                     <i class="pi pi-chevron-right icon-closed"></i>
@@ -634,6 +649,24 @@
                       />
                     </div>
                   </div>
+                  @if (hasCcfReceptorErrors()) {
+                    <div class="alert alert-warning border-warning shadow-sm mt-2 p-2" style="border-radius: 8px; background-color: #fffbe6; color: #856404; font-size: 0.84rem; width: 100%;">
+                      <div class="d-flex align-items-center gap-2 mb-1 fw-bold">
+                        <i class="pi pi-exclamation-triangle text-warning fs-6"></i>
+                        <span>El cliente tiene datos incompletos requeridos por Hacienda para Crédito Fiscal:</span>
+                      </div>
+                      <ul class="mb-1 ps-3" style="margin-bottom: 0.35rem !important;">
+                        @for (field of ccfReceptorMissingFields(); track field) {
+                          <li><strong>{{ field }}</strong></li>
+                        }
+                      </ul>
+                      <div class="d-flex justify-content-end mt-1">
+                        <button type="button" class="btn btn-xs btn-warning text-dark fw-semibold py-1 px-3" style="font-size: 0.78rem;" (click)="irAEditarCliente()">
+                          <i class="pi pi-user-edit me-1"></i> Completar datos pendientes para CCF
+                        </button>
+                      </div>
+                    </div>
+                  }
                 </div>
               </details>
             </section>

@@ -196,14 +196,33 @@
               <input pInputText id="alias" formControlName="ALIAS" />
             </div>
 
+            <div class="field-item field-wide">
+              <div class="nit-dui-info-banner">
+                <i class="pi pi-info-circle"></i>
+                <div>
+                  <strong class="d-block mb-1">Indicación para NIT y DUI (El Salvador):</strong>
+                  <ul>
+                    <li>
+                      <strong>NIT Homologado a DUI (9 dígitos):</strong> Si en la tarjeta de IVA el NIT corresponde al número de DUI (ej: <code>04010704-7</code>), debe digitar <strong>el mismo valor tanto en el campo NIT como en el campo DUI</strong>.
+                    </li>
+                    <li>
+                      <strong>NIT Tradicional (14 dígitos):</strong> Si el NIT es del formato largo tradicional (ej: <code>0614-123456-104-1</code>), digite el NIT normalmente y el campo <strong>DUI es opcional</strong>.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <div class="field-item">
               <label for="nit">NIT</label>
-              <input pInputText id="nit" formControlName="NIT" />
+              <input pInputText id="nit" formControlName="NIT" placeholder="04010704-7 o 0614-123456-104-1" />
+              <small class="field-help-text">DUI homologado (9 dígitos) o NIT tradicional (14 dígitos)</small>
             </div>
 
             <div class="field-item">
               <label for="dui">DUI</label>
-              <input pInputText id="dui" formControlName="DUI" />
+              <input pInputText id="dui" formControlName="DUI" placeholder="04010704-7" />
+              <small class="field-help-text">Mismo valor que el NIT si es homologado</small>
             </div>
 
             <div class="field-item">
@@ -241,6 +260,8 @@
                 optionLabel="label"
                 optionValue="value"
                 formControlName="IDMUNICIPIO"
+                [placeholder]="cargandoMunicipios() ? 'Cargando municipios…' : 'Seleccione'"
+                [showClear]="false"
               ></p-select>
             </div>
 

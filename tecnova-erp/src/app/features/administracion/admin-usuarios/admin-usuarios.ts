@@ -19,6 +19,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
 import { UsuariosAdminService } from '../services/usuarios-admin';
+import { RolesAdminService, PermisoRol } from '../services/roles-admin';
 import { AuthService } from '../../../core/services/auth';
 import { ReiniciarPasswordResponse, UsuarioListado } from '../../../core/models/usuarios-admin.models';
 
@@ -48,6 +49,7 @@ import { ReiniciarPasswordResponse, UsuarioListado } from '../../../core/models/
 })
 export class AdminUsuariosComponent {
   private usuariosService = inject(UsuariosAdminService);
+  private rolesService = inject(RolesAdminService);
   private authService = inject(AuthService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
@@ -58,6 +60,12 @@ export class AdminUsuariosComponent {
   usuarios = signal<UsuarioListado[]>([]);
   loading = signal(false);
   saving = signal(false);
+
+  showRolesDialog = signal(false);
+  rolesDialogUsuario = signal<string | null>(null);
+  catalogoRoles = signal<PermisoRol[]>([]);
+  rolesSeleccionados = signal<string[]>([]);
+  savingRoles = signal(false);
   errorMessage = signal('');
   filterText = signal('');
 
@@ -406,6 +414,61 @@ export class AdminUsuariosComponent {
             summary: 'Error',
             detail: err?.error?.message ?? 'No se pudo actualizar la contraseña.'
           })
+      });
+  }
+
+  abrirModalRoles(u: UsuarioListado): void {
+    this.rolesDialogUsuario.set(u.usuario);
+    this.showRolesDialog.set(true);
+
+    this.rolesService.getRoles().subscribe({
+      next: (catalogo) => this.catalogoRoles.set(catalogo ?? [])
+    });
+
+    this.rolesService.getRolesUsuario(u.usuario).subscribe({
+      next: (asignados) => this.rolesSeleccionados.set(asignados ?? [])
+    });
+  }
+
+  cerrarModalRoles(): void {
+    this.showRolesDialog.set(false);
+    this.rolesDialogUsuario.set(null);
+  }
+
+  toggleRolSeleccionado(rol: string): void {
+    const list = [...this.rolesSeleccionados()];
+    const index = list.indexOf(rol);
+    if (index >= 0) {
+      list.splice(index, 1);
+    } else {
+      list.push(rol);
+    }
+    this.rolesSeleccionados.set(list);
+  }
+
+  isRolSeleccionado(rol: string): boolean {
+    return this.rolesSeleccionados().includes(rol);
+  }
+
+  guardarRolesUsuario(): void {
+    const usuario = this.rolesDialogUsuario();
+    if (!usuario || this.savingRoles()) return;
+
+    this.savingRoles.set(true);
+    this.rolesService.asignarRolesUsuario(usuario, this.rolesSeleccionados(), this.idEmpresa)
+      .pipe(finalize(() => this.savingRoles.set(false)))
+      .subscribe({
+        next: () => {
+          const nuevosRoles = [...this.rolesSeleccionados()];
+          this.usuarios.update((items) =>
+            items.map((u) => (u.usuario.toLowerCase() === usuario.toLowerCase() ? { ...u, roles: nuevosRoles } : u))
+          );
+          this.messageService.add({ severity: 'success', summary: 'Roles Asignados', detail: `Roles actualizados para ${usuario}` });
+          this.cerrarModalRoles();
+        },
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudieron guardar los roles.' });
+        }
       });
   }
 }

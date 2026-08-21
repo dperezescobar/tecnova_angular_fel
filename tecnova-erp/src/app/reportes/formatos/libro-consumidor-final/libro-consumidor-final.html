@@ -141,7 +141,7 @@
             </div>
             <div class="resumen-row resumen-total">
               <span>VENTAS TOTALES</span>
-              <span class="tabular-nums">{{ totales().total | currency:'USD':'symbol':'1.2-2' }}</span>
+              <span class="tabular-nums">{{ (totales().noSujetas + totales().exentas + totales().gravadas + totales().debitoFiscal + totales().exportaciones) | currency:'USD':'symbol':'1.2-2' }}</span>
             </div>
           </div>
         </div>

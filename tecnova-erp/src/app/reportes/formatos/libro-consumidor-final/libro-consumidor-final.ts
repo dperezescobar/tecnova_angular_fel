@@ -41,6 +41,11 @@ export class LibroConsumidorFinalComponent {
     }), { noSujetas: 0, exentas: 0, gravadas: 0, exportaciones: 0, debitoFiscal: 0, retencion: 0, total: 0 });
   });
 
+  ventasNetasGravadas = computed(() => {
+    const t = this.totales();
+    return Math.max(0, t.gravadas - t.debitoFiscal);
+  });
+
   constructor() {
     // Carga automática al detectar cualquier cambio en el rango de fechas
     effect(() => {
@@ -188,7 +193,7 @@ export class LibroConsumidorFinalComponent {
       { label: 'Exportaciones',                    value: t.exportaciones },
       { label: '1% Retención',                     value: t.retencion },
       { separator: true, label: '', value: 0 },
-      { label: 'VENTAS TOTALES',                   value: t.total, bold: true }
+      { label: 'VENTAS TOTALES',                   value: t.noSujetas + t.exentas + t.gravadas + t.debitoFiscal + t.exportaciones, bold: true }
     ];
 
     this.librosService.exportToPdf(

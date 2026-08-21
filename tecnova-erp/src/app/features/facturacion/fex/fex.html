@@ -224,7 +224,7 @@
               <div class="fac-list-card-actions">
                 <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn action-edit" ariaLabel="Editar factura" (onClick)="openEdit(item)"></p-button>
                 <p-button icon="pi pi-trash" [text]="true" severity="danger" styleClass="action-icon-btn action-delete" ariaLabel="Eliminar factura" [disabled]="!canEliminarFactura(item)" (onClick)="solicitarEliminarFactura(item)"></p-button>
-                @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                @if (isEmpresa2() && (item.pago || '').toLowerCase() === 'pendiente') {
                   <p-button icon="pi pi-dollar" [text]="true" severity="success" styleClass="action-icon-btn" ariaLabel="Registrar pago" title="Registrar pago recibido" (onClick)="registrarPago(item)"></p-button>
                 }
                 <p-button icon="pi pi-envelope" [text]="true" severity="secondary" styleClass="action-icon-btn" ariaLabel="Reenviar correo" title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
@@ -271,7 +271,7 @@
                 <td class="actions-col">
                   <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn action-edit" ariaLabel="Editar factura" (onClick)="openEdit(item)"></p-button>
                   <p-button icon="pi pi-trash" [text]="true" severity="danger" styleClass="action-icon-btn action-delete" ariaLabel="Eliminar factura" [disabled]="!canEliminarFactura(item)" (onClick)="solicitarEliminarFactura(item)"></p-button>
-                  @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                  @if (isEmpresa2() && (item.pago || '').toLowerCase() === 'pendiente') {
                     <p-button icon="pi pi-dollar" [text]="true" severity="success" styleClass="action-icon-btn" ariaLabel="Registrar pago" title="Registrar pago recibido" (onClick)="registrarPago(item)"></p-button>
                   }
                   <p-button icon="pi pi-envelope" [text]="true" severity="secondary" styleClass="action-icon-btn" ariaLabel="Reenviar correo" title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
@@ -298,353 +298,393 @@
   }
 
   @if (showDetail()) {
-    <div class="fac-header">
-      <div class="fac-title-row">
-        <p-button icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="closeDetail()"></p-button>
-        <h1>{{ hasSavedCurrentRecord() ? 'Factura de Exportación' : 'Nueva Factura de Exportación' }}</h1>
-        @if (hasSavedCurrentRecord()) {
-          <span class="fac-estado-badge"
-            [attr.data-estado]="estadoVisualKey(facForm.controls.Estado.value, facForm.controls.SelloRecepcion.value)">
-            {{ estadoVisualLabel(facForm.controls.Estado.value, facForm.controls.SelloRecepcion.value) }}
-          </span>
-        }
-      </div>
-      <div class="form-actions form-actions-top">
-        <div class="action-group">
-          <span class="action-group-label">Documento</span>
-          <div class="action-group-btns">
-            <p-button type="button" label="Guardar" icon="pi pi-save" [loading]="saving()" [disabled]="!canSave()" (onClick)="guardar()"></p-button>
-            <p-button type="button" label="Vista Previa" icon="pi pi-eye" severity="contrast" [loading]="previewLoading()" [disabled]="previewLoading() || !canVistaPrevia()" (onClick)="vistaPrevia()"></p-button>
-          </div>
-        </div>
-        <div class="action-group-divider" aria-hidden="true"></div>
-        <div class="action-group">
-          <span class="action-group-label">Estado</span>
-          <div class="action-group-btns">
-            <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" (onClick)="aplicar()"></p-button>
-            <p-button type="button" label="Desaplicar" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicar()"></p-button>
-          </div>
-        </div>
-        <div class="action-group-divider" aria-hidden="true"></div>
-        <div class="action-group dte-group">
-          <span class="action-group-label">Transmisión DTE</span>
-          <div class="action-group-btns">
-            <p-button type="button" label="Emitir DTE" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" (onClick)="emitirDte()"></p-button>
-            <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <form [formGroup]="facForm">
-      <!-- Datos generales -->
-      <div class="section-card">
-        <div class="section-head"><h3>Datos generales</h3></div>
-        <div class="datos-generales-grid">
-          <div class="datos-generales-block encabezado-card">
-            <h4>Encabezado</h4>
-            <div class="field-grid encabezado-grid">
-              <div class="field-item">
-                <label for="fecha">Fecha</label>
-                <input pInputText id="fecha" type="date" formControlName="Fecha" [readonly]="isReadOnlyField()" />
-              </div>
-              <div class="field-item">
-                <label for="sucursal">Sucursal</label>
-                <select id="sucursal" formControlName="Sucursal" [disabled]="isReadOnlyField()" (change)="onSucursalChange($any($event.target).value)">
-                  <option value="">Selecciona sucursal</option>
-                  @for (item of sucursalOptions(); track item.value) {
-                    <option [value]="item.value">{{ item.label }}</option>
-                  }
-                </select>
-              </div>
-              <div class="field-item">
-                <label for="punto-venta">Punto Venta</label>
-                <select id="punto-venta" formControlName="PuntoVenta" [disabled]="isReadOnlyField()">
-                  <option value="">Selecciona punto de venta</option>
-                  @for (item of puntoVentaOptions(); track item.value) {
-                    <option [value]="item.value">{{ item.label }}</option>
-                  }
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="datos-generales-block dte-info-card">
-            <h4>Datos de Transmisión DTE</h4>
-            <div class="field-grid dte-info-grid">
-              <div class="field-item field-wide">
-                <label for="cod-gen">Codigo de Generacion</label>
-                <input pInputText id="cod-gen" formControlName="CodGeneracion" readonly />
-              </div>
-              <div class="field-item">
-                <label for="no-control">Numero de Control</label>
-                <input pInputText id="no-control" formControlName="NoControl" readonly />
-              </div>
-              <div class="field-item field-wide">
-                <label for="sello">Sello de Recepcion</label>
-                <input pInputText id="sello" formControlName="SelloRecepcion" readonly />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Datos del cliente -->
-      <div class="section-card client-card">
-        <div class="section-head"><h3>Datos del cliente</h3></div>
-        <div class="fac-client-compact">
-          <div class="fac-client-compact-search">
-            <p-autocomplete
-              inputId="cliente"
-              [suggestions]="clienteSuggestions()"
-              [dropdown]="true"
-              [forceSelection]="true"
-              [minLength]="0"
-              [delay]="0"
-              [dropdownMode]="'blank'"
-              [completeOnFocus]="true"
-              (completeMethod)="onClienteComplete($event.query)"
-              (onSelect)="onClienteSelect($event.value)"
-              formControlName="FacturarA"
-              [readonly]="isReadOnlyField() || shouldSuppressMobileKeyboard()"
-              placeholder="Buscar cliente por coincidencia"
-              styleClass="fac-client-autocomplete"
-            ></p-autocomplete>
-            <p-button type="button" icon="pi pi-eye" label="Ver información" [text]="true" severity="secondary" styleClass="fac-client-view-btn" ariaLabel="Ver datos del cliente" (onClick)="abrirDatosClienteDialog()"></p-button>
-          </div>
-          @if (isAnonimoClient()) {
-            <div class="field-item">
-              <label for="nombre-facturar-a">Nombre para factura</label>
-              <input pInputText id="nombre-facturar-a" formControlName="NombreFacturarA" [readonly]="isReadOnlyField()" placeholder="Sr(a)" />
-            </div>
-          }
-          <div class="fac-client-meta">
-            <div class="fac-client-meta-item">
-              <span class="fac-client-meta-label">Correo</span>
-              <input pInputText type="email" formControlName="CorreoElectronico" [readonly]="isReadOnlyField()" placeholder="correo@dominio.com" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Detalle de factura -->
-      <div class="section-card">
-        <div class="section-head"><h3>Detalle de factura</h3></div>
-        <div class="line-editor-grid">
-          <div class="field-item line-articulo">
-            <label for="linea-articulo">Articulo</label>
-            <p-autocomplete
-              inputId="linea-articulo"
-              [suggestions]="articuloSuggestions()"
-              [dropdown]="true"
-              [forceSelection]="true"
-              [minLength]="0"
-              [delay]="0"
-              [dropdownMode]="'blank'"
-              [completeOnFocus]="true"
-              (completeMethod)="onArticuloCompleteLazy($event.query)"
-              (onSelect)="onArticuloSelect($event.value)"
-              formControlName="LineaArticuloDisplay"
-              [readonly]="isReadOnlyField() || shouldSuppressMobileKeyboard()"
-              placeholder="Buscar artículo por código o descripción"
-            ></p-autocomplete>
-          </div>
-          <div class="field-item line-desc">
-            <label for="linea-desc">Descripcion libre</label>
-            <input pInputText id="linea-desc" formControlName="LineaDescripcion" [readonly]="isReadOnlyField()" />
-          </div>
-          <div class="field-item line-qty">
-            <label for="linea-cant">Cantidad</label>
-            <input pInputText id="linea-cant" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaCantidad" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (keydown.enter)="agregarDetalleManual()" (input)="sanitizeNumericInput($event)" />
-          </div>
-          <div class="field-item line-price">
-            <label for="linea-precio">Precio</label>
-            <input pInputText id="linea-precio" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaPrecio" [readonly]="isReadOnlyField() || !canEditPrecioLinea()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
-          </div>
-          <div class="line-side-actions">
-            <div class="field-item include-iva-field">
-              <label for="incluye-iva">IVA Inc.</label>
-              <input id="incluye-iva" type="checkbox" formControlName="IncluyeIVA" [disabled]="isReadOnlyField()" (change)="onIncluyeIvaChange($any($event.target).checked)" />
-            </div>
-            <div class="line-actions">
-              <p-button type="button" label="Agregar" icon="pi pi-plus" severity="info" [disabled]="isReadOnlyField() || saving()" (onClick)="agregarDetalleManual()"></p-button>
-            </div>
-          </div>
-        </div>
-
-        @if (loadingDetail()) {
-          <div class="loading-box" role="status" aria-live="polite">
-            <p-progressSpinner strokeWidth="4" animationDuration=".6s"></p-progressSpinner>
-          </div>
-        } @else {
-          <div class="detalle-cards" aria-label="Lista de detalles agregados en formato tarjeta">
-            @for (item of detalleRows(); track item.LINEA) {
-              <article class="detalle-card">
-                <div class="detalle-card-top">
-                  <div class="detalle-card-primary">
-                    <span class="detalle-card-linea">Línea {{ item.LINEA }}</span>
-                    <span class="detalle-card-articulo">{{ item.ARTICULO }}</span>
-                  </div>
-                  <div class="detalle-card-actions">
-                    <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger" [disabled]="isReadOnlyField()" ariaLabel="Eliminar linea" (onClick)="eliminarDetalle(item.LINEA)"></p-button>
-                  </div>
-                </div>
-                <div class="detalle-card-description">
-                  <span class="detalle-card-label">Descripción</span>
-                  <span class="detalle-card-value">{{ item.DESCRIPCION }}</span>
-                </div>
-                <div class="detalle-card-metrics">
-                  <div class="detalle-card-metric"><span class="detalle-card-label">Cantidad</span><span class="detalle-card-value">{{ item.CANTIDAD | number:'1.0-0' }}</span></div>
-                  <div class="detalle-card-metric"><span class="detalle-card-label">Precio</span><span class="detalle-card-value">{{ item.PRECIO_UNITARIO | currency:'USD':'symbol':'1.2-2' }}</span></div>
-                  <div class="detalle-card-metric total-metric"><span class="detalle-card-label">Total</span><span class="detalle-card-value">{{ (item.TotalVenta || item.TOTAL) | currency:'USD':'symbol':'1.2-2' }}</span></div>
-                </div>
-              </article>
-            } @empty {
-              <div class="detalle-card-empty">Sin lineas de detalle agregadas.</div>
+    <section class="detalle-section">
+      <p-card>
+        <div class="fac-header">
+          <div class="fac-title-row">
+            <p-button icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="closeDetail()"></p-button>
+            <h1>{{ hasSavedCurrentRecord() ? 'Factura de Exportación' : 'Nueva Factura de Exportación' }}</h1>
+            @if (hasSavedCurrentRecord()) {
+              <span class="fac-estado-badge"
+                [attr.data-estado]="estadoVisualKey(facForm.controls.Estado.value, facForm.controls.SelloRecepcion.value)">
+                {{ estadoVisualLabel(facForm.controls.Estado.value, facForm.controls.SelloRecepcion.value) }}
+              </span>
             }
           </div>
-
-          <div class="table-wrap compact">
-            <table class="nested-table" aria-label="Lista de detalles agregados">
-              <thead>
-                <tr>
-                  <th>Linea</th><th>Articulo</th><th>Descripcion</th><th>Cantidad</th><th>Precio</th><th>Total</th><th class="actions-col">Accion</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of detalleRows(); track item.LINEA) {
-                  <tr>
-                    <td>{{ item.LINEA }}</td>
-                    <td>{{ item.ARTICULO }}</td>
-                    <td>{{ item.DESCRIPCION }}</td>
-                    <td>{{ item.CANTIDAD | number:'1.0-0' }}</td>
-                    <td>{{ item.PRECIO_UNITARIO | currency:'USD':'symbol':'1.2-2' }}</td>
-                    <td>{{ (item.TotalVenta || item.TOTAL) | currency:'USD':'symbol':'1.2-2' }}</td>
-                    <td class="actions-col">
-                      <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger" [disabled]="isReadOnlyField()" ariaLabel="Eliminar linea" (onClick)="eliminarDetalle(item.LINEA)"></p-button>
-                    </td>
-                  </tr>
-                } @empty {
-                  <tr><td colspan="7" style="text-align:center; color:#64748b; padding:1.5rem">Sin lineas de detalle agregadas.</td></tr>
-                }
-              </tbody>
-            </table>
+          <div class="form-actions form-actions-top">
+            <div class="action-group">
+              <span class="action-group-label">Documento</span>
+              <div class="action-group-btns">
+                <p-button type="button" label="Guardar" icon="pi pi-save" [loading]="saving()" [disabled]="!canSave()" (onClick)="guardar()"></p-button>
+                <p-button type="button" label="Vista Previa" icon="pi pi-eye" severity="contrast" [loading]="previewLoading()" [disabled]="previewLoading() || !canVistaPrevia()" (onClick)="vistaPrevia()"></p-button>
+              </div>
+            </div>
+            <div class="action-group-divider" aria-hidden="true"></div>
+            <div class="action-group">
+              <span class="action-group-label">Estado</span>
+              <div class="action-group-btns">
+                <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" [class.action-highlight-pulse]="highlightAction() && canApply()" (onClick)="aplicar()"></p-button>
+                <p-button type="button" label="Desaplicar" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicar()"></p-button>
+              </div>
+            </div>
+            <div class="action-group-divider" aria-hidden="true"></div>
+            <div class="action-group dte-group">
+              <span class="action-group-label">Transmisión DTE</span>
+              <div class="action-group-btns">
+                <p-button type="button" label="Emitir DTE" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" [class.action-highlight-pulse]="highlightAction() && canEmit()" (onClick)="emitirDte()"></p-button>
+                <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
+              </div>
+            </div>
           </div>
-        }
-      </div>
+        </div>
 
-      <!-- Totales, observaciones y formas de pago -->
-      <div class="section-card summary-card">
-        <h3>Totales, observaciones y formas de pago</h3>
-        <div class="summary-layout">
-          <div class="summary-payment">
-            <div class="field-item summary-observaciones">
-              <label for="observaciones">Observaciones</label>
-              <textarea id="observaciones" rows="4" formControlName="Observaciones" [readonly]="isReadOnlyField()" placeholder="Información adicional"></textarea>
-            </div>
-            <div class="summary-payment-head">
-              <h4>Formas de pago</h4>
-              <span>La condición de pago se administra por separado.</span>
-            </div>
-            <div class="pago-editor-grid">
-              <div class="field-item">
-                <label for="forma-pago-codigo">Forma de pago</label>
-                <select id="forma-pago-codigo" formControlName="FormaPagoCodigo" [disabled]="isReadOnlyField() || isNewUnsaved()">
-                  <option value="">Selecciona forma de pago</option>
-                  @for (item of formasPagoOptions(); track item.Codigo) {
-                    <option [value]="item.Codigo">{{ item.Descripcion }}</option>
+        <form [formGroup]="facForm" class="detalle-form">
+          <div class="invoice-form-grid">
+            <!-- Datos generales -->
+            <section class="section-card datos-generales-card">
+              <details class="section-details" open>
+                <summary>
+                  <span class="summary-open">Datos generales</span>
+                  <span class="summary-closed">Datos generales</span>
+                  <i class="pi pi-chevron-down icon-open"></i>
+                  <i class="pi pi-chevron-right icon-closed"></i>
+                </summary>
+                <div class="datos-generales-grid">
+                  <div class="datos-generales-block encabezado-card">
+                    <h4>Encabezado</h4>
+                    <div class="field-grid encabezado-grid">
+                      <div class="field-item">
+                        <label for="fecha">Fecha</label>
+                        <input pInputText id="fecha" type="date" formControlName="Fecha" [readonly]="isReadOnlyField()" />
+                      </div>
+                      <div class="field-item">
+                        <label for="sucursal">Sucursal</label>
+                        <select id="sucursal" formControlName="Sucursal" [disabled]="isReadOnlyField()" (change)="onSucursalChange($any($event.target).value)">
+                          <option value="">Selecciona sucursal</option>
+                          @for (item of sucursalOptions(); track item.value) {
+                            <option [value]="item.value">{{ item.label }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="field-item">
+                        <label for="punto-venta">Punto Venta</label>
+                        <select id="punto-venta" formControlName="PuntoVenta" [disabled]="isReadOnlyField()">
+                          <option value="">Selecciona punto de venta</option>
+                          @for (item of puntoVentaOptions(); track item.value) {
+                            <option [value]="item.value">{{ item.label }}</option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="datos-generales-block dte-info-card">
+                    <h4>Datos de Transmisión DTE</h4>
+                    <div class="field-grid dte-info-grid">
+                      <div class="field-item field-wide">
+                        <label for="cod-gen">Codigo de Generacion</label>
+                        <input pInputText id="cod-gen" formControlName="CodGeneracion" readonly />
+                      </div>
+                      <div class="field-item">
+                        <label for="no-control">Numero de Control</label>
+                        <input pInputText id="no-control" formControlName="NoControl" readonly />
+                      </div>
+                      <div class="field-item field-wide">
+                        <label for="sello">Sello de Recepcion</label>
+                        <input pInputText id="sello" formControlName="SelloRecepcion" readonly />
+                      </div>
+                    </div>
+                  </div>
+                  @if (requiereExportacion()) {
+                  <div class="datos-generales-block exportacion-card">
+                    <h4>Datos de exportación</h4>
+                    <div class="field-grid">
+                      <div class="field-item">
+                        <label for="recinto-fiscal">Recinto Fiscal</label>
+                        <select id="recinto-fiscal" formControlName="IdRecintoFiscal" [disabled]="isReadOnlyField()">
+                          <option [ngValue]="0">Seleccione</option>
+                          @for (r of recintosFiscales(); track r.id) {
+                            <option [ngValue]="r.id">{{ r.codigo }} — {{ r.descripcion }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="field-item">
+                        <label for="regimen-exp">Régimen de Exportación</label>
+                        <select id="regimen-exp" formControlName="IdRegimenExportacion" [disabled]="isReadOnlyField()">
+                          <option [ngValue]="0">Seleccione</option>
+                          @for (re of regimenesExportacion(); track re.id) {
+                            <option [ngValue]="re.id">{{ re.codigo }} — {{ re.descripcion }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="field-item">
+                        <label for="tipo-regimen">Tipo de Régimen</label>
+                        <select id="tipo-regimen" formControlName="TipoRegimen" [disabled]="isReadOnlyField()">
+                          <option [ngValue]="''">Seleccione</option>
+                          @for (tr of tiposRegimen(); track tr.codigo) {
+                            <option [ngValue]="tr.codigo">{{ tr.descripcion }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="field-item">
+                        <label for="flete">Flete</label>
+                        <input pInputText id="flete" type="number" min="0" step="0.01" inputmode="decimal" formControlName="Flete" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                      </div>
+                      <div class="field-item">
+                        <label for="seguro">Seguro</label>
+                        <input pInputText id="seguro" type="number" min="0" step="0.01" inputmode="decimal" formControlName="Seguro" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                      </div>
+                    </div>
+                  </div>
                   }
-                </select>
-              </div>
-              <div class="field-item">
-                <label for="forma-pago-monto">Monto</label>
-                <input pInputText id="forma-pago-monto" type="number" min="0" step="0.01" inputmode="decimal" formControlName="FormaPagoMonto" [readonly]="isReadOnlyField() || isNewUnsaved()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
-              </div>
-              <div class="pago-add-action">
-                <p-button type="button" label="Agregar" icon="pi pi-plus" severity="secondary" [disabled]="isReadOnlyField() || isNewUnsaved() || saving()" (onClick)="agregarFormaPago()"></p-button>
-              </div>
-            </div>
-            <div class="pago-resumen">
-              <span>Total formas de pago: {{ totalFormasPago() | currency:'USD':'symbol':'1.2-2' }}</span>
-              <span>Diferencia: {{ (facForm.controls.TotalFactura.value - totalFormasPago()) | currency:'USD':'symbol':'1.2-2' }}</span>
-            </div>
-            <div class="pago-lista">
-              @for (pago of formasPagoDetalle(); track $index) {
-                <div class="pago-row">
-                  <span class="pago-desc">{{ pago.descripcion }}</span>
-                  <span class="pago-monto">{{ pago.monto | currency:'USD':'symbol':'1.2-2' }}</span>
-                  <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger" ariaLabel="Eliminar forma de pago" [disabled]="isReadOnlyField()" (onClick)="eliminarFormaPago($index)"></p-button>
                 </div>
-              } @empty {
-                <div class="pago-empty">Sin formas de pago agregadas.</div>
-              }
-            </div>
-          </div>
-          <div class="summary-totals">
-            <div class="summary-total-row">
-              <span class="summary-total-label">Sumas</span>
-              <strong class="summary-total-value">{{ formatCurrency(facForm.controls.Sumas.value) }}</strong>
-            </div>
-            <div class="summary-total-row">
-              <span class="summary-total-label">Descuentos</span>
-              <strong class="summary-total-value">{{ formatCurrency(facForm.controls.Descuentos.value) }}</strong>
-            </div>
-            <div class="summary-total-row">
-              <span class="summary-total-label">Total operación</span>
-              <strong class="summary-total-value">{{ formatCurrency(facForm.controls.TotalOperacion.value) }}</strong>
-            </div>
-            <div class="summary-total-row">
-              <span class="summary-total-label">IVA (exento exportación)</span>
-              <strong class="summary-total-value">{{ formatCurrency(facForm.controls.TotalImpuesto1.value) }}</strong>
-            </div>
-            <div class="summary-total-row">
-              <span class="summary-total-label">SubTotal ventas</span>
-              <strong class="summary-total-value">{{ formatCurrency(facForm.controls.SubTotalVentas.value) }}</strong>
-            </div>
-            @if (loadingTotals()) {
-              <div class="summary-total-row">
-                <span class="summary-total-label">Actualizando totales...</span>
-                <strong class="summary-total-value"><i class="pi pi-spin pi-spinner" aria-hidden="true"></i></strong>
-              </div>
-            }
-            <div class="ret-iva-row">
-              @if (!retencionAplicada()) {
-                <div class="field-item">
-                  <label for="retencion-iva">Retención IVA</label>
-                  <select id="retencion-iva" formControlName="RetencionIvaCodigo" [disabled]="isReadOnlyField() || isNewUnsaved() || loadingTotals()" (change)="onRetencionChange($any($event.target).value)">
-                    <option value="">Seleccione una retención</option>
-                    @for (item of retencionesOptions(); track item.RETENCION) {
-                      <option [value]="item.RETENCION">{{ item.DESCRIPCION }}</option>
+              </details>
+            </section>
+
+            <!-- Datos del cliente -->
+            <section class="section-card client-card">
+              <details class="section-details" open>
+                <summary>
+                  <span class="summary-open">Datos del cliente</span>
+                  <span class="summary-closed">Datos del cliente</span>
+                  <i class="pi pi-chevron-down icon-open"></i>
+                  <i class="pi pi-chevron-right icon-closed"></i>
+                </summary>
+                <div class="fac-client-compact">
+                  <div class="fac-client-compact-search">
+                    <p-autocomplete
+                      inputId="cliente"
+                      [suggestions]="clienteSuggestions()"
+                      [dropdown]="true"
+                      [forceSelection]="true"
+                      [minLength]="0"
+                      [delay]="0"
+                      [dropdownMode]="'blank'"
+                      [completeOnFocus]="true"
+                      (completeMethod)="onClienteComplete($event.query)"
+                      (onSelect)="onClienteSelect($event.value)"
+                      formControlName="FacturarA"
+                      [readonly]="isReadOnlyField() || shouldSuppressMobileKeyboard()"
+                      placeholder="Buscar cliente por coincidencia"
+                      styleClass="fac-client-autocomplete"
+                    ></p-autocomplete>
+                    <p-button type="button" icon="pi pi-eye" label="Ver información" [text]="true" severity="secondary" styleClass="fac-client-view-btn" ariaLabel="Ver datos del cliente" (onClick)="abrirDatosClienteDialog()"></p-button>
+                  </div>
+                  @if (isAnonimoClient()) {
+                    <div class="field-item">
+                      <label for="nombre-facturar-a">Nombre para factura</label>
+                      <input pInputText id="nombre-facturar-a" formControlName="NombreFacturarA" [readonly]="isReadOnlyField()" placeholder="Sr(a)" />
+                    </div>
+                  }
+                  <div class="fac-client-meta">
+                    <div class="fac-client-meta-item">
+                      <span class="fac-client-meta-label">Correo</span>
+                      <input pInputText type="email" formControlName="CorreoElectronico" [readonly]="isReadOnlyField()" placeholder="correo@dominio.com" />
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </section>
+
+            <!-- Detalle de factura -->
+            <section class="section-card detail-capture-card">
+              <details class="section-details" open>
+                <summary>
+                  <span class="summary-open">Detalle de factura</span>
+                  <span class="summary-closed">Detalle de factura</span>
+                  <i class="pi pi-chevron-down icon-open"></i>
+                  <i class="pi pi-chevron-right icon-closed"></i>
+                </summary>
+                <div class="line-editor-grid">
+                  <div class="field-item line-articulo">
+                    <label for="linea-articulo">Articulo</label>
+                    <p-autocomplete
+                      inputId="linea-articulo"
+                      [suggestions]="articuloSuggestions()"
+                      [dropdown]="true"
+                      [forceSelection]="true"
+                      [minLength]="0"
+                      [delay]="0"
+                      [dropdownMode]="'blank'"
+                      [completeOnFocus]="true"
+                      (completeMethod)="onArticuloCompleteLazy($event.query)"
+                      (onSelect)="onArticuloSelect($event.value)"
+                      formControlName="LineaArticuloDisplay"
+                      [readonly]="isReadOnlyField() || shouldSuppressMobileKeyboard()"
+                      placeholder="Buscar artículo por código o descripción"
+                    ></p-autocomplete>
+                  </div>
+                  <div class="field-item line-desc">
+                    <label for="linea-desc">Descripcion libre</label>
+                    <input pInputText id="linea-desc" formControlName="LineaDescripcion" [readonly]="isReadOnlyField()" />
+                  </div>
+                  <div class="field-item line-qty">
+                    <label for="linea-cant">Cantidad</label>
+                    <input pInputText id="linea-cant" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaCantidad" [readonly]="isReadOnlyField()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (keydown.enter)="agregarDetalleManual()" (input)="sanitizeNumericInput($event)" />
+                  </div>
+                  <div class="field-item line-price">
+                    <label for="linea-precio">Precio</label>
+                    <input pInputText id="linea-precio" type="number" min="0" step="0.01" inputmode="decimal" formControlName="LineaPrecio" [readonly]="isReadOnlyField() || !canEditPrecioLinea()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                  </div>
+                  <div class="line-side-actions">
+                    <div class="field-item include-iva-field">
+                      <label for="incluye-iva">IVA Inc.</label>
+                      <input id="incluye-iva" type="checkbox" formControlName="IncluyeIVA" [disabled]="isReadOnlyField()" (change)="onIncluyeIvaChange($any($event.target).checked)" />
+                    </div>
+                    <div class="line-actions">
+                      <p-button type="button" label="Agregar" icon="pi pi-plus" severity="info" [disabled]="isReadOnlyField() || saving()" (onClick)="agregarDetalleManual()"></p-button>
+                    </div>
+                  </div>
+                </div>
+
+                @if (loadingDetail()) {
+                  <div class="loading-box" role="status" aria-live="polite">
+                    <p-progressSpinner strokeWidth="4" animationDuration=".6s"></p-progressSpinner>
+                  </div>
+                } @else {
+                  <div class="detalle-cards" aria-label="Lista de detalles agregados en formato tarjeta">
+                    @for (item of detalleRows(); track item.LINEA) {
+                      <article class="detalle-card">
+                        <div class="detalle-card-top">
+                          <div class="detalle-card-primary">
+                            <span class="detalle-card-linea">Línea {{ item.LINEA }}</span>
+                            <span class="detalle-card-articulo">{{ item.ARTICULO }}</span>
+                          </div>
+                          <div class="detalle-card-actions">
+                            <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger" [disabled]="isReadOnlyField()" ariaLabel="Eliminar linea" (onClick)="eliminarDetalle(item.LINEA)"></p-button>
+                          </div>
+                        </div>
+                        <div class="detalle-card-description">
+                          <span class="detalle-card-label">Descripción</span>
+                          <span class="detalle-card-value">{{ item.DESCRIPCION }}</span>
+                        </div>
+                        <div class="detalle-card-metrics">
+                          <div class="detalle-card-metric"><span class="detalle-card-label">Cantidad</span><span class="detalle-card-value">{{ item.CANTIDAD | number:'1.0-0' }}</span></div>
+                          <div class="detalle-card-metric"><span class="detalle-card-label">Precio</span><span class="detalle-card-value">{{ item.PRECIO_UNITARIO | currency:'USD':'symbol':'1.2-2' }}</span></div>
+                          <div class="detalle-card-metric total-metric"><span class="detalle-card-label">Total</span><span class="detalle-card-value">{{ (item.TotalVenta || item.TOTAL) | currency:'USD':'symbol':'1.2-2' }}</span></div>
+                        </div>
+                      </article>
+                    } @empty {
+                      <div class="detalle-card-empty">Sin lineas de detalle agregadas.</div>
                     }
-                  </select>
-                </div>
-              } @else {
-                <div class="field-item retencion-aplicada-wrap">
-                  <label>Retención aplicada</label>
-                  <table class="retencion-aplicada-table" aria-label="Retención aplicada">
-                    <tbody>
-                      <tr>
-                        <td class="retencion-aplicada-desc">{{ retencionAplicada()!.descripcion }}</td>
-                        <td class="retencion-aplicada-actions">
-                          <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger" size="small" ariaLabel="Eliminar retención" [disabled]="isReadOnlyField() || isNewUnsaved()" (onClick)="eliminarRetencionAplicada()"></p-button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              }
-              <div class="summary-retencion-box">
-                <span class="summary-total-label">(-) IVA retenido</span>
-                <strong class="summary-total-value">{{ formatCurrency(facForm.controls.IvaRetenido.value) }}</strong>
-              </div>
-            </div>
-            <div class="summary-total-row summary-total-row-final">
-              <span class="summary-total-label">Total a pagar</span>
-              <strong class="summary-total-value">{{ formatCurrency(facForm.controls.TotalFactura.value) }}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
+                  </div>
 
-    </form>
+                  <div class="table-wrap compact">
+                    <table class="nested-table" aria-label="Lista de detalles agregados">
+                      <thead>
+                        <tr>
+                          <th>Linea</th><th>Articulo</th><th>Descripcion</th><th>Cantidad</th><th>Precio</th><th>Total</th><th class="actions-col">Accion</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (item of detalleRows(); track item.LINEA) {
+                          <tr>
+                            <td>{{ item.LINEA }}</td>
+                            <td>{{ item.ARTICULO }}</td>
+                            <td>{{ item.DESCRIPCION }}</td>
+                            <td>{{ item.CANTIDAD | number:'1.0-0' }}</td>
+                            <td>{{ item.PRECIO_UNITARIO | currency:'USD':'symbol':'1.2-2' }}</td>
+                            <td>{{ (item.TotalVenta || item.TOTAL) | currency:'USD':'symbol':'1.2-2' }}</td>
+                            <td class="actions-col">
+                              <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger" [disabled]="isReadOnlyField()" ariaLabel="Eliminar linea" (onClick)="eliminarDetalle(item.LINEA)"></p-button>
+                            </td>
+                          </tr>
+                        } @empty {
+                          <tr><td colspan="7" style="text-align:center; color:#64748b; padding:1.5rem">Sin lineas de detalle agregadas.</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </details>
+            </section>
+
+            <!-- Totales, observaciones y formas de pago -->
+            <section class="section-card summary-card">
+              <details class="section-details" open>
+                <summary>
+                  <span class="summary-open">Totales, observaciones y formas de pago</span>
+                  <span class="summary-closed">Totales, observaciones y formas de pago</span>
+                  <i class="pi pi-chevron-down icon-open"></i>
+                  <i class="pi pi-chevron-right icon-closed"></i>
+                </summary>
+                <div class="summary-layout">
+                  <div class="summary-payment">
+                    <div class="field-item summary-observaciones">
+                      <label for="observaciones">Observaciones</label>
+                      <textarea id="observaciones" rows="4" formControlName="Observaciones" [readonly]="isReadOnlyField()" placeholder="Información adicional"></textarea>
+                    </div>
+                    <div class="summary-payment-head">
+                      <h4>Formas de pago</h4>
+                      <span>La condición de pago se administra por separado.</span>
+                    </div>
+                    <div class="pago-editor-grid">
+                      <div class="field-item">
+                        <label for="forma-pago-codigo">Forma de pago</label>
+                        <select id="forma-pago-codigo" formControlName="FormaPagoCodigo" [disabled]="isReadOnlyField() || isNewUnsaved()">
+                          <option value="">Selecciona forma de pago</option>
+                          @for (item of formasPagoOptions(); track item.Codigo) {
+                            <option [value]="item.Codigo">{{ item.Descripcion }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="field-item">
+                        <label for="forma-pago-monto">Monto</label>
+                        <input pInputText id="forma-pago-monto" type="number" min="0" step="0.01" inputmode="decimal" formControlName="FormaPagoMonto" [readonly]="isReadOnlyField() || isNewUnsaved()" (focus)="selectInputText($event)" (keydown)="onNumericKeyDown($event)" (input)="sanitizeNumericInput($event)" />
+                      </div>
+                      <div class="pago-add-action">
+                        <p-button type="button" label="Agregar" icon="pi pi-plus" severity="secondary" [disabled]="isReadOnlyField() || isNewUnsaved() || saving()" (onClick)="agregarFormaPago()"></p-button>
+                      </div>
+                    </div>
+                    <div class="pago-resumen">
+                      <span>Total formas de pago: {{ totalFormasPago() | currency:'USD':'symbol':'1.2-2' }}</span>
+                      <span>Diferencia: {{ (facForm.controls.TotalFactura.value - totalFormasPago()) | currency:'USD':'symbol':'1.2-2' }}</span>
+                    </div>
+                    <div class="pago-lista">
+                      @for (pago of formasPagoDetalle(); track $index) {
+                        <div class="pago-row">
+                          <span class="pago-desc">{{ pago.descripcion }}</span>
+                          <span class="pago-monto">{{ pago.monto | currency:'USD':'symbol':'1.2-2' }}</span>
+                          <p-button type="button" icon="pi pi-trash" [text]="true" severity="danger" ariaLabel="Eliminar forma de pago" [disabled]="isReadOnlyField()" (onClick)="eliminarFormaPago($index)"></p-button>
+                        </div>
+                      } @empty {
+                        <div class="pago-empty">Sin formas de pago agregadas.</div>
+                      }
+                    </div>
+                  </div>
+                  <div class="summary-totals">
+                    <div class="summary-total-row">
+                      <span class="summary-total-label">Total de Operaciones Afectas</span>
+                      <strong class="summary-total-value">{{ formatCurrency(facForm.controls.TotalOperacion.value) }}</strong>
+                    </div>
+                    <div class="summary-total-row">
+                      <span class="summary-total-label">Monto global Desc, Rebajas y otros a ventas gravadas</span>
+                      <strong class="summary-total-value">{{ formatCurrency(facForm.controls.Descuentos.value) }}</strong>
+                    </div>
+                    <div class="summary-total-row">
+                      <span class="summary-total-label">Seguro</span>
+                      <strong class="summary-total-value">{{ formatCurrency(facForm.controls.Seguro.value) }}</strong>
+                    </div>
+                    <div class="summary-total-row">
+                      <span class="summary-total-label">Flete</span>
+                      <strong class="summary-total-value">{{ formatCurrency(facForm.controls.Flete.value) }}</strong>
+                    </div>
+                    @if (loadingTotals()) {
+                      <div class="summary-total-row">
+                        <span class="summary-total-label">Actualizando totales...</span>
+                        <strong class="summary-total-value"><i class="pi pi-spin pi-spinner" aria-hidden="true"></i></strong>
+                      </div>
+                    }
+                    <div class="summary-total-row summary-total-row-final">
+                      <span class="summary-total-label">Total General</span>
+                      <strong class="summary-total-value">{{ formatCurrency(facForm.controls.TotalFactura.value) }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </section>
+          </div>
+        </form>
+      </p-card>
+    </section>
   }
 </section>

@@ -6,6 +6,7 @@ export interface UsuarioListado {
   activo: boolean;
   bloqueado: boolean;
   createdBy?: string;
+  roles?: string[];
 }
 
 export interface UsuarioDetalle {

@@ -1,7 +1,8 @@
-﻿import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, ViewChild, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, finalize, forkJoin, map, of, switchMap, timeout, timer } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -30,6 +31,7 @@ import {
   DeleteFacturaDto,
   PerfilClienteDto,
   ParametrosDteDto,
+  RespuestaDteDto,
   RetencionCatalogoDto,
   SucursalPuntoVendedorDto,
   UpdateDetalleFacturaDto,
@@ -43,6 +45,22 @@ import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
 import { FacturacionService } from '../services/facturacion';
 import { ReenviarCorreoDialogComponent } from '../../../shared/components/reenviar-correo-dialog/reenviar-correo-dialog';
 import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
+function toIsoDateStr(raw: any): string {
+  if (!raw) return '';
+  const str = String(raw).trim();
+  if (!str) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  return '';
+}
 
 @Component({
   selector: 'app-ccf',
@@ -65,6 +83,12 @@ import { EliminarConfirmDialogComponent } from '../../../shared/components/elimi
   styleUrls: ['./ccf.scss']
 })
 export class CcfComponent {
+  // Emisión normal ~4–8s. Tope de espera con margen para máquina/red lenta; si se agota, se
+  // reconcilia por si el documento ya se emitió aunque se perdiera la respuesta.
+  private static readonly EMIT_TIMEOUT_MS = 15000;      // 15s (≈2x el peor caso normal)
+  private static readonly RECONCILE_INTERVAL_MS = 3000; // reintentos de verificación cada 3s
+  private static readonly RECONCILE_MAX_INTENTOS = 3;   // ~9s adicionales de gracia
+
   @ViewChild(ReenviarCorreoDialogComponent) reenviarCorreoDialog!: ReenviarCorreoDialogComponent;
   @ViewChild(EliminarConfirmDialogComponent) eliminarConfirmDialog!: EliminarConfirmDialogComponent;
 
@@ -73,6 +97,7 @@ export class CcfComponent {
   private cdr = inject(ChangeDetectorRef);
   private authService = inject(AuthService);
   private facturacionService = inject(FacturacionService);
+  private route = inject(ActivatedRoute);
   private messageService = inject(MessageService);
   private currencyFormatter = new Intl.NumberFormat('es-SV', {
     style: 'currency',
@@ -82,6 +107,7 @@ export class CcfComponent {
   });
 
   loadingList = signal(false);
+  isEmpresa2 = computed(() => this.authService.currentUser()?.selectedEmpresa?.idEmpresa === 2);
   loadingDetail = signal(false);
   loadingTotals = signal(false);
   previewLoading = signal(false);
@@ -124,7 +150,15 @@ export class CcfComponent {
   formasPagoDetalle = signal<Array<{ codigo: string; descripcion: string; monto: number }>>([]);
   totalFormasPago = computed(() => this.formasPagoDetalle().reduce((acc, item) => acc + this.toNumber(item.monto), 0));
   isNewUnsaved = computed(() => !this.hasSavedCurrentRecord() && !this.selectedFactura());
-    isAnonimoClient = signal(false);
+  isAnonimoClient = signal(false);
+  highlightAction = signal(false);
+
+  triggerActionHighlight() {
+    this.highlightAction.set(true);
+    setTimeout(() => {
+      this.highlightAction.set(false);
+    }, 4800);
+  }
 
   sucursalOptions = computed(() => {
     const unique = new Map<string, { value: string; label: string }>();
@@ -282,6 +316,64 @@ refreshClientes(): void {
     IdDTE: this.fb.control(0, { nonNullable: true })
   });
 
+  facFormRaw = signal(this.facForm.getRawValue());
+
+  isInvalidReceptorValue(val: unknown): boolean {
+    if (val === null || val === undefined) return true;
+    const clean = String(val).trim().toUpperCase();
+    if (!clean) return true;
+    return (
+      clean === 'NO REGISTRADO' ||
+      clean === 'NO ASIGNADO' ||
+      clean === '- NO ASIGNADO -' ||
+      clean === 'NO APLICA' ||
+      clean === 'â€”' ||
+      clean === '—' ||
+      clean === '-' ||
+      clean === '--' ||
+      clean === '0' ||
+      clean === '0000' ||
+      clean === 'N/A'
+    );
+  }
+
+  ccfReceptorMissingFields = computed(() => {
+    const raw = this.facFormRaw();
+    const missing: string[] = [];
+    const hasCliente = !this.isInvalidReceptorValue(raw.FacturarA) || !this.isInvalidReceptorValue(raw.Cliente) || !this.isInvalidReceptorValue(raw.Nombre);
+    if (!hasCliente) return missing;
+
+    const nitDui = this.isInvalidReceptorValue(raw.NIT) && this.isInvalidReceptorValue(raw.Identificacion);
+    if (nitDui) missing.push('NIT / DUI (Documento de Identificación)');
+
+    const nrc = this.isInvalidReceptorValue(raw.RegistroComercio);
+    if (nrc) missing.push('NRC (Número de Registro de Comercio - obligatorio en CCF)');
+
+    const giro = this.isInvalidReceptorValue(raw.Giro);
+    if (giro) missing.push('Giro / Actividad Económica');
+
+    const correo = this.isInvalidReceptorValue(raw.CorreoElectronico);
+    if (correo) missing.push('Correo Electrónico');
+
+    const complemento = this.isInvalidReceptorValue(raw.Direccion);
+    if (complemento) missing.push('Dirección completa');
+
+    return missing;
+  });
+
+  hasCcfReceptorErrors = computed(() => this.ccfReceptorMissingFields().length > 0);
+
+  irAEditarCliente(): void {
+    this.cerrarDatosClienteDialog();
+    const raw = this.facForm.getRawValue();
+    const codCliente = String(raw.Cliente || '').trim();
+    if (codCliente) {
+      window.open(`/clientes?edit=${encodeURIComponent(codCliente)}`, '_blank');
+    } else {
+      window.open('/clientes', '_blank');
+    }
+  }
+
   filteredFacturas = computed(() => {
     const term = this.filterText().trim().toLowerCase();
     if (!term) {
@@ -412,6 +504,9 @@ refreshClientes(): void {
 
   constructor() {
     this.blockEmissionFields();
+    this.facForm.valueChanges.subscribe(() => {
+      this.facFormRaw.set(this.facForm.getRawValue());
+    });
     this.loadInitial();
   }
 
@@ -700,6 +795,10 @@ refreshClientes(): void {
   aplicar() {
     if (!this.canApply()) {
       this.showError('Facturación CCF', 'Solo las facturas en elaboración permiten aplicar.');
+      return;
+    }
+
+    if (!this.validarFormasPago()) {
       return;
     }
 
@@ -1101,7 +1200,10 @@ refreshClientes(): void {
 
               this.setStep('verify', 'ok', 'Documento listo para emisión');
               this.setStep('emit', 'running', 'Enviando documento a Hacienda');
-              return this.facturacionService.emitirDte(apiBaseUrl, payload,'CCF');
+              return this.facturacionService.emitirDte(apiBaseUrl, payload, 'CCF').pipe(
+                timeout(CcfComponent.EMIT_TIMEOUT_MS),
+                catchError((emitError) => this.reconciliarEmisionPerdida$(emitError))
+              );
             })
           );
         }),
@@ -1151,14 +1253,54 @@ refreshClientes(): void {
       });
   }
 
+  /**
+   * Reconciliación de emisión: si la respuesta de emitirDte se pierde (timeout/red inestable), el
+   * documento PUDO haberse emitido igual en Hacienda. Reconsulta el encabezado; si ya trae Sello,
+   * devuelve una respuesta sintética para RECONECTAR el flujo y culminarlo (sincronizar → correo →
+   * vista previa) sin reemitir. Si tras varios reintentos no hay sello, propaga el error real.
+   */
+  private reconciliarEmisionPerdida$(emitError: unknown): Observable<RespuestaDteDto> {
+    this.setStep('emit', 'running', 'Sin respuesta de Hacienda; verificando si el documento se emitió…');
+
+    const chequear$ = (intento: number): Observable<RespuestaDteDto> =>
+      this.refreshEncabezadoAfterEmission(false).pipe(
+        switchMap((enc) => {
+          const sello = String(enc?.SelloRecepcion ?? '').trim();
+          const noControl = String(enc?.NoControl ?? '').trim();
+          if (sello) {
+            this.setStep('emit', 'ok', 'Emisión confirmada (respuesta recuperada tras la interrupción)');
+            return of({
+              SelloRecepcion: sello,
+              NoControl: noControl,
+              CodigoGeneracion: String(enc?.CodGeneracion ?? '').trim(),
+              MensajeGeneral: 'Emisión reconciliada'
+            } as RespuestaDteDto);
+          }
+          if (intento >= CcfComponent.RECONCILE_MAX_INTENTOS - 1) throw emitError; // agotados: fallo real
+          return timer(CcfComponent.RECONCILE_INTERVAL_MS).pipe(switchMap(() => chequear$(intento + 1)));
+        })
+      );
+
+    return chequear$(0);
+  }
+
   isReadOnlyField(): boolean {
     return this.emitting() || this.currentEstado() !== 'ELABORACION';
   }
 
+  // Editabilidad del precio: se decide con el precio BASE del artículo (estable), no con el valor
+  // en vivo (si dependiera del valor, al teclear el 1er dígito se bloquearía a mitad de escritura
+  // para no-admin: input readonly, spinners desaparecen). Libre si admin, servicio (SV) o precio 0.
+  private precioLineaEditable = true;
+
+  private evaluarPrecioLineaEditable(precioBase: number, tipoArticulo?: string): void {
+    const esAdmin = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase() === 'A';
+    const esServicio = String(tipoArticulo ?? '').trim().toUpperCase() === 'SV';
+    this.precioLineaEditable = esAdmin || esServicio || Number(precioBase ?? 0) <= 0;
+  }
+
   canEditPrecioLinea(): boolean {
-    const tipoUsuario = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase();
-    if (tipoUsuario === 'A') return true;
-    return Number(this.facForm.controls.LineaPrecio.value ?? 0) === 0;
+    return this.precioLineaEditable;
   }
 
   currentEstado(): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
@@ -1419,6 +1561,7 @@ refreshClientes(): void {
       LineaPrecioMayoreo: articulo.PRECIO_MAYOREO ?? 0,
       LineaCantidadMinimaMayoreo: articulo.cantidadmayoreo ?? 0
     });
+    this.evaluarPrecioLineaEditable(articulo.ULTIMO_PRECIO ?? 0, articulo.TIPO_ARTICULO);
     this.focusLineaCantidadInput();
   }
 
@@ -1988,8 +2131,44 @@ this.clientesFiltradosParaTabla.set(profiles);
       error: () => this.condicionesPagoOptions.set([])
     });
 
-    this.loadMaestro();
-    this.openCreate();
+    this.route.queryParams.subscribe((params) => {
+      const facturaParam = String(params['factura'] || params['iddoc'] || '').trim();
+      const fechaParam = toIsoDateStr(params['fecha']);
+      if (facturaParam) {
+        let dateChanged = false;
+        if (fechaParam) {
+          if (fechaParam < this.desde()) {
+            this.desde.set(fechaParam);
+            dateChanged = true;
+          }
+          if (fechaParam > this.hasta()) {
+            this.hasta.set(fechaParam);
+            dateChanged = true;
+          }
+        }
+        if (dateChanged) {
+          this.facturacionService['invalidateCacheByPrefix']('facturasGeneral:');
+          this.loadMaestro();
+        } else {
+          this.loadMaestro();
+        }
+        this.facturacionService.getFacturasGeneral(this.desde(), this.hasta()).subscribe((rows) => {
+          const found = (rows ?? []).filter(item => (item.Tipo_Factura || '').toUpperCase() === 'CCF')
+            .find((r) => {
+              const fullR = `${r.Prefijo || ''}${r.Factura || ''}`.trim();
+              const factR = String(r.Factura || '').trim();
+              const docR = String(r.iddoc || '').trim();
+              return fullR === facturaParam || factR === facturaParam || docR === facturaParam;
+            });
+          if (found) {
+            this.openEdit(found);
+            this.triggerActionHighlight();
+          }
+        });
+      } else {
+        this.loadMaestro();
+      }
+    });
   }
 
   private patchEncabezado(encabezado: FacturaEncabezadoDto) {
@@ -2055,6 +2234,7 @@ this.clientesFiltradosParaTabla.set(profiles);
     this.selectedSucursal.set(encabezado.Sucursal || '');
     this.formasPagoDetalle.set([]);
     this.retencionAplicada.set(null);
+    this.facFormRaw.set(this.facForm.getRawValue());
   }
 
   private loadFacturaFormaPago(idFactura: number) {
@@ -2203,7 +2383,8 @@ this.clientesFiltradosParaTabla.set(profiles);
       DescuentoAdicional: this.toNumber(raw.Descuentos),
       DTE: this.toNumber(raw.IdDTE),
       CorreoCliente: String(raw.CorreoElectronico ?? '').trim(),
-      TipoFactura: String(this.selectedFactura()?.Tipo_Factura ?? 'CCF').trim() || 'CCF'
+      TipoFactura: String(this.selectedFactura()?.Tipo_Factura ?? 'CCF').trim() || 'CCF',
+      TipoRegimen: ''
     };
   }
 
@@ -2377,7 +2558,7 @@ this.clientesFiltradosParaTabla.set(profiles);
     const pagos = this.formasPagoDetalle();
 
     if (!pagos.length) {
-      this.showError('Facturación CCF', 'Debe agregar al menos una forma de pago.');
+      this.showError('Facturación CCF', 'Debe agregar al menos una forma de pago antes de aplicar.');
       return false;
     }
 

@@ -1141,10 +1141,19 @@ export class FacPosReplicaComponent implements OnDestroy {
     return this.emitting() || this.currentEstado() !== 'ELABORACION';
   }
 
+  // Editabilidad del precio: se decide con el precio BASE del artículo (estable), no con el valor
+  // en vivo (si dependiera del valor, al teclear el 1er dígito se bloquearía a mitad de escritura
+  // para no-admin: input readonly, spinners desaparecen). Libre si admin, servicio (SV) o precio 0.
+  private precioLineaEditable = true;
+
+  private evaluarPrecioLineaEditable(precioBase: number, tipoArticulo?: string): void {
+    const esAdmin = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase() === 'A';
+    const esServicio = String(tipoArticulo ?? '').trim().toUpperCase() === 'SV';
+    this.precioLineaEditable = esAdmin || esServicio || Number(precioBase ?? 0) <= 0;
+  }
+
   canEditPrecioLinea(): boolean {
-    const tipoUsuario = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase();
-    if (tipoUsuario === 'A') return true;
-    return Number(this.facForm.controls.LineaPrecio.value ?? 0) === 0;
+    return this.precioLineaEditable;
   }
 
   currentEstado(): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
@@ -1343,6 +1352,7 @@ export class FacPosReplicaComponent implements OnDestroy {
       LineaDescripcion: articulo.DESCRIPCION,
       LineaPrecio: articulo.ULTIMO_PRECIO ?? 0
     });
+    this.evaluarPrecioLineaEditable(articulo.ULTIMO_PRECIO ?? 0, articulo.TIPO_ARTICULO);
     this.focusLineaPrecioInput();
   }
 
@@ -2487,6 +2497,8 @@ export class FacPosReplicaComponent implements OnDestroy {
   private generateCodigoGeneracion(): string { return crypto.randomUUID().toUpperCase(); }
 
   private getAmbiente(): string {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa;
+    if (idEmpresa === 21) return '01'; // Excepción temporal para idEmpresa 21: permite emisión a Hacienda con ambiente 0
     return Number(this.authService.currentUser()?.selectedEmpresa?.ambienteEmision) === 0 ? '00' : '01';
   }
 
@@ -2658,6 +2670,10 @@ export class FacPosReplicaComponent implements OnDestroy {
     const normalized = String(message ?? '').replace(/\r/g, '\n').trim();
     if (!normalized) {
       return '';
+    }
+
+    if (/FK_FACTURA_PUNTO_VENTA|FOREIGN KEY constraint "FK_FACTURA_PUNTO_VENTA"/i.test(normalized)) {
+      return 'Usuario pendiente de ser asignado a punto de venta';
     }
 
     if (/The conversion of a nvarchar data type to a datetime data type resulted in an out-of-range value\.?/i.test(normalized)) {

@@ -4,9 +4,16 @@ import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
 import { PwaInstallService } from '../../core/services/pwa-install';
 import { NotificacionesService } from '../../core/services/notificaciones.service';
+import { DtePendientesService, DtePendienteItem } from '../../core/services/dte-pendientes.service';
 import { FacturacionService } from '../../features/facturacion/services/facturacion';
 import { SessionActivityService } from '../../core/services/session-activity';
 import { SessionTimeoutDialogComponent } from '../../shared/components/session-timeout-dialog/session-timeout-dialog';
+import { MenuService } from '../../core/services/menu.service';
+import { APP_VERSION, APP_BUILD_DATE } from '../../../environments/version';
+
+import { HttpClient } from '@angular/common/http';
+import { PosSignalRService, SolicitudAjustePendiente } from '../../core/services/pos-signalr.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-main-layout',
@@ -24,11 +31,23 @@ export class MainLayoutComponent {
   private router = inject(Router);
   private pwaInstallService = inject(PwaInstallService);
   private notificacionesService = inject(NotificacionesService);
+  public dtePendientesService = inject(DtePendientesService);
   private facturacionService = inject(FacturacionService);
   private sessionActivity = inject(SessionActivityService);
+  private menuService = inject(MenuService);
+  private http = inject(HttpClient);
+  public posSignalR = inject(PosSignalRService);
+
+  solicitudPendienteManager = signal<SolicitudAjustePendiente | null>(null);
+  listaSolicitudesPendientes = signal<SolicitudAjustePendiente[]>([]);
+  procesandoRespuestaManager = signal<boolean>(false);
+  showManagerDrawer = signal<boolean>(false);
+  rolesUsuario = signal<string[]>([]);
   private readonly mobileBreakpointQuery = '(max-width: 991.98px)';
   private readonly touchTabletQuery = '(pointer: coarse) and (max-width: 1366px)';
 
+  readonly appVersion = APP_VERSION;
+  readonly appBuildDate = APP_BUILD_DATE;
   isSidebarCollapsed = true;
   isDesktopSidebarExpanded = false;
   isMobileView = typeof window !== 'undefined' ? this.detectOverlaySidebarMode(window) : false;
@@ -43,7 +62,12 @@ export class MainLayoutComponent {
   showCompras = false;
   showInstallBanner = () => this.pwaInstallService.canShowInstallBanner();
 
+  showDteDrawer = signal(false);
   tienePendientes = this.notificacionesService.tienePendientes;
+  totalDtePendientes = this.dtePendientesService.totalPendientes;
+  listaDtePendientes = this.dtePendientesService.pendientes;
+  loadingDtePendientes = this.dtePendientesService.loading;
+  esEmisorDte = this.dtePendientesService.esEmisorDte;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -58,11 +82,96 @@ export class MainLayoutComponent {
         this.notificacionesService.verificarAbonos(idEmpresa);
       }
       if (idEmpresa) {
+        this.dtePendientesService.cargarPendientes();
         this.facturacionService.getAplicaInventarios().subscribe(v => this.aplicaInventarios.set(v));
+        this.menuService.cargarEfectivo(idEmpresa);
+
+        const username = user?.username || '';
+        if (username) {
+          this.http.get<string[]>(`${environment.apiUrl}/promociones/mis-roles?usuario=${encodeURIComponent(username)}`)
+            .subscribe({
+              next: (roles) => {
+                this.rolesUsuario.set(roles || []);
+                if (this.esManagerPOS()) {
+                  this.posSignalR.iniciarConexion(0, true);
+                  this.cargarSolicitudesPendientesManager();
+                }
+              },
+              error: () => {
+                if (this.esManagerPOS()) {
+                  this.posSignalR.iniciarConexion(0, true);
+                  this.cargarSolicitudesPendientesManager();
+                }
+              }
+            });
+        } else if (this.esManagerPOS()) {
+          this.posSignalR.iniciarConexion(0, true);
+          this.cargarSolicitudesPendientesManager();
+        }
       } else {
         this.aplicaInventarios.set(false);
       }
     });
+
+    effect(() => {
+      const sol = this.posSignalR.nuevaSolicitudSignal();
+      if (sol && this.esManagerPOS()) {
+        this.solicitudPendienteManager.set(sol);
+        this.cargarSolicitudesPendientesManager();
+      }
+    });
+  }
+
+  cargarSolicitudesPendientesManager(): void {
+    this.http.get<SolicitudAjustePendiente[]>(`${environment.apiUrl}/promociones/solicitudes-pendientes`)
+      .subscribe({
+        next: (rows) => this.listaSolicitudesPendientes.set(rows ?? []),
+        error: () => this.listaSolicitudesPendientes.set([])
+      });
+  }
+
+  responderSolicitudManager(solicitudID: number, aprobado: boolean): void {
+    if (this.procesandoRespuestaManager()) return;
+    this.procesandoRespuestaManager.set(true);
+
+    // Ocultar pop-up emergente de forma inmediata para dar feedback instantáneo
+    if (this.solicitudPendienteManager()?.solicitudID === solicitudID) {
+      this.solicitudPendienteManager.set(null);
+    }
+
+    const body = {
+      solicitudID,
+      aprobado,
+      usuarioAprobo: this.currentUser()
+    };
+
+    this.http.post(`${environment.apiUrl}/promociones/responder-ajuste`, body)
+      .subscribe({
+        next: () => {
+          this.procesandoRespuestaManager.set(false);
+          this.cargarSolicitudesPendientesManager();
+        },
+        error: () => this.procesandoRespuestaManager.set(false)
+      });
+  }
+
+  toggleDteDrawer(): void {
+    this.showDteDrawer.update(v => !v);
+    if (this.showDteDrawer()) {
+      this.dtePendientesService.cargarPendientes();
+    }
+  }
+
+  toggleManagerDrawer(): void {
+    this.showManagerDrawer.update(v => !v);
+    if (this.showManagerDrawer()) {
+      this.cargarSolicitudesPendientesManager();
+    }
+  }
+
+  irADocumento(item: DtePendienteItem): void {
+    this.showDteDrawer.set(false);
+    this.router.navigateByUrl(item.routeUrl);
   }
   
   // Signal para obtener el usuario actual reactivamente
@@ -207,6 +316,21 @@ export class MainLayoutComponent {
 
   esRoot(): boolean {
     return this.authService.isRoot();
+  }
+
+  esManagerPOS(): boolean {
+    if (this.adminAccess() || this.esRoot()) return true;
+    const roles = (this.rolesUsuario() ?? []).map((r) => String(r ?? '').trim().toUpperCase());
+    return roles.some((r) => r.includes('ADMIN') || r.includes('MANAGER') || r.includes('GERENTE') || r === 'ADMINISTRADOR');
+  }
+
+  // Filtrado de menú por layout administrado (en modo clásico devuelve true → menú intacto).
+  puedeVer(clave: string): boolean {
+    return this.menuService.puedeVer(clave);
+  }
+
+  grupoVisible(claves: string[]): boolean {
+    return this.menuService.grupoVisible(claves);
   }
 
   irAlPerfil(): void {

@@ -1,0 +1,275 @@
+<p-toast></p-toast>
+
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="fw-bold mb-1"><i class="bi bi-tags-fill text-primary me-2"></i>Centro Maestro de Estrategia de Precios</h3>
+      <p class="text-muted mb-0">Administración unificada de Precios Minoristas, Escalas de Mayoreo, Tarifas Preferentes, Promociones y Venta Cruzada (Cross-Selling).</p>
+    </div>
+  </div>
+
+  <p-tabs [value]="activeTab()" (valueChange)="activeTab.set($any($event))">
+    <p-tablist>
+      <p-tab value="0">🏷️ Precios Base & Mayoreo</p-tab>
+      <p-tab value="1">🎁 Promociones & Fechas Vigentes</p-tab>
+      <p-tab value="2">🔗 Venta Cruzada (Cross-Selling & Combos)</p-tab>
+    </p-tablist>
+
+    <p-tabpanels>
+      <!-- PESTAÑA 1: PRECIOS BASE & MAYOREO -->
+      <p-tabpanel value="0">
+        <div class="card shadow-sm border-0 rounded-3 mt-2">
+          <div class="card-body p-3">
+            <div class="table-header-container mb-3">
+              <span class="p-input-icon-left" style="width: 320px;">
+                <i class="pi pi-search"></i>
+                <input pInputText type="text" (input)="filtroPrecio.set($any($event.target).value)" placeholder="Buscar por código o descripción..." class="w-100 p-inputtext-sm" />
+              </span>
+              <p-button label="Nuevo Precio / Escala" icon="pi pi-plus" styleClass="p-button-sm p-button-primary" (onClick)="abrirNuevoPrecio()"></p-button>
+            </div>
+
+            <p-table [value]="preciosFiltrados()" [loading]="loading()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Código Artículo</th>
+                  <th>Descripción</th>
+                  <th>Tipo de Tarifa / Nivel</th>
+                  <th>Cant. Mínima</th>
+                  <th>Precio Unitario</th>
+                  <th>Fecha Registro</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-item>
+                <tr>
+                  <td class="fw-bold text-primary">{{ item.articulo }}</td>
+                  <td>{{ item.articuloDescripcion }}</td>
+                  <td>
+                    <span class="badge-tipo">{{ item.tipoPrecioNombre }}</span>
+                  </td>
+                  <td class="fw-semibold">{{ item.cantidadMinima | number:'1.0-2' }} unid</td>
+                  <td class="fw-bold text-success fs-6">${{ item.precio | number:'1.2-2' }}</td>
+                  <td class="text-muted small">{{ item.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No hay registros de precios asignados.</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
+      </p-tabpanel>
+
+      <!-- PESTAÑA 2: PROMOCIONES & OFERTAS (MÓDULO 1) -->
+      <p-tabpanel value="1">
+        <div class="card shadow-sm border-0 rounded-3 mt-2">
+          <div class="card-body p-3">
+            <div class="table-header-container mb-3">
+              <span class="p-input-icon-left" style="width: 320px;">
+                <i class="pi pi-search"></i>
+                <input pInputText type="text" (input)="filtroPromo.set($any($event.target).value)" placeholder="Buscar promociones..." class="w-100 p-inputtext-sm" />
+              </span>
+              <p-button label="Crear Nueva Promoción" icon="pi pi-percentage" styleClass="p-button-sm p-button-success" (onClick)="abrirNuevaPromo()"></p-button>
+            </div>
+
+            <p-table [value]="promosFiltradas()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Artículo</th>
+                  <th>Descripción</th>
+                  <th>Descuento / Oferta</th>
+                  <th>Desde</th>
+                  <th>Hasta</th>
+                  <th>Estado</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-p>
+                <tr>
+                  <td class="fw-bold text-primary">{{ p.articulo }}</td>
+                  <td>{{ p.articuloDescripcion }}</td>
+                  <td class="fw-bold text-danger">
+                    {{ p.tipoDescuento === 'P' ? p.valorDescuento + '%' : '$' + p.valorDescuento }} OFF
+                  </td>
+                  <td class="small">{{ p.fdesde | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td class="small">{{ p.fHasta | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>
+                    <span class="badge-status" [ngClass]="p.estado.toLowerCase()">{{ p.estado }}</span>
+                  </td>
+                  <td class="text-center">
+                    <p-button icon="pi pi-power-off" styleClass="p-button-rounded p-button-text p-button-danger p-button-sm" (onClick)="desactivarPromo(p)" pTooltip="Desactivar Promoción"></p-button>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">No hay promociones registradas.</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
+      </p-tabpanel>
+
+      <!-- PESTAÑA 3: CROSS-SELLING & COMBOS -->
+      <p-tabpanel value="2">
+        <div class="card shadow-sm border-0 rounded-3 mt-2">
+          <div class="card-body p-3">
+            <div class="table-header-container mb-3">
+              <span class="p-input-icon-left" style="width: 320px;">
+                <i class="pi pi-search"></i>
+                <input pInputText type="text" (input)="filtroCross.set($any($event.target).value)" placeholder="Buscar reglas cross-selling..." class="w-100 p-inputtext-sm" />
+              </span>
+              <p-button label="Nueva Regla Sugerida / Combo" icon="pi pi-link" styleClass="p-button-sm p-button-help" (onClick)="abrirNuevoCross()"></p-button>
+            </div>
+
+            <p-table [value]="crossFiltrados()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Artículo Principal (Disparador)</th>
+                  <th>Artículo Sugerido (Cross-Sell)</th>
+                  <th>Descuento Ofrecido</th>
+                  <th>Mensaje / Oferta Sugerida</th>
+                  <th>Estado</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-c>
+                <tr>
+                  <td><strong class="text-dark">{{ c.articuloPrincipalID }}</strong> - {{ c.articuloPrincipalNombre }}</td>
+                  <td><strong class="text-primary">{{ c.articuloSugeridoID }}</strong> - {{ c.articuloSugeridoNombre }}</td>
+                  <td class="fw-bold text-success">
+                    {{ c.descuentoSugerido > 0 ? (c.tipoDescuento === 'P' ? c.descuentoSugerido + '%' : '$' + c.descuentoSugerido) : 'Precio Base' }}
+                  </td>
+                  <td class="fst-italic text-muted">{{ c.mensajeSugerido || 'Lleva también este complemento' }}</td>
+                  <td>
+                    <span class="badge-status" [ngClass]="c.activo ? 'activa' : 'inactiva'">{{ c.activo ? 'Activa' : 'Inactiva' }}</span>
+                  </td>
+                  <td class="text-center">
+                    <p-button icon="pi pi-trash" styleClass="p-button-rounded p-button-text p-button-danger p-button-sm" (onClick)="desactivarCross(c)"></p-button>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No hay reglas de venta cruzada configuradas.</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+</div>
+
+<!-- DIÁLOGO CREAR / EDITAR PRECIO -->
+<p-dialog header="Asignar Precio / Escala de Mayoreo" [(visible)]="displayPrecioDialog" [modal]="true" [style]="{ width: '540px', 'max-width': '95vw' }">
+  <form [formGroup]="precioForm" (ngSubmit)="guardarPrecio()" class="p-fluid dialog-form-grid">
+    <div class="form-field-group">
+      <label class="form-field-label">Artículo de Catálogo</label>
+      <p-autoComplete formControlName="articulo" [suggestions]="articuloSuggestions()" (completeMethod)="onArticuloComplete($event.query)" placeholder="Buscar por código o nombre..." [dropdown]="true" appendTo="body" [style]="{'width': '100%'}"></p-autoComplete>
+    </div>
+
+    <div class="form-field-group">
+      <label class="form-field-label">Tipo de Tarifa / Nivel</label>
+      <p-select formControlName="tipoPrecioID" [options]="tiposPrecio()" optionLabel="nombre" optionValue="tipoPrecioID" placeholder="Seleccione tarifa..." appendTo="body" [style]="{'width': '100%'}"></p-select>
+    </div>
+
+    <div class="form-row-2col">
+      <div class="form-field-group">
+        <label class="form-field-label">Cantidad Mínima</label>
+        <p-inputNumber formControlName="cantidadMinima" [min]="1" placeholder="Ej: 12" [style]="{'width': '100%'}"></p-inputNumber>
+      </div>
+      <div class="form-field-group">
+        <label class="form-field-label">Precio Unitario ($)</label>
+        <p-inputNumber formControlName="precio" mode="currency" currency="USD" locale="en-US" [minFractionDigits]="2" [maxFractionDigits]="4" [style]="{'width': '100%'}"></p-inputNumber>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <p-button label="Cancelar" styleClass="p-button-text p-button-secondary" (onClick)="displayPrecioDialog.set(false)"></p-button>
+      <p-button label="Guardar Precio" icon="pi pi-check" styleClass="p-button-primary" [loading]="isSaving()" type="submit"></p-button>
+    </div>
+  </form>
+</p-dialog>
+
+<!-- DIÁLOGO CREAR / EDITAR PROMOCIÓN -->
+<p-dialog header="Crear Regla Promocional" [(visible)]="displayPromoDialog" [modal]="true" [style]="{ width: '560px', 'max-width': '95vw' }">
+  <form [formGroup]="promoForm" (ngSubmit)="guardarPromo()" class="p-fluid dialog-form-grid">
+    <div class="form-field-group">
+      <label class="form-field-label">Artículo en Promoción</label>
+      <p-autoComplete formControlName="articulo" [suggestions]="articuloSuggestions()" (completeMethod)="onArticuloComplete($event.query)" placeholder="Buscar por código o nombre..." [dropdown]="true" appendTo="body" [style]="{'width': '100%'}"></p-autoComplete>
+    </div>
+
+    <div class="form-row-2col">
+      <div class="form-field-group">
+        <label class="form-field-label">Tipo de Oferta</label>
+        <select class="custom-select" formControlName="tipoDescuento">
+          <option value="P">Porcentaje (%)</option>
+          <option value="M">Monto Fijo ($)</option>
+        </select>
+      </div>
+      <div class="form-field-group">
+        <label class="form-field-label">Valor Descuento</label>
+        <p-inputNumber formControlName="valorDescuento" [min]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" [style]="{'width': '100%'}"></p-inputNumber>
+      </div>
+    </div>
+
+    <div class="form-row-2col">
+      <div class="form-field-group">
+        <label class="form-field-label">Fecha / Hora Desde</label>
+        <p-datepicker formControlName="fdesde" [showTime]="true" dateFormat="dd/mm/yy" appendTo="body" [style]="{'width': '100%'}"></p-datepicker>
+      </div>
+      <div class="form-field-group">
+        <label class="form-field-label">Fecha / Hora Hasta</label>
+        <p-datepicker formControlName="fHasta" [showTime]="true" dateFormat="dd/mm/yy" appendTo="body" [style]="{'width': '100%'}"></p-datepicker>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <p-button label="Cancelar" styleClass="p-button-text p-button-secondary" (onClick)="displayPromoDialog.set(false)"></p-button>
+      <p-button label="Guardar Promoción" icon="pi pi-check" styleClass="p-button-success" [loading]="isSaving()" type="submit"></p-button>
+    </div>
+  </form>
+</p-dialog>
+
+<!-- DIÁLOGO CREAR / EDITAR CROSS-SELLING -->
+<p-dialog header="Crear Regla de Venta Cruzada / Combo" [(visible)]="displayCrossDialog" [modal]="true" [style]="{ width: '560px', 'max-width': '95vw' }">
+  <form [formGroup]="crossForm" (ngSubmit)="guardarCross()" class="p-fluid dialog-form-grid">
+    <div class="form-field-group">
+      <label class="form-field-label">Artículo Principal (Al agregar este artículo...)</label>
+      <p-autoComplete formControlName="articuloPrincipalID" [suggestions]="articuloSuggestions()" (completeMethod)="onArticuloComplete($event.query)" placeholder="Buscar por código..." [dropdown]="true" appendTo="body" [style]="{'width': '100%'}"></p-autoComplete>
+    </div>
+
+    <div class="form-field-group">
+      <label class="form-field-label">Artículo Sugerido (...Sugerir al Cajero este artículo)</label>
+      <p-autoComplete formControlName="articuloSugeridoID" [suggestions]="articuloSuggestions()" (completeMethod)="onArticuloComplete($event.query)" placeholder="Buscar por código..." [dropdown]="true" appendTo="body" [style]="{'width': '100%'}"></p-autoComplete>
+    </div>
+
+    <div class="form-field-group">
+      <label class="form-field-label">Mensaje u Oferta Visual para el POS</label>
+      <input pInputText formControlName="mensajeSugerido" placeholder="Ej: ¡Sugiérele al cliente el Limpiador Especial con 15% OFF!" class="custom-select" />
+    </div>
+
+    <div class="form-row-2col">
+      <div class="form-field-group">
+        <label class="form-field-label">Tipo Descuento Sugerido</label>
+        <select class="custom-select" formControlName="tipoDescuento">
+          <option value="P">Porcentaje (%)</option>
+          <option value="M">Monto Fijo ($)</option>
+        </select>
+      </div>
+      <div class="form-field-group">
+        <label class="form-field-label">Descuento ($ o %)</label>
+        <p-inputNumber formControlName="descuentoSugerido" [min]="0" [minFractionDigits]="2" [maxFractionDigits]="2" [style]="{'width': '100%'}"></p-inputNumber>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <p-button label="Cancelar" styleClass="p-button-text p-button-secondary" (onClick)="displayCrossDialog.set(false)"></p-button>
+      <p-button label="Guardar Sugerido" icon="pi pi-check" styleClass="p-button-help" [loading]="isSaving()" type="submit"></p-button>
+    </div>
+  </form>
+</p-dialog>

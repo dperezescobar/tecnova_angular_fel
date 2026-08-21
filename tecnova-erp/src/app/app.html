@@ -1,10 +1,16 @@
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * The content above * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * * -->
-<!-- * * * * * * * * * * and can be replaced.  * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * End of Placeholder  * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-
+@if (swUpdateService.updateAvailable()) {
+  <div class="sw-update-banner">
+    <div class="sw-update-content">
+      <div class="sw-update-text">
+        <i class="pi pi-sparkles text-amber-400 text-lg"></i>
+        <span>Nueva versión disponible para <b>ConTask Cloud</b>.</span>
+      </div>
+      <button type="button" class="sw-update-btn" (click)="swUpdateService.aplicarActualizacion()" [disabled]="swUpdateService.isActivating()">
+        <i class="pi pi-refresh" [class.pi-spin]="swUpdateService.isActivating()"></i>
+        <span>{{ swUpdateService.isActivating() ? 'Aplicando...' : 'Actualizar ahora' }}</span>
+      </button>
+    </div>
+  </div>
+}
 
 <router-outlet />

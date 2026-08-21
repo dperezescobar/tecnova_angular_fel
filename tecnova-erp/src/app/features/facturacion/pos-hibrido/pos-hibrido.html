@@ -1,0 +1,427 @@
+<div class="pos">
+  <p-toast position="top-right"></p-toast>
+  <!-- Catálogo -->
+  <section class="pos-catalogo">
+    <header class="pos-topbar">
+      <h1>Punto de venta</h1>
+      <div class="pos-search">
+        <i class="bi bi-search"></i>
+        <input
+          type="text"
+          placeholder="Buscar artículo o código…"
+          [ngModel]="filtro()"
+          (ngModelChange)="onFiltro($event)"
+        />
+      </div>
+      <button class="pos-refresh" type="button" (click)="abrirHistorial()" title="Historial del día">
+        <i class="bi bi-clock-history"></i>
+      </button>
+      <button class="pos-refresh" type="button" (click)="cargar()" title="Recargar catálogo">
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
+    </header>
+
+    <nav class="pos-tabs" *ngIf="grupos().length">
+      <button
+        type="button"
+        *ngFor="let g of grupos()"
+        class="pos-tab"
+        [class.active]="g === grupoActivo()"
+        (click)="seleccionarGrupo(g)"
+      >{{ g }}</button>
+    </nav>
+
+    <div class="pos-grid" [class.loading]="loading()" #grid (scroll)="onGridScroll(grid)">
+      <p class="pos-empty" *ngIf="!loading() && totalFiltrados() === 0">
+        No hay artículos para mostrar.
+      </p>
+
+      <button
+        type="button"
+        class="pos-tile"
+        *ngFor="let a of visibles(); trackBy: trackArticulo"
+        (click)="agregar(a)"
+      >
+        <span class="pos-tile-img">
+          <img *ngIf="imagenUrl(a.ARTICULO) as src; else ph" [src]="src" [alt]="a.DESCRIPCION" loading="lazy" />
+          <ng-template #ph><i class="bi" [class.bi-image]="a.TIENE_IMAGEN" [class.bi-box-seam]="!a.TIENE_IMAGEN"></i></ng-template>
+          <span class="pos-tile-tipo" [attr.data-tipo]="a.TIPO_ARTICULO">{{ a.TIPO_ARTICULO }}</span>
+          <span class="pos-tile-promo-badge" *ngIf="getPromoBadgeText(a.ARTICULO) as badge">{{ badge }}</span>
+          <span class="pos-tile-agotado" *ngIf="tileSinExistencia(a)" title="Sin existencia">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+          </span>
+        </span>
+        <span class="pos-tile-desc">{{ a.DESCRIPCION }}</span>
+        <span class="pos-tile-cod">{{ a.ARTICULO }}</span>
+        <span class="pos-tile-precio">
+          <s *ngIf="getPromoBadgeText(a.ARTICULO)" class="pos-tile-old-precio">{{ formatMoney(a.ULTIMO_PRECIO) }}</s>
+          {{ formatMoney(getPrecioFinal(a.ARTICULO, a.ULTIMO_PRECIO)) }}<small> / {{ a.UNIDAD_MEDIDA || 'UND' }}</small>
+        </span>
+      </button>
+
+      <p class="pos-more" *ngIf="hayMas()">Desplázate para ver más…</p>
+    </div>
+  </section>
+
+  <!-- Carrito -->
+  <aside class="pos-carrito">
+    <header class="pos-carrito-head">
+      <h2>Venta actual</h2>
+      <button type="button" class="pos-vaciar" (click)="solicitarCancelar()" [disabled]="!cart().length || procesando()">
+        <i class="bi bi-trash"></i> Vaciar
+      </button>
+    </header>
+
+    <div class="pos-cliente-bar">
+      <button type="button" class="pos-cliente" (click)="clientePickerAbierto() ? cerrarClientePicker() : abrirClientePicker()">
+        <span class="pos-cliente-lbl"><i class="bi bi-person"></i>{{ clienteLabel() }}</span>
+        <i class="bi" [class.bi-chevron-down]="!clientePickerAbierto()" [class.bi-chevron-up]="clientePickerAbierto()"></i>
+      </button>
+
+      <div class="pos-cliente-picker" *ngIf="clientePickerAbierto()">
+        <div class="pos-cliente-search">
+          <i class="bi bi-search"></i>
+          <input
+            type="text"
+            placeholder="Buscar cliente (nombre, NIT, código)…"
+            [ngModel]="clienteBusqueda()"
+            (ngModelChange)="clienteBusqueda.set($event)"
+          />
+        </div>
+        <ul class="pos-cliente-list">
+          <li>
+            <button type="button" [class.sel]="!clienteSel()" (click)="seleccionarCliente(null)">
+              <b>Consumidor Final</b><small>Sr(a) — venta rápida</small>
+            </button>
+          </li>
+          <li *ngFor="let c of clientesFiltrados(); trackBy: trackCliente">
+            <button type="button" [class.sel]="clienteSel()?.CLIENTE === c.CLIENTE" (click)="seleccionarCliente(c)">
+              <b>{{ c.NOMBRE }}</b><small>{{ c.CLIENTE }}<ng-container *ngIf="c.NIT"> · {{ c.NIT }}</ng-container></small>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pos-carrito-items">
+      <p class="pos-empty" *ngIf="!cart().length">Toca un artículo para agregarlo.</p>
+
+      <div class="pos-item" *ngFor="let item of cart(); trackBy: trackItem"
+           [class.falta]="lineaInsuficiente(item) || (articuloConError() && item.articulo === articuloConError())">
+        <div class="pos-item-info">
+          <span class="pos-item-desc">
+            <i class="bi bi-exclamation-triangle-fill pos-item-warn"
+               *ngIf="lineaInsuficiente(item) || (articuloConError() && item.articulo === articuloConError())"
+               title="Sin existencia suficiente. Solicite ayuda y reintente."></i>
+            {{ item.descripcion }}
+            <span class="pos-item-promo-tag" *ngIf="getPromoBadgeText(item.articulo) as badge">{{ badge }}</span>
+            <span class="pos-badge-wait" *ngIf="item.enAprobacion">
+              <i class="bi bi-hourglass-split"></i> En revisión
+            </span>
+          </span>
+          <span class="pos-item-precio">
+            {{ formatMoney(item.precio) }} / {{ item.unidad || 'UND' }}
+            <ng-container *ngIf="existenciaDe(item.articulo) !== null"> · Exist: {{ existenciaDe(item.articulo) }}</ng-container>
+          </span>
+        </div>
+        <input
+          class="pos-item-cant"
+          type="number"
+          min="0"
+          step="any"
+          [ngModel]="item.cantidad"
+          (change)="cambiarCantidad(item, $any($event.target).value)"
+          (keyup.enter)="cambiarCantidad(item, $any($event.target).value)"
+          [attr.aria-label]="'Cantidad de ' + item.descripcion"
+        />
+        <span class="pos-item-total">{{ formatMoney(subtotalLinea(item)) }}</span>
+        <button type="button" class="pos-item-ajuste" (click)="solicitarAjuste(item)" [disabled]="item.enAprobacion" title="Solicitar precio especial al manager">
+          <i class="bi bi-shield-lock"></i>
+        </button>
+        <button type="button" class="pos-item-del" (click)="quitar(item)" title="Quitar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <footer class="pos-carrito-foot">
+      <div class="pos-total-row">
+        <span>Artículos</span>
+        <span>{{ totalUnidades() }}</span>
+      </div>
+      <div class="pos-total-row grand">
+        <span>Total (IVA incl.)</span>
+        <span>{{ formatMoney(totalFactura()) }}</span>
+      </div>
+
+      <div class="pos-msg" *ngIf="mensaje() as m" [class.error]="m.tipo === 'error'" [class.ok]="m.tipo === 'ok'">
+        <i class="bi" [class.bi-exclamation-triangle]="m.tipo === 'error'" [class.bi-check-circle]="m.tipo === 'ok'"></i>
+        {{ m.texto }}
+      </div>
+
+      <button type="button" class="pos-verificar" *ngIf="hayFaltantes() || articuloConError()"
+              [disabled]="verificandoExistencias() || !cart().length" (click)="verificarExistencias()">
+        <i class="bi" [class.bi-box-seam]="!verificandoExistencias()" [class.bi-hourglass-split]="verificandoExistencias()"></i>
+        {{ verificandoExistencias() ? 'Verificando…' : 'Verificar existencias' }}
+      </button>
+
+      <button type="button" class="pos-cobrar" [disabled]="!cart().length || procesando() || guardando()" (click)="cobrar()">
+        <i class="bi" [class.bi-cash-coin]="!procesando() && !guardando()" [class.bi-hourglass-split]="procesando() || guardando()"></i>
+        {{ procesando() ? 'Procesando…' : (guardando() ? 'Guardando…' : 'Cobrar') }}
+      </button>
+    </footer>
+  </aside>
+
+  <!-- Fase B: confirmar cancelación -->
+  <div class="pos-overlay" *ngIf="confirmCancelar()" (click)="cerrarConfirmCancelar()">
+    <div class="pos-confirm" role="dialog" aria-modal="true" aria-label="Confirmar cancelación de venta" (click)="$event.stopPropagation()">
+      <i class="bi bi-exclamation-triangle pos-confirm-ico"></i>
+      <h3>¿Cancelar venta?</h3>
+      <p>Se eliminará el borrador actual y sus líneas. Esta acción no se puede deshacer.</p>
+      <div class="pos-confirm-acc">
+        <button type="button" class="pos-btn-sec" (click)="cerrarConfirmCancelar()">No, volver</button>
+        <button type="button" class="pos-btn-danger" (click)="vaciar()">Sí, cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fase C: historial del turno -->
+  <div class="pos-overlay" *ngIf="historialAbierto()" (click)="cerrarHistorial()">
+    <aside class="pos-drawer" role="dialog" aria-modal="true" aria-label="Historial de ventas de hoy" (click)="$event.stopPropagation()">
+      <header class="pos-drawer-head">
+        <h2><i class="bi bi-clock-history"></i> Ventas de hoy</h2>
+        <div class="pos-drawer-actions">
+          <button type="button" class="pos-refresh" (click)="cargarHistorial()" title="Actualizar"><i class="bi bi-arrow-clockwise"></i></button>
+          <button type="button" class="pos-refresh" (click)="cerrarHistorial()" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+        </div>
+      </header>
+
+      <div class="pos-drawer-body">
+        <p class="pos-empty" *ngIf="historialCargando()">Cargando…</p>
+        <p class="pos-empty" *ngIf="!historialCargando() && !historial().length">No hay ventas registradas hoy.</p>
+
+        <article class="pos-hcard" *ngFor="let f of historial(); trackBy: trackFactura">
+          <div class="pos-hcard-top">
+            <span class="pos-hcard-cli">{{ f.FACTURAR_A || 'Consumidor Final' }}</span>
+            <span class="pos-hcard-total">{{ formatMoney(historialTotal(f)) }}</span>
+          </div>
+          <div class="pos-hcard-meta">
+            <span>{{ f.PUNTO_VENTA }} · Nº {{ f.Factura }}</span>
+            <span class="pos-hbadge" [class.emit]="historialEmitido(f)">
+              <i class="bi" [class.bi-shield-check]="historialEmitido(f)" [class.bi-file-earmark]="!historialEmitido(f)"></i>
+              {{ historialEmitido(f) ? 'DTE emitido' : 'Interno' }}
+            </span>
+          </div>
+          <button type="button" class="pos-hcard-print" [disabled]="reimprimiendo() === facturaKey(f)" (click)="reimprimir(f)">
+            <i class="bi" [class.bi-printer]="reimprimiendo() !== facturaKey(f)" [class.bi-hourglass-split]="reimprimiendo() === facturaKey(f)"></i>
+            {{ reimprimiendo() === facturaKey(f) ? 'Imprimiendo…' : 'Reimprimir ticket' }}
+          </button>
+        </article>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Panel de cobro -->
+  <div class="pos-overlay" *ngIf="cobroAbierto()" (click)="cerrarCobro()">
+    <section class="pos-cobro" role="dialog" aria-modal="true" aria-label="Cobro de la venta" [class.con-teclado]="tecladoVisible()" (click)="$event.stopPropagation()">
+      <header class="pos-cobro-head">
+        <h2><i class="bi bi-cash-coin"></i> Cobro</h2>
+        <button type="button" class="pos-teclado-toggle" (click)="toggleTeclado()">
+          <i class="bi" [class.bi-keyboard]="!tecladoVisible()" [class.bi-keyboard-fill]="tecladoVisible()"></i>
+          {{ tecladoVisible() ? 'Ocultar teclado' : 'Mostrar teclado' }}
+        </button>
+        <button type="button" class="pos-refresh" (click)="cerrarCobro()" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </header>
+
+      <div class="pos-cobro-main">
+        <!-- Columna izquierda: resumen + formas de pago + confirmar -->
+        <div class="pos-cobro-left">
+          <div class="pos-res-card">
+            <div class="pos-res-line total">
+              <span>Total a cobrar</span><strong>{{ formatMoney(totalFactura()) }}</strong>
+            </div>
+            <div class="pos-res-line pend" *ngIf="pendienteCobro() > 0.009">
+              <span>Pendiente</span><strong>{{ formatMoney(pendienteCobro()) }}</strong>
+            </div>
+            <div class="pos-res-sep" *ngIf="vuelto() > 0"></div>
+            <div class="pos-res-line vuelto" *ngIf="vuelto() > 0">
+              <span>Vuelto</span><strong>{{ formatMoney(vuelto()) }}</strong>
+            </div>
+          </div>
+
+          <div class="pos-cobro-body">
+            <div class="pos-pago" *ngFor="let p of pagos(); let i = index">
+              <div class="pos-pago-row">
+                <span class="pos-pago-desc"><i class="bi" [class.bi-cash]="p.esEfectivo" [class.bi-credit-card]="!p.esEfectivo"></i> {{ p.descripcion }}</span>
+                <button type="button" class="pos-pago-del" (click)="quitarPago(i)" title="Quitar"><i class="bi bi-x-lg"></i></button>
+              </div>
+              <div class="pos-pago-campos">
+                <div class="pos-campo">
+                  <span class="pos-campo-lbl">Recibido</span>
+                  <button type="button" class="pos-campo-val" [class.activo]="esCampoActivo(i, 'recibido')" (click)="seleccionarCampo(i, 'recibido')">
+                    <span class="cur">$</span>{{ textoCampo(i, 'recibido') }}
+                  </button>
+                </div>
+                <div class="pos-campo">
+                  <span class="pos-campo-lbl">Aplicado</span>
+                  <button type="button" class="pos-campo-val" [class.activo]="esCampoActivo(i, 'monto')" (click)="seleccionarCampo(i, 'monto')">
+                    <span class="cur">$</span>{{ textoCampo(i, 'monto') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="pos-cobro-add">
+              <button type="button" class="pos-chip" (click)="efectivoExacto()"><i class="bi bi-cash-stack"></i> Efectivo exacto</button>
+              <button type="button" class="pos-chip" *ngFor="let f of formasComunes()" (click)="agregarPago(f)">
+                <i class="bi bi-plus-lg"></i> {{ f.Descripcion }}
+              </button>
+              <button type="button" class="pos-chip mas" *ngIf="formasMas().length" (click)="masFormasAbierto.set(!masFormasAbierto())">
+                <i class="bi" [class.bi-three-dots]="!masFormasAbierto()" [class.bi-chevron-up]="masFormasAbierto()"></i> Más
+              </button>
+            </div>
+            <div class="pos-cobro-mas" *ngIf="masFormasAbierto()">
+              <button type="button" class="pos-chip" *ngFor="let f of formasMas()" (click)="agregarPago(f)">
+                <i class="bi bi-plus-lg"></i> {{ f.Descripcion }}
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="pos-cobrar" [disabled]="!cobroValido() || procesando()" (click)="confirmarCobro()">
+            <i class="bi bi-check2-circle"></i> Confirmar cobro
+          </button>
+        </div>
+
+        <!-- Columna derecha: teclado numérico -->
+        <div class="pos-teclado" *ngIf="tecladoVisible()">
+          <button type="button" (click)="tecla('7')">7</button>
+          <button type="button" (click)="tecla('8')">8</button>
+          <button type="button" (click)="tecla('9')">9</button>
+          <button type="button" (click)="tecla('4')">4</button>
+          <button type="button" (click)="tecla('5')">5</button>
+          <button type="button" (click)="tecla('6')">6</button>
+          <button type="button" (click)="tecla('1')">1</button>
+          <button type="button" (click)="tecla('2')">2</button>
+          <button type="button" (click)="tecla('3')">3</button>
+          <button type="button" (click)="tecla('0')">0</button>
+          <button type="button" class="op" (click)="teclaPunto()">.</button>
+          <button type="button" class="op" (click)="teclaBorrar()"><i class="bi bi-backspace"></i></button>
+          <button type="button" class="op limpiar cspan" (click)="teclaLimpiar()">C · Limpiar</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Fase D: Modal de Solicitud de Ajuste de Precio en Vivo -->
+  <div class="pos-overlay" *ngIf="ajusteModalAbierto()" (click)="cerrarAjusteModal()">
+    <div class="pos-confirm pos-modal-ajuste" role="dialog" aria-modal="true" aria-label="Solicitar ajuste de precio" (click)="$event.stopPropagation()" *ngIf="ajusteItemSel() as item">
+      <i class="bi bi-shield-lock pos-confirm-ico info"></i>
+      <h3>Solicitar Ajuste de Precio</h3>
+      <p class="pos-modal-desc">
+        <b>{{ item.descripcion }}</b> ({{ item.articulo }})<br>
+        Precio actual del sistema: <b>${{ item.precio | number:'1.2-2' }}</b>
+      </p>
+
+      <div class="pos-form-group">
+        <label>Precio Solicitado ($)</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          class="pos-input-modal"
+          [ngModel]="precioSolicitadoInput()"
+          (ngModelChange)="precioSolicitadoInput.set($event)"
+        />
+      </div>
+
+      <div class="pos-form-group">
+        <label>Motivo del Descuento / Ajuste</label>
+        <input
+          type="text"
+          class="pos-input-modal"
+          placeholder="Ej: Etiqueta física dañada / Descuento autorizado"
+          [ngModel]="motivoAjusteInput()"
+          (ngModelChange)="motivoAjusteInput.set($event)"
+        />
+      </div>
+
+      <div class="pos-confirm-acc">
+        <button type="button" class="pos-btn-sec" (click)="cerrarAjusteModal()" [disabled]="enviandoSolicitud()">Cancelar</button>
+        <button type="button" class="pos-btn-primary" (click)="enviarSolicitudAjuste()" [disabled]="enviandoSolicitud() || !precioSolicitadoInput()">
+          <i class="bi bi-send-fill" *ngIf="!enviandoSolicitud()"></i>
+          <i class="bi bi-hourglass-split" *ngIf="enviandoSolicitud()"></i>
+          {{ enviandoSolicitud() ? 'Enviando…' : 'Enviar a Manager (SignalR)' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ingresar Cantidad / Peso Fraccionado o Precio Cero -->
+<p-dialog
+  [(visible)]="modalCantidadVisible"
+  [modal]="true"
+  [header]="'Ingresar ' + (esPrecioCero(articuloCantSel()?.ULTIMO_PRECIO) ? 'Precio y Cantidad' : 'Cantidad / Peso') + ' (' + (articuloCantSel()?.UNIDAD_MEDIDA || 'UND') + ')'"
+  [style]="{ width: '440px', 'max-width': '95vw' }"
+  styleClass="pos-cant-dialog"
+  [draggable]="false"
+  [resizable]="false"
+  appendTo="body"
+>
+  <div class="pos-modal-cant-body" *ngIf="articuloCantSel() as a">
+    <div class="pos-modal-art-title">{{ a.DESCRIPCION }}</div>
+    <div class="pos-modal-art-sub">
+      <ng-container *ngIf="!esPrecioCero(a.ULTIMO_PRECIO)">
+        Precio catálogo: <strong>{{ formatMoney(getPrecioFinal(a.ARTICULO, a.ULTIMO_PRECIO)) }}</strong> / {{ a.UNIDAD_MEDIDA || 'UND' }}
+        <span class="pos-item-promo-tag" *ngIf="getPromoBadgeText(a.ARTICULO) as badge">{{ badge }}</span>
+      </ng-container>
+      <ng-container *ngIf="esPrecioCero(a.ULTIMO_PRECIO)">
+        <span class="pos-modal-warn">⚠️ Artículo sin precio de catálogo. Ingrese el precio para no perder la venta.</span>
+      </ng-container>
+    </div>
+
+    <!-- Campo de Precio Unitario (Solo si el precio es CERO o libre) -->
+    <div class="pos-modal-input-group mt-1 mb-2" *ngIf="esPrecioCero(a.ULTIMO_PRECIO)">
+      <label class="pos-modal-label">Precio Unitario ($):</label>
+      <div class="pos-modal-input-wrap">
+        <input
+          type="number"
+          step="any"
+          min="0.01"
+          class="p-inputtext p-component pos-modal-cant-input pos-modal-precio-input"
+          [ngModel]="inputPrecioModal()"
+          (ngModelChange)="inputPrecioModal.set($event)"
+          placeholder="0.00"
+          autofocus
+        />
+        <span class="pos-modal-unit-badge pos-modal-badge-usd">USD</span>
+      </div>
+    </div>
+
+    <div class="pos-modal-input-group mt-2">
+      <label class="pos-modal-label">Cantidad / Peso exacto:</label>
+      <div class="pos-modal-input-wrap">
+        <input
+          type="number"
+          step="any"
+          min="0.01"
+          class="p-inputtext p-component pos-modal-cant-input pos-modal-cant-strong"
+          [ngModel]="inputCantidadModal()"
+          (ngModelChange)="inputCantidadModal.set($event)"
+          (keyup.enter)="confirmarAgregarConCantidad()"
+          [attr.autofocus]="!esPrecioCero(a.ULTIMO_PRECIO) ? true : null"
+        />
+        <span class="pos-modal-unit-badge pos-modal-badge-unit">{{ a.UNIDAD_MEDIDA || 'UND' }}</span>
+      </div>
+    </div>
+
+    <div class="pos-modal-subtotal-box mt-3" *ngIf="inputCantidadModal() > 0">
+      Subtotal estimado: <strong>{{ formatMoney((inputPrecioModal() > 0 ? inputPrecioModal() : getPrecioFinal(a.ARTICULO, a.ULTIMO_PRECIO)) * inputCantidadModal()) }}</strong>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton label="Cancelar" icon="bi bi-x" class="p-button-text p-button-secondary" (click)="cerrarModalCantidad()"></button>
+    <button pButton label="Agregar al Carrito" icon="bi bi-cart-plus" class="p-button-success" (click)="confirmarAgregarConCantidad()" [disabled]="inputCantidadModal() <= 0 || (esPrecioCero(articuloCantSel()?.ULTIMO_PRECIO) && inputPrecioModal() <= 0)"></button>
+  </ng-template>
+</p-dialog>

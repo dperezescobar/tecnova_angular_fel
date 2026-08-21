@@ -48,6 +48,11 @@ export interface FacturaEncabezadoDto {
   Departamento: string;
   Municipio: string;
   Direccion: string;
+  IdRecintoFiscal: number;
+  IdRegimenExportacion: number;
+  TipoRegimen: string;
+  Flete: number;
+  Seguro: number;
   TipoVenta: string;
   TipoFactura: string;
   CondicionPago: string;
@@ -114,6 +119,24 @@ export interface FacturaDetalleDto {
   TotalVenta: number;
 }
 
+// Catálogos de exportación (FEX)
+export interface RecintoFiscalCatalogo {
+  id: number;
+  codigo: string;
+  descripcion: string;
+}
+
+export interface RegimenExportacionCatalogo {
+  id: number;
+  codigo: string;
+  descripcion: string;
+}
+
+export interface TipoRegimenCatalogo {
+  codigo: string;
+  descripcion: string;
+}
+
 export interface SucursalPuntoVendedorDto {
   CODIGO: string;
   codigoMHPV: string;
@@ -151,6 +174,10 @@ export interface ArticuloPorBodegaDto {
   TIENE_IMAGEN: boolean;
   PRECIO_MAYOREO: number;
   cantidadmayoreo: number;
+  // POS híbrido (opcionales; sólo presentes tras el ALTER del catálogo).
+  GRUPO_COD?: string;
+  GRUPO_DESC?: string;
+  UNIDAD_MEDIDA?: string;
 }
 
 export interface InfoVentaArticuloDto {
@@ -342,6 +369,7 @@ export interface UpdateFacturaDto {
   IdRecintoFiscal: number;
   IdIncoterm: number;
   IdRegimenExportacion: number;
+  TipoRegimen?: string;
   PrecioConIVA: number;
   Flete: number;
   Seguro: number;

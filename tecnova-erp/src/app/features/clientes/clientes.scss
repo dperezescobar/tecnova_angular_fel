@@ -213,6 +213,58 @@
   grid-column: span 2;
 }
 
+.nit-dui-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #f0f8ff;
+  border: 1px solid #b8daff;
+  color: #004085;
+  font-size: 0.84rem;
+  line-height: 1.4;
+
+  i {
+    font-size: 1.2rem;
+    color: #0056b3;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+
+  ul {
+    margin: 0.35rem 0 0 0;
+    padding-left: 1.1rem;
+
+    li {
+      margin-bottom: 0.25rem;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  code {
+    background-color: #e2eafc;
+    color: #002b5c;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+}
+
+.field-help-text {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary, #64748b);
+  margin-top: 0.15rem;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;

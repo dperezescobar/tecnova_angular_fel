@@ -15,6 +15,7 @@ export interface CRListadoDto {
 
 export interface CREncabezadoDto {
   CORREL: number;
+  ID?: number;
   COMPROBANTE: string;
   PROVEEDOR: string;
   NOMBRE: string;
@@ -27,6 +28,7 @@ export interface CREncabezadoDto {
   NoControl: string;
   SelloRecepcion: string;
   CodGeneracion: string;
+  CodigoGeneracion?: string;
 }
 
 export interface CRDetalleDto {
@@ -85,7 +87,8 @@ export interface PerfilProveedorDto {
   CORREO_ELECTRONICO: string;
   Pais: string;
   Departamento: string;
-  Municipio: string;
+  Municipio?: string;
+  MUNICIPIO?: string;
   DIRECCION: string;
 }
 

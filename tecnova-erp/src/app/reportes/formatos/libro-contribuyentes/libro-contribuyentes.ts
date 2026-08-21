@@ -25,6 +25,7 @@ export class LibroContribuyentesComponent {
   loading = signal<boolean>(false);
   reportData = signal<ReporteLibroVentasResponse[]>([]);
   filaSeleccionada = signal<number | null>(null);
+  verCuadroResumen = signal<boolean>(true); // Cuadro "RESUMEN DE OPERACIONES" (adicional) + firma
 
   // Totales Calculados en memoria de manera ultra-eficiente vía Computed
   totales = computed(() => {
@@ -86,7 +87,7 @@ export class LibroContribuyentesComponent {
   private getCompanyContext() {
     const empresa = this.authService.currentUser()?.selectedEmpresa;
     return {
-      nombre: empresa?.nombreComercial || 'Empresa No Configurada',
+      nombre: empresa?.nombre || 'Empresa No Configurada',
       nrc: empresa?.nrc || '—',
       nit: empresa?.nit || '—',
       periodo: `${this.formatDateEs(this.desde())} al ${this.formatDateEs(this.hasta())}`
@@ -176,6 +177,32 @@ export class LibroContribuyentesComponent {
       { content: fmt(t.total),       styles: { halign: 'right' } }
     ];
 
+    // Cuadro oficial "RESUMEN DE OPERACIONES" (adicional, solo si el check está activo).
+    const n = (v: number): string => (v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const cuadroOperaciones = this.verCuadroResumen() ? {
+      head: [
+        [
+          { content: 'RESUMEN DE OPERACIONES', rowSpan: 2 },
+          { content: 'PROPIAS', colSpan: 2 },
+          { content: 'IVA RETENIDO', rowSpan: 2 },
+          { content: 'IVA PERCIBIDO', rowSpan: 2 }
+        ],
+        ['VALOR NETO', 'DÉBITO FISCAL']
+      ],
+      body: [
+        ['VENTAS NETAS INTERNAS GRAVADAS A CONTRIBUYENTES', n(t.gravadas), n(t.debitoFiscal), n(t.retencion), n(t.percepcion)],
+        ['VENTAS NETAS INTERNAS A CONSUMIDORES', n(0), n(0), n(0), ''],
+        ['TOTAL DE OPERACIONES INTERNAS GRAVADAS', n(t.gravadas), n(t.debitoFiscal), n(t.retencion), n(t.percepcion)],
+        ['VENTAS NETAS INTERNAS EXENTAS A CONTRIBUYENTES', n(t.exentas), n(0), '', ''],
+        ['VENTAS NETAS INTERNAS A CONSUMIDORES', n(0), n(0), '', ''],
+        ['TOTAL DE OPERACIONES INTERNAS EXENTAS', n(t.exentas), n(0), '', ''],
+        ['VENTAS NETAS INTERNAS NO SUJETAS CONTRIBUYENTES', n(t.noSujetas), n(0), '', ''],
+        ['VENTAS INTERNAS NO SUJETAS A CONSUMIDORES', n(0), n(0), '', ''],
+        ['TOTAL OPERACIONES INTERNAS NO SUJETAS', n(t.noSujetas), n(0), '', ''],
+        ['EXPORTACIONES SEGÚN FACTURAS DE EXPORTACIÓN', n(0), n(0), '', '']
+      ]
+    } : undefined;
+
     this.librosService.exportToPdf(
       'Libro de Ventas a Contribuyentes',
       headers,
@@ -192,6 +219,7 @@ export class LibroContribuyentesComponent {
         total:        t.total
       },
       {
+        cuadroOperaciones,
         pageFormat:   [1350, 842] as [number, number],
         dataFontSize: 8,
         footRows:     [footRow],

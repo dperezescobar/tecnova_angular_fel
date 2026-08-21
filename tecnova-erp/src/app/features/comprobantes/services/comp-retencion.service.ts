@@ -13,6 +13,12 @@ import {
   ProveedorBusquedaDto,
 } from '../../../core/models/comprobantes.models';
 
+export interface DteSelladoDto {
+  response?: string;
+  selloRecibido?: string;
+  fechaGeneracion?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CompRetencionService {
   private http = inject(HttpClient);
@@ -67,5 +73,27 @@ export class CompRetencionService {
   searchProveedores(filtro: string): Observable<ProveedorBusquedaDto[]> {
     const params = new HttpParams().set('filtro', filtro);
     return this.http.get<ProveedorBusquedaDto[]>(`${this.apiUrl}/SearchProveedores`, { params });
+  }
+
+  validarDteMH(
+    urlApi: string,
+    idEmpresa: number,
+    fecha: string,
+    codGeneracion: string,
+    nitProveedor: string,
+    tipoDoc: string,
+    ambiente: string
+  ): Observable<DteSelladoDto[]> {
+    const params = new HttpParams()
+      .set('idEmpresa', idEmpresa)
+      .set('Fecha', fecha)
+      .set('codGeneracion', codGeneracion)
+      .set('nitProveedor', nitProveedor)
+      .set('tipodoc', tipoDoc)
+      .set('ambiente', ambiente);
+    
+    // Quitamos la barra final de urlApi si la tuviera, para evitar dobles barras
+    const baseUrl = urlApi.replace(/\/$/, '');
+    return this.http.get<DteSelladoDto[]>(`${baseUrl}/api/Dteemitidoes/GetValidarDteProveedor`, { params });
   }
 }

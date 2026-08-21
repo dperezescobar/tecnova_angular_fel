@@ -199,6 +199,15 @@ export class LibrosFiscalesService {
   }
 
   private mapLibroVentas(r: Record<string, unknown>): ReporteLibroVentasResponse {
+    const noSujetas    = this.toNum(r, 'NO_SUJETAS', 'nO_SUJETAS');
+    const exentas      = this.toNum(r, 'EXENTAS', 'exentas');
+    const gravadas     = this.toNum(r, 'GRAVADAS', 'gravadas');
+    const debitoFiscal = this.toNum(r, 'TOTAL_IMPUESTO1', 'totaL_IMPUESTO1');
+    let total = this.toNum(r, 'TOTAL', 'total', 'total_venta', 'ventas_totales', 'total_ventas', 'totallinea', 'total_linea');
+    if (!total || total === 0) {
+      total = noSujetas + exentas + gravadas + debitoFiscal;
+    }
+
     return {
       CORRELATIVO:        this.toNum(r, 'CORRELATIVO', 'correlativo'),
       NUMERO_FORM_UNICO:  this.toStr(r, 'NUMERO_FORM_UNICO', 'numerO_FORM_UNICO'),
@@ -216,18 +225,18 @@ export class LibrosFiscalesService {
       DESCRIPCION:        this.toStr(r, 'DESCRIPCION', 'descripcion'),
       TIPODOC:            this.toStr(r, 'TIPODOC', 'tipodoc'),
       SUMAS:              this.toNum(r, 'SUMAS', 'sumas'),
-      GRAVADAS:           this.toNum(r, 'GRAVADAS', 'gravadas'),
-      EXENTAS:            this.toNum(r, 'EXENTAS', 'exentas'),
-      NO_SUJETAS:         this.toNum(r, 'NO_SUJETAS', 'nO_SUJETAS'),
+      GRAVADAS:           gravadas,
+      EXENTAS:            exentas,
+      NO_SUJETAS:         noSujetas,
       TERCERO_GRAVADA:    this.toNum(r, 'TERCERO_GRAVADA', 'tercerO_GRAVADA'),
       TERCERO_EXENTA:     this.toNum(r, 'TERCERO_EXENTA', 'tercerO_EXENTA'),
       TERCERO_NOSUJETA:   this.toNum(r, 'TERCERO_NOSUJETA', 'tercerO_NOSUJETA'),
-      TOTAL_IMPUESTO1:    this.toNum(r, 'TOTAL_IMPUESTO1', 'totaL_IMPUESTO1'),
+      TOTAL_IMPUESTO1:    debitoFiscal,
       TOTAL_IMPUESTO2:    this.toNum(r, 'TOTAL_IMPUESTO2', 'totaL_IMPUESTO2'),
       TOTAL_IMPUESTO3:    this.toNum(r, 'TOTAL_IMPUESTO3', 'totaL_IMPUESTO3'),
       RETENCION:          this.toNum(r, 'RETENCION', 'retencion'),
       PERCEPCION:         this.toNum(r, 'PERCEPCION', 'percepcion'),
-      TOTAL:              this.toNum(r, 'TOTAL', 'total'),
+      TOTAL:              total,
       NOMBRE_EMPRESA:     this.toStr(r, 'NOMBRE_EMPRESA', 'nombrE_EMPRESA'),
       TITULO_REPORTE:     this.toStr(r, 'TITULO_REPORTE', 'titulO_REPORTE'),
       SIMBOLO_MONEDA:     this.toStr(r, 'SIMBOLO_MONEDA', 'simbolO_MONEDA'),
@@ -257,6 +266,15 @@ export class LibrosFiscalesService {
   }
 
   private mapConsumidorFinal(r: Record<string, unknown>): LibroVentasConsumidorFinalResponse {
+    const noSujetas    = this.toNum(r, 'NO_SUJETAS', 'nO_SUJETAS');
+    const exentas      = this.toNum(r, 'EXENTAS', 'exentas');
+    const gravadas     = this.toNum(r, 'GRAVADAS', 'gravadas');
+    const exportaciones = this.toNum(r, 'EXPORTACIONES', 'exportaciones');
+    let total = this.toNum(r, 'TOTAL', 'total', 'total_venta', 'ventas_totales', 'total_ventas', 'totallinea', 'total_linea');
+    if (!total || total === 0) {
+      total = noSujetas + exentas + gravadas + exportaciones;
+    }
+
     return {
       DOCUMENTO_MAX:         this.toStr(r, 'DOCUMENTO_MAX', 'documentO_MAX'),
       DOCUMENTO_MIN:         this.toStr(r, 'DOCUMENTO_MIN', 'documentO_MIN'),
@@ -273,15 +291,15 @@ export class LibrosFiscalesService {
       FECHA:                 this.toNum(r, 'FECHA', 'fecha'),
       TIPODOC:               this.toStr(r, 'TIPODOC', 'tipodoc'),
       SUMAS:                 this.toNum(r, 'SUMAS', 'sumas'),
-      GRAVADAS:              this.toNum(r, 'GRAVADAS', 'gravadas'),
-      EXENTAS:               this.toNum(r, 'EXENTAS', 'exentas'),
-      EXPORTACIONES:         this.toNum(r, 'EXPORTACIONES', 'exportaciones'),
-      NO_SUJETAS:            this.toNum(r, 'NO_SUJETAS', 'nO_SUJETAS'),
+      GRAVADAS:              gravadas,
+      EXENTAS:               exentas,
+      EXPORTACIONES:         exportaciones,
+      NO_SUJETAS:            noSujetas,
       TOTAL_IMPUESTO1:       this.toNum(r, 'TOTAL_IMPUESTO1', 'totaL_IMPUESTO1'),
       TOTAL_IMPUESTO2:       this.toNum(r, 'TOTAL_IMPUESTO2', 'totaL_IMPUESTO2'),
       TOTAL_IMPUESTO3:       this.toNum(r, 'TOTAL_IMPUESTO3', 'totaL_IMPUESTO3'),
       RETENCION:             this.toNum(r, 'RETENCION', 'retencion'),
-      TOTAL:                 this.toNum(r, 'TOTAL', 'total'),
+      TOTAL:                 total,
       NOMBRE_EMPRESA:        this.toStr(r, 'NOMBRE_EMPRESA', 'nombrE_EMPRESA'),
       TITULO_REPORTE:        this.toStr(r, 'TITULO_REPORTE', 'titulO_REPORTE'),
       SIMBOLO_MONEDA:        this.toStr(r, 'SIMBOLO_MONEDA', 'simbolO_MONEDA'),
@@ -382,6 +400,9 @@ export class LibrosFiscalesService {
       footStyles?: any;
       folioBase?: number;
       resumenRows?: Array<{ label: string; value: number; bold?: boolean; separator?: boolean }>;
+      // Cuadro oficial "RESUMEN DE OPERACIONES" (adicional). Se dibuja bajo el cuadro simple y la
+      // firma queda contigua a este. head/body en formato jspdf-autotable.
+      cuadroOperaciones?: { head: any[][]; body: any[][] };
     }
   ): Promise<void> {
     const { default: jsPDF } = await import('jspdf');
@@ -516,29 +537,61 @@ export class LibrosFiscalesService {
 
       drawResRow('Ventas Gravadas Totales', resumen.gravadas);
       drawResRow('Rebajas y Devoluciones s/Ventas', 0);
-      drawDashedLine();
       drawResRow('Ventas Gravadas Netas', resumen.gravadas, false, 241, 245, 249);
       drawResRow('IVA Débito Fiscal (13%)', resumen.debitoFiscal);
       if (resumen.percepcion > 0) {
         drawResRow('Percepción 1%', resumen.percepcion);
       }
       drawDashedLine();
-      drawResRow('Ventas Totales', resumen.total, true, 219, 234, 254);
+      const totalResumen = (resumen.noSujetas || 0) + (resumen.exentas || 0) + resumen.gravadas + resumen.debitoFiscal;
+      drawResRow('Ventas Totales', totalResumen, true, 219, 234, 254);
 
-      // ── Línea de firma (derecha del cuadro resumen) ──────────────────────
-      const boxHeight = ry - finalY;
-      const sigAreaX = boxX + boxW + 50;
-      const sigAreaW = pageWidth - sigAreaX - 40;
-      const sigCenterX = sigAreaX + sigAreaW / 2;
-      const sigLineY = finalY + boxHeight / 2 + 5;
-
-      doc.setDrawColor(100, 100, 100);
-      (doc as any).setLineDash([], 0);
-      doc.line(sigCenterX - 110, sigLineY, sigCenterX + 110, sigLineY);
-      doc.setFontSize(9);
-      doc.setFont('Helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('Nombre y Firma del Contador o Contribuyente', sigCenterX, sigLineY + 15, { align: 'center' });
+      if (options?.cuadroOperaciones) {
+        // ── Cuadro oficial "RESUMEN DE OPERACIONES" (adicional) bajo el cuadro simple ──
+        const cuadroStartY = ry + 20;
+        autoTable(doc, {
+          head: options.cuadroOperaciones.head,
+          body: options.cuadroOperaciones.body,
+          startY: cuadroStartY,
+          margin: { left: boxX },
+          tableWidth: 640,
+          theme: 'grid',
+          styles: {
+            font: 'Helvetica', fontSize: 6.5, cellPadding: 3,
+            lineColor: [31, 41, 55], lineWidth: 0.5, textColor: [15, 23, 42], overflow: 'linebreak'
+          },
+          headStyles: {
+            fillColor: [255, 255, 255], textColor: [15, 23, 42], fontStyle: 'bold',
+            halign: 'center', valign: 'middle', lineColor: [31, 41, 55], lineWidth: 0.5
+          },
+          bodyStyles: { fillColor: [255, 255, 255] },
+          columnStyles: {
+            0: { cellWidth: 300, halign: 'left' },
+            1: { cellWidth: 85, halign: 'center' },
+            2: { cellWidth: 85, halign: 'center' },
+            3: { cellWidth: 85, halign: 'center' },
+            4: { cellWidth: 85, halign: 'center' }
+          },
+          didParseCell: (data: any) => {
+            if (data.section !== 'body') return;
+            const first = String((data.row?.raw as any[])?.[0] ?? '').trim().toUpperCase();
+            if (first.startsWith('TOTAL')) data.cell.styles.fontStyle = 'bold';
+          }
+        });
+        const cuadroEndY = (doc as any).lastAutoTable.finalY;
+        // Firma contigua: a la derecha del cuadro nuevo, centrada verticalmente sobre él.
+        const sigX = boxX + 640 + 60;
+        const sigCenterX = sigX + (pageWidth - sigX - 40) / 2;
+        const sigLineY = cuadroStartY + (cuadroEndY - cuadroStartY) / 2 + 5;
+        this.drawFirmaLine(doc, sigCenterX, sigLineY);
+      } else {
+        // ── Firma a la derecha del cuadro simple (comportamiento actual) ──
+        const boxHeight = ry - finalY;
+        const sigAreaX = boxX + boxW + 50;
+        const sigCenterX = sigAreaX + (pageWidth - sigAreaX - 40) / 2;
+        const sigLineY = finalY + boxHeight / 2 + 5;
+        this.drawFirmaLine(doc, sigCenterX, sigLineY);
+      }
     } else if (options?.resumenRows && options.resumenRows.length > 0) {
       // ── Cuadro RESUMEN personalizado ────────────────────────────────────────
       const boxX = 40;
@@ -603,6 +656,17 @@ export class LibrosFiscalesService {
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
+
+  // Línea + leyenda de firma. Centrada en centerX, línea en lineY.
+  private drawFirmaLine(doc: any, centerX: number, lineY: number): void {
+    doc.setDrawColor(100, 100, 100);
+    doc.setLineDash?.([], 0);
+    doc.line(centerX - 110, lineY, centerX + 110, lineY);
+    doc.setFontSize(9);
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Nombre y Firma del Contador o Contribuyente', centerX, lineY + 15, { align: 'center' });
+  }
 
   private round2(value: number): number {
     return Math.round((value + Number.EPSILON) * 100) / 100;

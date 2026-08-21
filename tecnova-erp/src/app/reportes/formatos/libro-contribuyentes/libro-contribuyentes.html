@@ -8,11 +8,18 @@
         <span class="badge-count">{{ reportData().length }} registros</span>
       }
     </div>
-    <div class="flex gap-2">
-      <p-button 
-        label="PDF" 
-        icon="pi pi-file-pdf" 
-        severity="danger" 
+    <div class="flex align-items-center gap-3">
+      <label class="ver-cuadro-check">
+        <input
+          type="checkbox"
+          [checked]="verCuadroResumen()"
+          (change)="verCuadroResumen.set($any($event.target).checked)" />
+        <span>Ver cuadro resumen</span>
+      </label>
+      <p-button
+        label="PDF"
+        icon="pi pi-file-pdf"
+        severity="danger"
         size="small"
         [disabled]="loading() || reportData().length === 0"
         (onClick)="descargarPDF()">
@@ -132,6 +139,101 @@
           </div>
         </div>
       </div>
+
+      <!-- Cuadro RESUMEN DE OPERACIONES (adicional) + firma. La firma se muestra UNA sola vez:
+           contiguo al cuadro si el check está activo; centrada abajo si no. -->
+      @if (verCuadroResumen()) {
+        <div class="cuadro-op-wrap mt-3">
+          <div class="cuadro-op">
+            <table class="cuadro-op-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" class="op-title">RESUMEN DE OPERACIONES</th>
+                  <th colspan="2" class="op-super">PROPIAS</th>
+                  <th rowspan="2">IVA<br>RETENIDO</th>
+                  <th rowspan="2">IVA<br>PERCIBIDO</th>
+                </tr>
+                <tr>
+                  <th>VALOR NETO</th>
+                  <th>DÉBITO FISCAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>VENTAS NETAS INTERNAS GRAVADAS A CONTRIBUYENTES</td>
+                  <td class="num">{{ totales().gravadas | number:'1.2-2' }}</td>
+                  <td class="num">{{ totales().debitoFiscal | number:'1.2-2' }}</td>
+                  <td class="num">{{ totales().retencion | number:'1.2-2' }}</td>
+                  <td class="num">{{ totales().percepcion | number:'1.2-2' }}</td>
+                </tr>
+                <tr>
+                  <td>VENTAS NETAS INTERNAS A CONSUMIDORES</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                </tr>
+                <tr class="op-total">
+                  <td>TOTAL DE OPERACIONES INTERNAS GRAVADAS</td>
+                  <td class="num">{{ totales().gravadas | number:'1.2-2' }}</td>
+                  <td class="num">{{ totales().debitoFiscal | number:'1.2-2' }}</td>
+                  <td class="num">{{ totales().retencion | number:'1.2-2' }}</td>
+                  <td class="num">{{ totales().percepcion | number:'1.2-2' }}</td>
+                </tr>
+                <tr>
+                  <td>VENTAS NETAS INTERNAS EXENTAS A CONTRIBUYENTES</td>
+                  <td class="num">{{ totales().exentas | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                </tr>
+                <tr>
+                  <td>VENTAS NETAS INTERNAS A CONSUMIDORES</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                </tr>
+                <tr class="op-total">
+                  <td>TOTAL DE OPERACIONES INTERNAS EXENTAS</td>
+                  <td class="num">{{ totales().exentas | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                </tr>
+                <tr>
+                  <td>VENTAS NETAS INTERNAS NO SUJETAS CONTRIBUYENTES</td>
+                  <td class="num">{{ totales().noSujetas | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                </tr>
+                <tr>
+                  <td>VENTAS INTERNAS NO SUJETAS A CONSUMIDORES</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                </tr>
+                <tr class="op-total">
+                  <td>TOTAL OPERACIONES INTERNAS NO SUJETAS</td>
+                  <td class="num">{{ totales().noSujetas | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                </tr>
+                <tr>
+                  <td>EXPORTACIONES SEGÚN FACTURAS DE EXPORTACIÓN</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num">{{ 0 | number:'1.2-2' }}</td>
+                  <td class="num"></td>
+                  <td class="num"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
 
     } @else {
       <div class="empty-state p-6 text-center bg-white border-round shadow-1 py-8">

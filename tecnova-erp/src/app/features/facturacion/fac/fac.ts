@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, finalize, forkJoin, map, of, switchMap, timeout, timer } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -30,6 +31,7 @@ import {
   DeleteFacturaDto,
   PerfilClienteDto,
   ParametrosDteDto,
+  RespuestaDteDto,
   RetencionCatalogoDto,
   SucursalPuntoVendedorDto,
   UpdateDetalleFacturaDto,
@@ -45,6 +47,23 @@ import { ReciboService, ReciboDatos } from '../services/recibo';
 import { ArticulosLazyService } from '../services/articulos-lazy.service';
 import { ReenviarCorreoDialogComponent } from '../../../shared/components/reenviar-correo-dialog/reenviar-correo-dialog';
 import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
+
+function toIsoDateStr(raw: any): string {
+  if (!raw) return '';
+  const str = String(raw).trim();
+  if (!str) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  return '';
+}
 
 @Component({
   selector: 'app-fac',
@@ -67,6 +86,12 @@ import { EliminarConfirmDialogComponent } from '../../../shared/components/elimi
   styleUrls: ['./fac.scss']
 })
 export class FacComponent {
+  // Emisión normal ~4–8s. Tope con margen; si se agota, se reconcilia por si el documento ya se
+  // emitió aunque se perdiera la respuesta por red inestable.
+  private static readonly EMIT_TIMEOUT_MS = 15000;
+  private static readonly RECONCILE_INTERVAL_MS = 3000;
+  private static readonly RECONCILE_MAX_INTENTOS = 3;
+
   @ViewChild(ReenviarCorreoDialogComponent) reenviarCorreoDialog!: ReenviarCorreoDialogComponent;
   @ViewChild(EliminarConfirmDialogComponent) eliminarConfirmDialog!: EliminarConfirmDialogComponent;
 
@@ -84,6 +109,8 @@ export class FacComponent {
   esAmbientePrueba = computed(() => this.getAmbiente() === '00');
   esRegistroSinDte = computed(() => this.esAmbientePrueba());
   emitirDteLabel = computed(() => (this.esRegistroSinDte() ? 'Registrar factura' : 'Emitir DTE'));
+  isEmpresa2 = computed(() => this.authService.currentUser()?.selectedEmpresa?.idEmpresa === 2);
+  private route = inject(ActivatedRoute);
   private messageService = inject(MessageService);
   private currencyFormatter = new Intl.NumberFormat('es-SV', {
     style: 'currency',
@@ -107,6 +134,14 @@ export class FacComponent {
   isLocked = signal(false);
   emitting = signal(false);
   hasSavedCurrentRecord = signal(false);
+  highlightAction = signal(false);
+
+  triggerActionHighlight() {
+    this.highlightAction.set(true);
+    setTimeout(() => {
+      this.highlightAction.set(false);
+    }, 4800);
+  }
   showClienteSelectorDialog = signal(false);
 clienteSeleccionadoEnTabla = signal<PerfilClienteDto | null>(null);
 
@@ -572,6 +607,7 @@ refreshClientes(): void {
     this.syncTotalsFromDetalle();
     this.isAnonimoClient.set(false);
     this.retencionAplicada.set(null);
+    this.evaluarPrecioLineaEditable(0);
     this.abrirSelectorClientes();
   }
 
@@ -723,6 +759,10 @@ refreshClientes(): void {
   aplicar() {
     if (!this.canApply()) {
       this.showError('Facturación FAC', 'Solo las facturas en elaboración permiten aplicar.');
+      return;
+    }
+
+    if (!this.validarFormasPago()) {
       return;
     }
 
@@ -1134,7 +1174,10 @@ refreshClientes(): void {
 
               this.setStep('verify', 'ok', 'Documento listo para emisión');
               this.setStep('emit', 'running', 'Enviando documento a Hacienda');
-              return this.facturacionService.emitirFac(apiBaseUrl, payload);
+              return this.facturacionService.emitirFac(apiBaseUrl, payload).pipe(
+                timeout(FacComponent.EMIT_TIMEOUT_MS),
+                catchError((emitError) => this.reconciliarEmisionPerdida$(emitError))
+              );
             })
           );
         }),
@@ -1184,14 +1227,54 @@ refreshClientes(): void {
       });
   }
 
+  /**
+   * Reconciliación de emisión: si la respuesta de emisión se pierde (timeout/red inestable), el
+   * documento pudo haberse emitido igual. Reconsulta el encabezado; si ya trae Sello, devuelve una
+   * respuesta sintética para RECONECTAR el flujo y culminarlo (sincronizar → correo → vista previa)
+   * sin reemitir. Si tras varios reintentos no hay sello, propaga el error real.
+   */
+  private reconciliarEmisionPerdida$(emitError: unknown): Observable<RespuestaDteDto> {
+    this.setStep('emit', 'running', 'Sin respuesta de Hacienda; verificando si el documento se emitió…');
+
+    const chequear$ = (intento: number): Observable<RespuestaDteDto> =>
+      this.refreshEncabezadoAfterEmission(false).pipe(
+        switchMap((enc) => {
+          const sello = String(enc?.SelloRecepcion ?? '').trim();
+          const noControl = String(enc?.NoControl ?? '').trim();
+          if (sello) {
+            this.setStep('emit', 'ok', 'Emisión confirmada (respuesta recuperada tras la interrupción)');
+            return of({
+              SelloRecepcion: sello,
+              NoControl: noControl,
+              CodigoGeneracion: String(enc?.CodGeneracion ?? '').trim(),
+              MensajeGeneral: 'Emisión reconciliada'
+            } as RespuestaDteDto);
+          }
+          if (intento >= FacComponent.RECONCILE_MAX_INTENTOS - 1) throw emitError;
+          return timer(FacComponent.RECONCILE_INTERVAL_MS).pipe(switchMap(() => chequear$(intento + 1)));
+        })
+      );
+
+    return chequear$(0);
+  }
+
   isReadOnlyField(): boolean {
     return this.emitting() || this.currentEstado() !== 'ELABORACION';
   }
 
+  // Editabilidad del precio: se decide con el precio BASE del artículo (estable), no con el valor
+  // en vivo. Si dependiera del valor actual, al teclear el 1er dígito (precio ≠ 0) se bloquearía a
+  // mitad de escritura para usuarios no admin (input readonly, spinners desaparecen).
+  private precioLineaEditable = true;
+
+  private evaluarPrecioLineaEditable(precioBase: number, tipoArticulo?: string): void {
+    const esAdmin = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase() === 'A';
+    const esServicio = String(tipoArticulo ?? '').trim().toUpperCase() === 'SV';
+    this.precioLineaEditable = esAdmin || esServicio || Number(precioBase ?? 0) <= 0;
+  }
+
   canEditPrecioLinea(): boolean {
-    const tipoUsuario = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase();
-    if (tipoUsuario === 'A') return true;
-    return Number(this.facForm.controls.LineaPrecio.value ?? 0) === 0;
+    return this.precioLineaEditable;
   }
 
   currentEstado(): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
@@ -1455,6 +1538,7 @@ refreshClientes(): void {
       LineaPrecioMayoreo: articulo.PRECIO_MAYOREO ?? 0,
       LineaCantidadMinimaMayoreo: articulo.cantidadmayoreo ?? 0
     });
+    this.evaluarPrecioLineaEditable(articulo.ULTIMO_PRECIO ?? 0, articulo.TIPO_ARTICULO);
     this.focusLineaCantidadInput();
   }
 
@@ -1879,6 +1963,7 @@ refreshClientes(): void {
           LineaPrecioMayoreo: 0,
           LineaCantidadMinimaMayoreo: 0
         });
+        this.evaluarPrecioLineaEditable(0);
       },
       error: (error) => {
         this.showError('Facturación FAC', this.extractError(error, 'No se pudo registrar el detalle de factura.'));
@@ -2040,8 +2125,44 @@ this.clientesFiltradosParaTabla.set(profiles);
       error: () => this.condicionesPagoOptions.set([])
     });
 
-    this.loadMaestro();
-    this.openCreate();
+    this.route.queryParams.subscribe((params) => {
+      const facturaParam = String(params['factura'] || params['iddoc'] || '').trim();
+      const fechaParam = toIsoDateStr(params['fecha']);
+      if (facturaParam) {
+        let dateChanged = false;
+        if (fechaParam) {
+          if (fechaParam < this.desde()) {
+            this.desde.set(fechaParam);
+            dateChanged = true;
+          }
+          if (fechaParam > this.hasta()) {
+            this.hasta.set(fechaParam);
+            dateChanged = true;
+          }
+        }
+        if (dateChanged) {
+          this.facturacionService['invalidateCacheByPrefix']('facturasGeneral:');
+          this.loadMaestro();
+        } else {
+          this.loadMaestro();
+        }
+        this.facturacionService.getFacturasGeneral(this.desde(), this.hasta()).subscribe((rows) => {
+          const found = (rows ?? []).filter(item => (item.Tipo_Factura || '').toUpperCase() === 'FAC')
+            .find((r) => {
+              const fullR = `${r.Prefijo || ''}${r.Factura || ''}`.trim();
+              const factR = String(r.Factura || '').trim();
+              const docR = String(r.iddoc || '').trim();
+              return fullR === facturaParam || factR === facturaParam || docR === facturaParam;
+            });
+          if (found) {
+            this.openEdit(found);
+            this.triggerActionHighlight();
+          }
+        });
+      } else {
+        this.loadMaestro();
+      }
+    });
   }
 
   private patchEncabezado(encabezado: FacturaEncabezadoDto) {
@@ -2255,7 +2376,8 @@ this.clientesFiltradosParaTabla.set(profiles);
       DescuentoAdicional: this.toNumber(raw.Descuentos),
       DTE: this.toNumber(raw.IdDTE),
       CorreoCliente: String(raw.CorreoElectronico ?? '').trim(),
-      TipoFactura: 'FAC'
+      TipoFactura: 'FAC',
+      TipoRegimen: ''
     };
   }
 
@@ -2429,7 +2551,7 @@ this.clientesFiltradosParaTabla.set(profiles);
     const pagos = this.formasPagoDetalle();
 
     if (!pagos.length) {
-      this.showError('Facturación FAC', 'Debe agregar al menos una forma de pago.');
+      this.showError('Facturación FAC', 'Debe agregar al menos una forma de pago antes de aplicar.');
       return false;
     }
 

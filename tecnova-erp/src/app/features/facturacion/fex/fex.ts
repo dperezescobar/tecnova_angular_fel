@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, PLATFORM_ID, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 
@@ -36,7 +37,10 @@ import {
   UpdateFacturacionAplicacionDto,
   UpdateFacturaDto,
   UpdateFacturaFormaPagoDto,
-  UpdateFacturaRetencionDto
+  UpdateFacturaRetencionDto,
+  RecintoFiscalCatalogo,
+  RegimenExportacionCatalogo,
+  TipoRegimenCatalogo
 } from '../../../core/models/facturacion.models';
 import { environment } from '../../../../environments/environment';
 import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
@@ -44,6 +48,22 @@ import { FacturacionService } from '../services/facturacion';
 import { ArticulosLazyService } from '../services/articulos-lazy.service';
 import { ReenviarCorreoDialogComponent } from '../../../shared/components/reenviar-correo-dialog/reenviar-correo-dialog';
 import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
+function toIsoDateStr(raw: any): string {
+  if (!raw) return '';
+  const str = String(raw).trim();
+  if (!str) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  return '';
+}
 
 @Component({
   selector: 'app-fex',
@@ -74,6 +94,7 @@ export class FexComponent {
   private authService = inject(AuthService);
   private facturacionService = inject(FacturacionService);
   private articulosLazyService = inject(ArticulosLazyService);
+  private route = inject(ActivatedRoute);
   private messageService = inject(MessageService);
   private currencyFormatter = new Intl.NumberFormat('es-SV', {
     style: 'currency',
@@ -83,6 +104,7 @@ export class FexComponent {
   });
 
   loadingList = signal(false);
+  isEmpresa2 = computed(() => this.authService.currentUser()?.selectedEmpresa?.idEmpresa === 2);
   loadingDetail = signal(false);
   loadingTotals = signal(false);
   previewLoading = signal(false);
@@ -97,6 +119,15 @@ export class FexComponent {
   isLocked = signal(false);
   emitting = signal(false);
   hasSavedCurrentRecord = signal(false);
+  highlightAction = signal(false);
+
+  triggerActionHighlight() {
+    this.highlightAction.set(true);
+    setTimeout(() => {
+      this.highlightAction.set(false);
+    }, 4800);
+  }
+
   showClienteSelectorDialog = signal(false);
   clienteSeleccionadoEnTabla = signal<PerfilClienteDto | null>(null);
 
@@ -192,6 +223,13 @@ export class FexComponent {
   formasPagoOptions = signal<FormaPagoDto[]>([]);
   retencionesOptions = signal<RetencionCatalogoDto[]>([]);
   condicionesPagoOptions = signal<CondicionPagoCatalogoDto[]>([]);
+  recintosFiscales = signal<RecintoFiscalCatalogo[]>([]);
+  regimenesExportacion = signal<RegimenExportacionCatalogo[]>([]);
+  tiposRegimen = signal<TipoRegimenCatalogo[]>([]);
+  // Los catálogos de exportación solo se piden si hay al menos un artículo NO servicio (tipoArticulo != 'SV').
+  requiereExportacion = computed(() =>
+    this.detalleRows().some((d) => String(d.TIPO_ARTICULO ?? '').trim().toUpperCase() !== 'SV')
+  );
   clientesFiltradosParaTabla = signal<PerfilClienteDto[]>([]);
   retencionAplicada = signal<{ codigo: string; descripcion: string; monto: number } | null>(null);
   formasPagoDetalle = signal<Array<{ codigo: string; descripcion: string; monto: number }>>([]);
@@ -270,7 +308,14 @@ export class FexComponent {
     CodGeneracion: [''],
     NoControl: [''],
     SelloRecepcion: [''],
-    IdDTE: this.fb.control(0, { nonNullable: true })
+    IdDTE: this.fb.control(0, { nonNullable: true }),
+    // Exportación (FEX): 0/'' = "Seleccione". Obligatorios solo si hay artículos no-servicio.
+    IdRecintoFiscal: this.fb.control(0, { nonNullable: true }),
+    IdRegimenExportacion: this.fb.control(0, { nonNullable: true }),
+    TipoRegimen: this.fb.control('', { nonNullable: true }),
+    // Flete/Seguro (FEX): default 0, NO obligatorios; para 100% servicios quedan en 0.
+    Flete: this.fb.control(0, { nonNullable: true }),
+    Seguro: this.fb.control(0, { nonNullable: true })
   });
 
   filteredFacturas = computed(() => {
@@ -615,6 +660,19 @@ export class FexComponent {
     this.showInfo('Facturación FEX', 'Seleccione un cliente de la lista para continuar.');
   }
 
+  // Exportación: si hay ≥1 artículo no-servicio, los 3 catálogos son obligatorios.
+  private validarExportacion(): boolean {
+    if (!this.requiereExportacion()) return true;
+    const raw = this.facForm.getRawValue();
+    if (this.toNumber(raw.IdRecintoFiscal) <= 0
+        || this.toNumber(raw.IdRegimenExportacion) <= 0
+        || !String(raw.TipoRegimen ?? '').trim()) {
+      this.showError('Facturación FEX', 'Seleccione Recinto Fiscal, Régimen de Exportación y Tipo de Régimen: la factura contiene artículos que no son servicios.');
+      return false;
+    }
+    return true;
+  }
+
   private executeGuardar() {
     const cliente = String(this.facForm.controls.FacturarA.value ?? '').trim()
       || String(this.facForm.controls.Cliente.value ?? '').trim();
@@ -622,6 +680,8 @@ export class FexComponent {
       this.showError('Facturación FEX', 'Debe seleccionar un cliente antes de guardar.');
       return;
     }
+
+    if (!this.validarExportacion()) return;
 
     const payload = this.buildUpdateFacturaPayload();
 
@@ -637,6 +697,8 @@ export class FexComponent {
           this.hasSavedCurrentRecord.set(true);
           this.showInfo('Facturación FEX', 'Factura guardada correctamente.');
           this.loadMaestro();
+          // Releer el encabezado para reflejar los totales reales recalculados (incl. Flete/Seguro en TOTAL_FACTURAR).
+          this.refreshEncabezado().subscribe({ error: () => {} });
         },
         error: (error) => {
           this.showError('Facturación FEX', this.extractError(error, 'No se pudo guardar la factura.'));
@@ -650,11 +712,19 @@ export class FexComponent {
       return;
     }
 
+    if (!this.validarFormasPago()) {
+      return;
+    }
+
     const idFactura = this.facForm.controls.IdFactura.value;
     if (!idFactura) {
       this.showError('Facturación FEX', 'Primero debe guardar la factura para poder aplicarla.');
       return;
     }
+
+    // Última tarea antes de aplicar: sincronizar los datos de exportación con la composición actual
+    // del detalle. Si es 100% servicios, limpia recinto/régimen/tipoRégimen y deja flete/seguro en 0.
+    this.sincronizarDatosExportacion();
 
     const raw = this.facForm.getRawValue();
     const payload: UpdateFacturacionAplicacionDto = {
@@ -667,7 +737,10 @@ export class FexComponent {
       TipoMtto: 'Aplicar'
     };
 
-    this.facturacionService.updateFacturacionAplicacion(payload).subscribe({
+    // Re-guardar el encabezado (persiste los valores de exportación ya normalizados) y luego aplicar.
+    this.facturacionService.updateFactura(this.buildUpdateFacturaPayload()).pipe(
+      switchMap(() => this.facturacionService.updateFacturacionAplicacion(payload))
+    ).subscribe({
       next: () => {
         this.isLocked.set(true);
         this.facForm.patchValue({ Estado: 'APLICADO' });
@@ -676,6 +749,19 @@ export class FexComponent {
       error: (error) => {
         this.showError('Facturación FEX', this.extractError(error, 'No se pudo aplicar la factura.'));
       }
+    });
+  }
+
+  // Normaliza los datos de exportación según el detalle: 100% servicios -> todo en cero/limpio.
+  // (Con combinación de bienes y servicios se conservan los valores del formulario.)
+  private sincronizarDatosExportacion(): void {
+    if (this.requiereExportacion()) return;
+    this.facForm.patchValue({
+      IdRecintoFiscal: 0,
+      IdRegimenExportacion: 0,
+      TipoRegimen: '',
+      Flete: 0,
+      Seguro: 0
     });
   }
 
@@ -907,7 +993,7 @@ export class FexComponent {
       .subscribe({
         next: () => {
           this.showInfo('Facturación FEX', 'Documento anulado correctamente.');
-          this.refreshEncabezadoAfterEmission();
+          this.refreshEncabezado();
           this.loadMaestro();
         },
         error: (error) => {
@@ -967,6 +1053,7 @@ export class FexComponent {
 
   emitirDte() {
     if (!this.validarFormasPago()) return;
+    if (!this.validarExportacion()) return;
 
     if (!this.canEmit()) {
       this.showError('Facturación FEX', 'Solo las facturas aplicadas sin sello de recepción permiten emitir DTE.');
@@ -1015,7 +1102,7 @@ export class FexComponent {
           this.setStep('service', 'ok', 'Servicio en línea');
           this.setStep('verify', 'running', 'Verificando estado previo del documento');
 
-          return this.refreshEncabezadoAfterEmission(false).pipe(
+          return this.refreshEncabezado(false).pipe(
             switchMap((encabezado) => {
               if ((encabezado.NoControl || '').trim() || (encabezado.SelloRecepcion || '').trim()) {
                 this.setStep('verify', 'ok', 'Documento ya emitido previamente');
@@ -1041,7 +1128,7 @@ export class FexComponent {
 
           this.setStep('emit', 'ok', 'Documento emitido correctamente');
           this.setStep('sync', 'running', 'Recuperando sello y número de control');
-          return this.refreshEncabezadoAfterEmission(false).pipe(
+          return this.refreshEncabezado(false).pipe(
             switchMap(() => {
               this.setStep('sync', 'ok', 'Datos actualizados');
               this.setStep('correo', 'running', 'Enviando correo y obteniendo formato visual');
@@ -1077,10 +1164,19 @@ export class FexComponent {
     return this.emitting() || this.currentEstado() !== 'ELABORACION';
   }
 
+  // Editabilidad del precio: se decide con el precio BASE del artículo (estable), no con el valor
+  // en vivo (si dependiera del valor, al teclear el 1er dígito se bloquearía a mitad de escritura
+  // para no-admin: input readonly, spinners desaparecen). Libre si admin, servicio (SV) o precio 0.
+  private precioLineaEditable = true;
+
+  private evaluarPrecioLineaEditable(precioBase: number, tipoArticulo?: string): void {
+    const esAdmin = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase() === 'A';
+    const esServicio = String(tipoArticulo ?? '').trim().toUpperCase() === 'SV';
+    this.precioLineaEditable = esAdmin || esServicio || Number(precioBase ?? 0) <= 0;
+  }
+
   canEditPrecioLinea(): boolean {
-    const tipoUsuario = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase();
-    if (tipoUsuario === 'A') return true;
-    return Number(this.facForm.controls.LineaPrecio.value ?? 0) === 0;
+    return this.precioLineaEditable;
   }
 
   currentEstado(): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
@@ -1287,6 +1383,7 @@ export class FexComponent {
       LineaDescripcion: articulo.DESCRIPCION,
       LineaPrecio: articulo.ULTIMO_PRECIO ?? 0
     });
+    this.evaluarPrecioLineaEditable(articulo.ULTIMO_PRECIO ?? 0, articulo.TIPO_ARTICULO);
     this.focusLineaCantidadInput();
   }
 
@@ -1566,6 +1663,9 @@ export class FexComponent {
     const precioUnitarioDetalle = precio;
     const nextLine = this.detalleRows().length + 1;
     const total = Number((cantidad * precio).toFixed(2));
+    const tipoArticuloSeleccionado = String(
+      this.articulosOptions().find((a) => String(a.ARTICULO ?? '').trim() === articulo)?.TIPO_ARTICULO ?? ''
+    ).trim();
 
     const newRow: FacturaDetalleDto = {
       LINEA: nextLine,
@@ -1580,7 +1680,7 @@ export class FexComponent {
       BODEGA: '',
       CENTROCOSTOINVENTARIO: '',
       CUENTACONTABLEINVENTARIO: '',
-      TIPO_ARTICULO: '',
+      TIPO_ARTICULO: tipoArticuloSeleccionado,
       CANTIDAD_KARDEX: cantidad,
       UNIDAD_MEDIDA_KARDEX: '',
       ID_COLOR: 0,
@@ -1708,8 +1808,57 @@ export class FexComponent {
       error: () => this.condicionesPagoOptions.set([])
     });
 
-    this.loadMaestro();
-    this.openCreate();
+    this.facturacionService.getCatalogoRecintoFiscal().subscribe({
+      next: (rows) => this.recintosFiscales.set(rows ?? []),
+      error: () => this.recintosFiscales.set([])
+    });
+    this.facturacionService.getCatalogoRegimenExportacion().subscribe({
+      next: (rows) => this.regimenesExportacion.set(rows ?? []),
+      error: () => this.regimenesExportacion.set([])
+    });
+    this.facturacionService.getCatalogoTipoRegimen().subscribe({
+      next: (rows) => this.tiposRegimen.set(rows ?? []),
+      error: () => this.tiposRegimen.set([])
+    });
+
+    this.route.queryParams.subscribe((params) => {
+      const facturaParam = String(params['factura'] || params['iddoc'] || '').trim();
+      const fechaParam = toIsoDateStr(params['fecha']);
+      if (facturaParam) {
+        let dateChanged = false;
+        if (fechaParam) {
+          if (fechaParam < this.desde()) {
+            this.desde.set(fechaParam);
+            dateChanged = true;
+          }
+          if (fechaParam > this.hasta()) {
+            this.hasta.set(fechaParam);
+            dateChanged = true;
+          }
+        }
+        if (dateChanged) {
+          this.facturacionService['invalidateCacheByPrefix']('facturasGeneral:');
+          this.loadMaestro();
+        } else {
+          this.loadMaestro();
+        }
+        this.facturacionService.getFacturasGeneral(this.desde(), this.hasta()).subscribe((rows) => {
+          const found = (rows ?? []).filter(item => (item.Tipo_Factura || '').toUpperCase() === 'FEX')
+            .find((r) => {
+              const fullR = `${r.Prefijo || ''}${r.Factura || ''}`.trim();
+              const factR = String(r.Factura || '').trim();
+              const docR = String(r.iddoc || '').trim();
+              return fullR === facturaParam || factR === facturaParam || docR === facturaParam;
+            });
+          if (found) {
+            this.openEdit(found);
+            this.triggerActionHighlight();
+          }
+        });
+      } else {
+        this.loadMaestro();
+      }
+    });
   }
 
   private patchEncabezado(encabezado: FacturaEncabezadoDto) {
@@ -1752,6 +1901,11 @@ export class FexComponent {
       Departamento: encabezado.Departamento,
       Municipio: encabezado.Municipio,
       Direccion: encabezado.Direccion,
+      IdRecintoFiscal: this.toNumber(encabezado.IdRecintoFiscal),
+      IdRegimenExportacion: this.toNumber(encabezado.IdRegimenExportacion),
+      TipoRegimen: String(encabezado.TipoRegimen ?? ''),
+      Flete: this.toNumber(encabezado.Flete),
+      Seguro: this.toNumber(encabezado.Seguro),
       IncluyeIVA: true,
       RetencionIvaCodigo: '',
       IvaRetenido: this.toNumber(encabezado.Retencion),
@@ -1797,7 +1951,7 @@ export class FexComponent {
     });
   }
 
-  private refreshEncabezadoAfterEmission(_showToastOnError: boolean = true): Observable<FacturaEncabezadoDto> {
+  private refreshEncabezado(_showToastOnError: boolean = true): Observable<FacturaEncabezadoDto> {
     const selected = this.selectedFactura();
     const raw = this.facForm.getRawValue();
     const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
@@ -1868,12 +2022,13 @@ export class FexComponent {
       NombreConductor: '',
       NumeroConductor: '',
       PlacaTransporte: '',
-      IdRecintoFiscal: 0,
+      IdRecintoFiscal: this.requiereExportacion() ? this.toNumber(raw.IdRecintoFiscal) : 0,
       IdIncoterm: 0,
-      IdRegimenExportacion: 0,
+      IdRegimenExportacion: this.requiereExportacion() ? this.toNumber(raw.IdRegimenExportacion) : 0,
+      TipoRegimen: this.requiereExportacion() ? String(raw.TipoRegimen ?? '').trim() : '',
       PrecioConIVA: raw.IncluyeIVA ? 1 : 0,
-      Flete: 0,
-      Seguro: 0,
+      Flete: this.requiereExportacion() ? this.toNumber(raw.Flete) : 0,
+      Seguro: this.requiereExportacion() ? this.toNumber(raw.Seguro) : 0,
       DescuentoAdicional: this.toNumber(raw.Descuentos),
       DTE: this.toNumber(raw.IdDTE),
       CorreoCliente: String(raw.CorreoElectronico ?? '').trim(),

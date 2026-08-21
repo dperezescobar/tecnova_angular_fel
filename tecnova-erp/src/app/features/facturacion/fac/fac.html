@@ -380,7 +380,7 @@
                       [disabled]="!canEliminarFactura(item)"
                       (onClick)="solicitarEliminarFactura(item)"
                     ></p-button>
-                    @if ((item.pago || '').toLowerCase() === 'pendiente') {
+                    @if (isEmpresa2() && (item.pago || '').toLowerCase() === 'pendiente') {
                       <p-button
                         icon="pi pi-dollar"
                         [text]="true"
@@ -443,7 +443,7 @@
             <div class="action-group">
               <span class="action-group-label">Estado</span>
               <div class="action-group-btns">
-                <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" (onClick)="aplicar()"></p-button>
+                <p-button type="button" label="Aplicar" severity="secondary" [disabled]="!canApply()" [class.action-highlight-pulse]="highlightAction() && canApply()" (onClick)="aplicar()"></p-button>
                 <p-button type="button" [label]="esRegistroSinDte() ? 'Habilitar factura' : 'Desaplicar'" severity="secondary" [disabled]="!canDesaplicar()" (onClick)="desaplicar()"></p-button>
               </div>
             </div>
@@ -453,7 +453,7 @@
             <div class="action-group dte-group">
               <span class="action-group-label">Transmisión DTE</span>
               <div class="action-group-btns">
-                <p-button type="button" [label]="emitirDteLabel()" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" (onClick)="emitirDte()"></p-button>
+                <p-button type="button" [label]="emitirDteLabel()" icon="pi pi-send" severity="success" [disabled]="!canEmit()" [loading]="emitting()" [class.action-highlight-pulse]="highlightAction() && canEmit()" (onClick)="emitirDte()"></p-button>
                 @if (!esRegistroSinDte()) {
                   <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger" [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
                 }

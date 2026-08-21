@@ -269,3 +269,105 @@ input.p-inputtext:focus {
 /* Utilitarios que usabas en Blazor */
 .text-xs { font-size: .75rem; }
 .cursor-pointer { cursor: pointer; }
+
+/* Animación de focalización de botones (Pulse & Glow) */
+@keyframes actionPulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.8), 0 0 16px 4px rgba(34, 197, 94, 0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(34, 197, 94, 0), 0 0 28px 10px rgba(34, 197, 94, 0.9);
+    transform: scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0), 0 0 16px 4px rgba(34, 197, 94, 0.5);
+    transform: scale(1);
+  }
+}
+
+.action-highlight-pulse {
+  animation: actionPulseGlow 1.2s ease-in-out 4 !important;
+  position: relative !important;
+  z-index: 10 !important;
+  border-radius: 6px !important;
+}
+
+/* ── MEJORAS ESTÉTICAS PARA TABLAS DE DETALLE EN MÓDULOS DE FACTURACIÓN ── */
+.table-wrap.compact table.nested-table {
+  width: 100%;
+  border-collapse: collapse !important;
+
+  thead {
+    tr {
+      background-color: #1e293b !important;
+
+      th {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        padding: 0.65rem 0.85rem !important;
+        font-weight: 700 !important;
+        font-size: 0.82rem !important;
+        letter-spacing: 0.03em !important;
+        text-transform: uppercase !important;
+        border-bottom: 2px solid #0f172a !important;
+        white-space: nowrap !important;
+
+        &:nth-child(4),
+        &:nth-child(5),
+        &:nth-child(6) {
+          text-align: right !important;
+        }
+
+        &.actions-col {
+          text-align: center !important;
+        }
+      }
+    }
+  }
+
+  tbody {
+    tr {
+      transition: background-color 150ms ease;
+
+      &:nth-child(even) {
+        background-color: #f8fafc;
+      }
+
+      &:nth-child(odd) {
+        background-color: #ffffff;
+      }
+
+      &:hover {
+        background-color: #e2e8f0 !important;
+      }
+
+      td {
+        padding: 0.65rem 0.85rem !important;
+        font-size: 0.85rem !important;
+        color: #0f172a !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        vertical-align: middle !important;
+
+        &:nth-child(4),
+        &:nth-child(5) {
+          text-align: right !important;
+          font-variant-numeric: tabular-nums !important;
+          font-weight: 500 !important;
+          color: #334155 !important;
+        }
+
+        &:nth-child(6) {
+          text-align: right !important;
+          font-variant-numeric: tabular-nums !important;
+          font-weight: 700 !important;
+          color: #0f172a !important;
+        }
+
+        &.actions-col {
+          text-align: center !important;
+        }
+      }
+    }
+  }
+}

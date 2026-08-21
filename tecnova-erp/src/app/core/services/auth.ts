@@ -47,6 +47,11 @@ export class AuthService {
   }): AuthResponse {
     const toBool = (raw: boolean | string | number | undefined) =>
       typeof raw === 'boolean' ? raw : ['1', 'true', 'si', 'sí'].includes(String(raw ?? '').trim().toLowerCase());
+    // Devuelve undefined si el servidor NO envió el campo, para que el merge `?? previo` lo preserve.
+    // (Con toBool directo, un campo ausente daba `false`, y `false ?? previo` NO cae al previo →
+    //  un refresh/resync sin esRoot borraba el flag de root y ocultaba el menú de Administración.)
+    const toBoolOrUndef = (raw: boolean | string | number | undefined | null) =>
+      raw === undefined || raw === null ? undefined : toBool(raw);
 
     const username = response.username ?? response.Username ?? '';
     const requierePasswordChange = !!(response.requierePasswordChange ?? response.RequierePasswordChange);
@@ -68,8 +73,8 @@ export class AuthService {
     const dui = String(response.dui ?? response.DUI ?? '').trim() || undefined;
     const nombreUsuario = String(response.nombreUsuario ?? response.NombreUsuario ?? '').trim() || undefined;
     const tipoUsuario = String(response.tipoUsuario ?? response.TipoUsuario ?? '').trim() || undefined;
-    const bloqueado = toBool(response.bloqueado ?? response.Bloqueado);
-    const esRoot = toBool(response.esRoot ?? response.EsRoot);
+    const bloqueado = toBoolOrUndef(response.bloqueado ?? response.Bloqueado);
+    const esRoot = toBoolOrUndef(response.esRoot ?? response.EsRoot);
 
     if (!token || !refreshToken) {
       throw new Error('Respuesta de autenticación inválida: faltan token o refreshToken');

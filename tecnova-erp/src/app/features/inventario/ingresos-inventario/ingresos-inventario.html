@@ -278,67 +278,90 @@
               }
             </div>
 
-            <!-- Fila cantidad + precios (grid en desktop) -->
-            <div class="qty-prices-row">
-              <div class="field-item">
-                <label>Cantidad</label>
-                <input type="number" id="cantidad-input"
-                  (focus)="selectInputText($event)"
-                  formControlName="cantidad"
-                  min="0.01" step="0.01"
-                  class="qty-input" />
+            <!-- Fila de ingreso: Cantidad + Precios de Venta en Catálogo -->
+            <div class="entry-fields-grid">
+              <!-- Bloque 1: Cantidad de Entrada -->
+              <div class="entry-card entry-card--qty">
+                <div class="entry-card-header">
+                  <i class="pi pi-box" aria-hidden="true"></i>
+                  <span>1. CANTIDAD</span>
+                </div>
+                <div class="entry-card-body">
+                  <div class="field-item">
+                    <label for="cantidad-input">Unidades a Ingresar</label>
+                    <div class="qty-input-wrapper">
+                      <input type="number" id="cantidad-input"
+                        (focus)="selectInputText($event)"
+                        formControlName="cantidad"
+                        min="0.01" step="0.01"
+                        class="qty-input-hero"
+                        placeholder="0" />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div class="prices-strip">
-                <div class="prices-strip-hdr">
-                  <i class="pi pi-tags" aria-hidden="true"></i>
-                  Precios de referencia
+              <!-- Bloque 2: Catálogo de Precios (Opcional) -->
+              <div class="entry-card entry-card--prices">
+                <div class="entry-card-header">
+                  <div class="flex align-items-center gap-2">
+                    <i class="pi pi-tags" aria-hidden="true"></i>
+                    <span>2. PRECIO DE VENTA ACTUAL (CATÁLOGO)</span>
+                  </div>
+                  <span class="price-badge-pill">Opcional</span>
                 </div>
-                <div class="prices-strip-body">
-                  <div class="price-cell price-unit">
-                    <div class="price-cell-top">
-                      <span class="price-cell-name">Por Unidad</span>
-                      <span class="price-badge mandatory">Oblig.</span>
+                <div class="entry-card-body prices-grid-body">
+                  <div class="price-input-box">
+                    <div class="price-input-header">
+                      <span class="price-title">Por Unidad</span>
+                      <span class="price-badge-mini">P.V.P.</span>
                     </div>
                     <p-inputNumber
                       formControlName="precioUnitario"
                       mode="currency" currency="USD" locale="en-US"
                       [showButtons]="false"
-                      class="compact-input"
+                      class="price-number-input"
                       (onFocus)="selectInputText($event)">
                     </p-inputNumber>
                   </div>
-                  <div class="price-cell price-mayo">
-                    <div class="price-cell-top">
-                      <span class="price-cell-name">Por Mayoreo</span>
-                      <span class="price-badge optional">Opc.</span>
+
+                  <div class="price-input-box price-input-box--mayoreo">
+                    <div class="price-input-header">
+                      <span class="price-title">Por Mayoreo</span>
+                      <span class="price-badge-mini">Volumen</span>
                     </div>
-                    <p-inputNumber
-                      formControlName="precioMayoreo"
-                      mode="currency" currency="USD" locale="en-US"
-                      [showButtons]="false"
-                      class="compact-input"
-                      (onFocus)="selectInputText($event)">
-                    </p-inputNumber>
-                    <div class="price-min-row">
-                      <span class="price-min-label">Mín. unidades</span>
+                    <div class="mayoreo-inputs-inline">
                       <p-inputNumber
-                        formControlName="cantidadMinimaMayoreo"
+                        formControlName="precioMayoreo"
+                        mode="currency" currency="USD" locale="en-US"
                         [showButtons]="false"
-                        class="compact-input compact-input-sm"
+                        class="price-number-input"
                         (onFocus)="selectInputText($event)">
                       </p-inputNumber>
+                      <div class="min-units-inline">
+                        <span class="min-label">Mín. Uds</span>
+                        <p-inputNumber
+                          formControlName="cantidadMinimaMayoreo"
+                          [showButtons]="false"
+                          class="min-qty-input-clean"
+                          (onFocus)="selectInputText($event)">
+                        </p-inputNumber>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <button type="button" class="btn-agregar"
-              [disabled]="!detalleForm.valid || !articuloSeleccionadoCodigo()"
-              (click)="agregarDetalle()">
-              <i class="pi pi-plus" aria-hidden="true"></i> Agregar al documento
-            </button>
+            <!-- Botón Agregar con estilo destacado y profesional -->
+            <div class="entry-action-row">
+              <button type="button" class="btn-agregar-hero"
+                [disabled]="!detalleForm.valid || !articuloSeleccionadoCodigo()"
+                (click)="agregarDetalle()">
+                <i class="pi pi-plus-circle" aria-hidden="true"></i>
+                <span>Agregar Artículo al Documento</span>
+              </button>
+            </div>
 
           </form>
 

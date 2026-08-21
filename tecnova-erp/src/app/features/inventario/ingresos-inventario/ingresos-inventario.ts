@@ -16,6 +16,8 @@ import { ArticulosService } from '../../articulos/services/articulos';
 import { ArticuloPrecioService } from '../../precios/precios';
 import { DialogModule } from 'primeng/dialog';
 import { ArticulosComponent } from '../../articulos/articulos';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../../environments/environment';
 import { catchError, finalize, map, of } from 'rxjs';
 import { EliminarConfirmDialogComponent } from '../../../shared/components/eliminar-confirm-dialog/eliminar-confirm-dialog';
 
@@ -60,11 +62,12 @@ export class IngresosInventarioComponent {
   fechaDesde = signal< string >(this.getPrimerDiaMesAnterior());
   fechaHasta = signal< string >(this.getFechaActual());
 
-      private authService = inject(AuthService);
-        private messageService = inject(MessageService);
-          private articulosService = inject(ArticulosService);
-            private preciosService = inject(ArticuloPrecioService);
-            private articulosLazyService = inject(ArticulosLazyService);
+  private authService = inject(AuthService);
+  private messageService = inject(MessageService);
+  private articulosService = inject(ArticulosService);
+  private preciosService = inject(ArticuloPrecioService);
+  private articulosLazyService = inject(ArticulosLazyService);
+  private http = inject(HttpClient);
           private readonly articuloPageSize = 20;
           showArticuloDialog = signal(false);
   articuloChild = viewChild(ArticulosComponent);
@@ -190,16 +193,16 @@ puedoDesaplicar = computed(() => this.estadoDocumento() === 'APLICADO' && this.d
     this.detalleForm = this.fb.group({
       LineaArticulo: ['', Validators.required],
       cantidad: [0, [Validators.required, Validators.min(0.01)]],
-      precioUnitario: [0, [Validators.required, Validators.min(0.01)]],
+      precioUnitario: [0, [Validators.min(0)]],
       calidad: [0],
       tipoColor: ['NA'],
       cuentaContable: ['0'],
       centroCosto: ['0'],
-      costoUnitario: [0, [Validators.required, Validators.min(0.01)]],
+      costoUnitario: [0, [Validators.min(0)]],
       idColor: [0],
       idAcabado: [''],
       precioMayoreo: [0, [Validators.min(0)]],
-  cantidadMinimaMayoreo: [0, [Validators.min(0)]]
+      cantidadMinimaMayoreo: [0, [Validators.min(0)]]
     });
     this.detalleForm.get('precioUnitario')?.valueChanges.subscribe(valor => {
     this.detalleForm.patchValue({
@@ -207,6 +210,7 @@ puedoDesaplicar = computed(() => this.estadoDocumento() === 'APLICADO' && this.d
     }, { emitEvent: false }); // false para no disparar eventos infinitos
   });
     this.cargarMovimientos();
+    this.cargarRolesUsuario();
 
     // Las imágenes del carrito solo se piden para la página actualmente visible (ver
     // detallesPagina) — nunca para las cientos de líneas que pueda tener el documento completo.
@@ -754,9 +758,9 @@ private ensureArticuloImageLoaded(codigo: string, opts: { forceRefresh?: boolean
   const display = this.toArticuloDisplay(art);
   this.detalleForm.patchValue({
       LineaArticulo: display,
-      precioUnitario: art.ULTIMO_PRECIO ?? art.ULTIMO_PRECIO ?? 0,
-      precioMayoreo: art.PRECIO_MAYOREO ?? art.PRECIO_MAYOREO ?? 0,
-      cantidadMinimaMayoreo: art.cantidadmayoreo ?? art.cantidadmayoreo ?? 0
+      precioUnitario: art.ULTIMO_PRECIO ?? 0,
+      precioMayoreo: art.PRECIO_MAYOREO ?? 0,
+      cantidadMinimaMayoreo: art.cantidadmayoreo ?? 0
     });
   // Baseline de precios del artículo, para detectar si el usuario realmente los cambió.
   this.precioOrigUnidad = Number(art.ULTIMO_PRECIO ?? 0);
@@ -781,10 +785,14 @@ articuloImagenUrl(codigo: string): string | null {
     if (!articulo) return;
     if (!unidadCambio && !mayoreoCambio) return; // sin cambios: no se corre ningún update
 
+    const pMayoreoValido = precioMayoreo > 0 && cantidadMinimaMayoreo > 1;
+    const pMayoreo = pMayoreoValido ? precioMayoreo : 0;
+    const cantMayoreo = pMayoreoValido ? cantidadMinimaMayoreo : 0;
+
     const guardarMayoreo = () => {
-      if (!mayoreoCambio || precioMayoreo <= 0 || cantidadMinimaMayoreo <= 1) return;
+      if (!mayoreoCambio) return;
       this.preciosService.guardarPrecio({
-        articulo, tipoPrecioID: 2, precio: precioMayoreo, cantidadMinima: cantidadMinimaMayoreo, usuario
+        articulo, tipoPrecioID: 2, precio: pMayoreo, cantidadMinima: cantMayoreo, usuario
       }).subscribe({
         next: () => this.showInfo('Registro', 'Precios actualizados correctamente'),
         error: () => this.showError('Precio por mayoreo', 'No se pudo guardar el precio por mayoreo.')
@@ -823,9 +831,23 @@ selectInputText(event: any) {
     }
   });
 }
-adminAccess(): boolean {
+  rolesUsuario = signal<string[]>([]);
+
+  private cargarRolesUsuario(): void {
+    const username = this.authService.currentUser()?.username;
+    if (!username) return;
+    this.http.get<string[]>(`${environment.apiUrl}/Roles/usuario/${encodeURIComponent(username)}`).subscribe({
+      next: (roles) => this.rolesUsuario.set((roles ?? []).map((r) => r.toUpperCase())),
+      error: () => this.rolesUsuario.set([])
+    });
+  }
+
+  adminAccess(): boolean {
+    if (this.authService.isRoot()) return true;
     const tipoUsuario = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase();
-    if (tipoUsuario === 'A') return true;
-    return false;
+    if (tipoUsuario === 'A' || tipoUsuario === 'ADMIN') return true;
+
+    const roles = this.rolesUsuario() ?? [];
+    return roles.includes('ADMIN') || roles.includes('MANAGER_POS') || roles.includes('INVENTARIADOR');
   }
 }

@@ -18,6 +18,7 @@ import { DialogModule } from 'primeng/dialog';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { TableModule } from 'primeng/table';
 
 import { CompRetencionService } from '../services/comp-retencion.service';
 import { FacturacionService } from '../../facturacion/services/facturacion';
@@ -51,6 +52,7 @@ import { EliminarConfirmDialogComponent } from '../../../shared/components/elimi
     DialogModule,
     CheckboxModule,
     ToastModule,
+    TableModule,
     ReenviarCorreoDialogComponent,
     EliminarConfirmDialogComponent,
   ],
@@ -66,6 +68,7 @@ export class CompRetencionComponent implements OnInit {
   private service = inject(CompRetencionService);
   private facturacionService = inject(FacturacionService);
   private authService = inject(AuthService);
+  private messageService = inject(MessageService);
 
   loading = signal(false);
   saving = signal(false);
@@ -73,6 +76,10 @@ export class CompRetencionComponent implements OnInit {
   addingDetalle = signal(false);
   emitting = signal(false);
   anulando = signal(false);
+  proveedorSearchVisible = signal(false);
+  proveedorSearchList = signal<ProveedorBusquedaDto[]>([]);
+  proveedorSearchTerm = signal('');
+  searchingProveedor = signal(false);
 
   listado = signal<CRListadoDto[]>([]);
   showForm = signal(false);
@@ -85,7 +92,6 @@ export class CompRetencionComponent implements OnInit {
 
   errorMessage = signal('');
   errorDetalle = signal('');
-  activeTab = signal('encabezado');
   anulacionDialogVisible = signal(false);
   anulacionMotivo = signal('');
 
@@ -111,14 +117,30 @@ export class CompRetencionComponent implements OnInit {
     { label: 'CCF - Crédito Fiscal (03)', value: '03' },
   ];
 
+  normalizedEstado = computed(() => this.normalizeEstadoValue(this.encabezado()?.ESTADO));
   estado = computed(() => this.encabezado()?.ESTADO ?? '');
-  isNuevo = computed(() => !this.encabezado());
-  canEdit = computed(() => !this.encabezado() || this.estado() === 'ELABORACION');
-  canAddDetalle = computed(() => this.correl() > 0 && this.estado() === 'ELABORACION');
-  canEmit = computed(() => this.estado() === 'ELABORACION' && this.detalle().length > 0);
-  canAnular = computed(() => this.estado() === 'ELABORACION' || this.estado() === 'EMITIDO');
-  isEmitido = computed(() => this.estado() === 'EMITIDO');
-  isAnulado = computed(() => this.estado() === 'ANULADO');
+  isNuevo = computed(() => !this.encabezado() || this.correl() === 0);
+  canEdit = computed(() => (this.isNuevo() || this.normalizedEstado() === 'ELABORACION') && !this.encabezado()?.SelloRecepcion);
+  canAddDetalle = computed(() => this.correl() > 0 && this.canEdit());
+  
+  // Emitir DTE sólo si el documento existe, no está anulado Y AÚN NO ha sido emitido (sin sello ni código generación)
+  canEmit = computed(() => {
+    if (this.correl() <= 0) return false;
+    if (this.normalizedEstado() === 'ANULADO') return false;
+    const enc = this.encabezado();
+    if (enc?.SelloRecepcion || enc?.CodGeneracion || enc?.CodigoGeneracion) return false;
+    return true;
+  });
+
+  isEmitido = computed(() => {
+    const enc = this.encabezado();
+    return !!(enc?.SelloRecepcion || enc?.CodGeneracion || enc?.CodigoGeneracion || this.normalizedEstado() === 'APLICADO');
+  });
+
+  canAnular = computed(() => this.correl() > 0 && this.normalizedEstado() !== 'ANULADO');
+  isAnulado = computed(() => this.normalizedEstado() === 'ANULADO');
+  canEmitNC = computed(() => this.isEmitido() && !this.isAnulado());
+  totalLetras = computed(() => this.numberToSimpleWords(this.totalRetencion()));
 
   headerForm = this.fb.group({
     COMPROBANTE: [''],
@@ -192,7 +214,6 @@ export class CompRetencionComponent implements OnInit {
     this.proveedorPerfil.set(null);
     this.errorMessage.set('');
     this.errorDetalle.set('');
-    this.activeTab.set('encabezado');
     this.headerForm.reset({
       COMPROBANTE: guid,
       PROVEEDOR: '',
@@ -208,6 +229,16 @@ export class CompRetencionComponent implements OnInit {
     this.showForm.set(true);
   }
 
+  private parseFechaDDMMYYYY(fechaStr?: string): string {
+    if (!fechaStr) return '';
+    const datePart = fechaStr.substring(0, 10);
+    const parts = datePart.split('/');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return datePart;
+  }
+
   openEditForm(item: CRListadoDto): void {
     this.loading.set(true);
     this.encabezado.set(null);
@@ -215,24 +246,23 @@ export class CompRetencionComponent implements OnInit {
     this.proveedorPerfil.set(null);
     this.errorMessage.set('');
     this.errorDetalle.set('');
-    this.activeTab.set('encabezado');
     this.service.getCRById(item.ID)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (enc) => {
           if (!enc) { this.errorMessage.set('No se encontró el comprobante.'); return; }
           this.encabezado.set(enc);
-          this.correl.set(enc.CORREL);
+          this.correl.set(enc.ID ?? enc.CORREL);
           this.headerForm.patchValue({
             COMPROBANTE: enc.COMPROBANTE,
             PROVEEDOR: enc.PROVEEDOR,
-            PROVEEDOR_DISPLAY: enc.NOMBRE,
-            FECHA: enc.FECHA?.substring(0, 10),
+            PROVEEDOR_DISPLAY: { NOMBRE: enc.NOMBRE } as any,
+            FECHA: this.parseFechaDDMMYYYY(enc.FECHA),
             FECHA_COMPROBANTE: enc.FECHA_COMPROBANTE?.substring(0, 10),
             OBSERVACION: enc.OBSERVACION,
             CONDICION_PAGO: enc.CONDICION_PAGO,
             NUMERO_RESOLUCION: enc.NUMERO_RESOLUCION,
-            ID: enc.CORREL,
+            ID: enc.ID ?? enc.CORREL,
           });
           this.loadPerfilProveedor(enc.PROVEEDOR);
           this.loadDetalle();
@@ -308,6 +338,36 @@ export class CompRetencionComponent implements OnInit {
       });
   }
 
+  onBuscarProveedorModal(): void {
+    const query = this.proveedorSearchTerm().trim();
+    if (!query || query.length < 3) {
+        this.messageService.add({ severity: 'warn', summary: 'Atención', detail: 'Ingrese al menos 3 caracteres para buscar.' });
+        return;
+    }
+    
+    this.searchingProveedor.set(true);
+    this.service.searchProveedores(query)
+      .pipe(finalize(() => this.searchingProveedor.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.length === 1) {
+            this.seleccionarProveedorModal(res[0]);
+          } else if (res.length > 1) {
+            this.proveedorSearchList.set(res);
+            this.proveedorSearchVisible.set(true);
+          } else {
+            this.messageService.add({ severity: 'info', summary: 'Sin resultados', detail: 'No se encontraron proveedores.' });
+          }
+        },
+        error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Falló la búsqueda de proveedores.' })
+      });
+  }
+
+  seleccionarProveedorModal(p: ProveedorBusquedaDto): void {
+    this.proveedorSearchVisible.set(false);
+    this.onProveedorSelected(p);
+  }
+
   buscarProveedores(query: string): void {
     if (!query?.trim()) { this.proveedorSugerencias.set([]); return; }
     this.service.searchProveedores(query).subscribe({
@@ -325,7 +385,6 @@ export class CompRetencionComponent implements OnInit {
   onProveedorSelected(item: ProveedorBusquedaDto): void {
     this.headerForm.patchValue({
       PROVEEDOR: item.PROVEEDOR,
-      PROVEEDOR_DISPLAY: item.NOMBRE,
     });
     this.loadPerfilProveedor(item.PROVEEDOR);
   }
@@ -340,23 +399,81 @@ export class CompRetencionComponent implements OnInit {
     const esDTE = v.esDTE;
     const monto = Number(v.MONTO ?? 0);
     const porc = Number(v.PORC_RETENCION ?? 1);
+    
+    if (monto <= 0) {
+      this.errorDetalle.set('NO PUEDE INGRESAR EL MONTO MENOR O IGUAL A CERO');
+      return;
+    }
+
+    if (esDTE && !v.COD_GENERACION) {
+      this.errorDetalle.set('POR FAVOR DIGITE COMPROBANTE (CÓDIGO DE GENERACIÓN)');
+      return;
+    }
+    
+    if (!esDTE && !v.NUMERO) {
+      this.errorDetalle.set('POR FAVOR DIGITE EL NÚMERO DE FACTURA');
+      return;
+    }
+
     const retencion = Math.round(monto * (porc / 100) * 100) / 100;
     const codGen = esDTE ? (v.COD_GENERACION ?? '') : '';
-    const docRelacionado = esDTE ? (v.COD_GENERACION ?? '') : (v.SERIE ?? '') + (v.NUMERO ?? '');
-    const sello = esDTE ? (v.SELLO_RECEPCION ?? '') : (v.NUMERO ?? '');
+    const tipoDoc = v.TIPO_DOC ?? '03';
+    const fechaDoc = v.FECHA_DOC ?? hv.FECHA ?? '';
 
+    // Si es DTE, validamos en MH antes de guardar
+    if (esDTE) {
+      const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+      const urlApi = this.authService.currentUser()?.selectedEmpresa?.urlApi ?? '';
+      const nitProveedor = this.proveedorPerfil()?.NIT ?? '';
+      const ambiente = this.getAmbiente();
+
+      this.addingDetalle.set(true);
+      this.errorDetalle.set('');
+      
+      this.service.validarDteMH(urlApi, idEmpresa, fechaDoc, codGen, nitProveedor, tipoDoc, ambiente)
+        .subscribe({
+          next: (res) => {
+            if (res && res.length > 0) {
+              const dte = res[0];
+              if (dte.response !== 'PROCESADO') {
+                this.errorDetalle.set(dte.response ?? 'Error desconocido al validar el comprobante en MH');
+                this.addingDetalle.set(false);
+                return;
+              }
+              // Guardar detalle usando el selloRecibido
+              this.guardarDetalleBase(codGen, codGen, dte.selloRecibido ?? '', monto, retencion, fechaDoc, tipoDoc, v.DESCRIPCION ?? '');
+            } else {
+              this.errorDetalle.set('Error al verificar existencia del comprobante en MH');
+              this.addingDetalle.set(false);
+            }
+          },
+          error: (err) => {
+            this.errorDetalle.set('Error de conexión al validar el comprobante en MH');
+            this.addingDetalle.set(false);
+          }
+        });
+    } else {
+      // Si no es DTE, el documento relacionado es Serie + Número y el sello es Número
+      const docRelacionado = (v.SERIE ?? '') + (v.NUMERO ?? '');
+      const sello = v.NUMERO ?? '';
+      this.guardarDetalleBase('', docRelacionado, sello, monto, retencion, fechaDoc, tipoDoc, v.DESCRIPCION ?? '');
+    }
+  }
+
+  private guardarDetalleBase(codGen: string, docRelacionado: string, sello: string, monto: number, retencion: number, fechaDoc: string, tipoDoc: string, descripcion: string): void {
+    const hv = this.headerForm.getRawValue();
     const dto: CRDetalleSaveDto = {
       Correl: this.correl(),
       COMPROBANTE: hv.COMPROBANTE ?? '',
       PROVEEDOR: hv.PROVEEDOR ?? '',
-      PORC_RETENCION: porc,
-      DESCRIPCION: v.DESCRIPCION ?? '',
+      PORC_RETENCION: this.detalleForm.getRawValue().PORC_RETENCION ?? 1,
+      DESCRIPCION: descripcion,
       MONTO: monto,
       RETENCION: retencion,
-      FECHA: v.FECHA_DOC ?? hv.FECHA ?? '',
-      TipoDocumentoRelacionado: v.TIPO_DOC ?? '03',
+      FECHA: fechaDoc,
+      TipoDocumentoRelacionado: tipoDoc,
       SelloRecepcion: sello,
-      DocumentoRelacionado: docRelacionado || codGen,
+      DocumentoRelacionado: docRelacionado,
     };
 
     this.addingDetalle.set(true);
@@ -481,8 +598,68 @@ export class CompRetencionComponent implements OnInit {
     const enc = this.encabezado();
     if (!enc) return;
     const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
-    const url = this.facturacionService.getPreviewDteUrl(idEmpresa, enc.CORREL, 'CR', !!enc.SelloRecepcion);
+    const url = this.facturacionService.getPreviewDteUrl(idEmpresa, enc.ID ?? enc.CORREL, 'CR', !!enc.SelloRecepcion);
     window.open(url, '_blank');
+  }
+
+  verComprobanteNC(): void {
+    const enc = this.encabezado();
+    if (!enc) return;
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const url = this.facturacionService.getPreviewDteUrl(idEmpresa, enc.ID ?? enc.CORREL, 'NCCR', !!enc.SelloRecepcion);
+    window.open(url, '_blank');
+  }
+
+  emitirNC(): void {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
+    const username = this.authService.currentUser()?.username ?? '';
+    const ambiente = this.getAmbiente();
+    const seqDto: VerificarSecuenciasDto = {
+      IdEmpresa: idEmpresa,
+      AmbienteEmision: ambiente,
+      TipoFactura: 'NC',
+      TipoDoc: '05',
+    };
+
+    this.emitting.set(true);
+    this.errorMessage.set('');
+    this.facturacionService.verificarSecuencias(seqDto)
+      .subscribe({
+        next: () => {
+          const payload: ParametrosDteDto = {
+            idFactura: this.correl(),
+            idEmpresa,
+            ambiente,
+            codEstablecimiento: 'M001',
+            codPuntoVenta: 'P001',
+            user: username,
+          };
+          this.facturacionService.emitirDte(this.getMailDteUrl(), payload, 'NC')
+            .pipe(finalize(() => this.emitting.set(false)))
+            .subscribe({
+              next: (res) => {
+                if (res.SelloRecepcion) {
+                  this.messageService.add({ severity: 'success', summary: 'NC Emitida', detail: 'Nota de crédito emitida con éxito.' });
+                  this.verComprobanteNC();
+                } else {
+                  this.errorMessage.set(res.MensajeGeneral ?? 'Error al emitir NC.');
+                }
+              },
+              error: (err) => this.errorMessage.set(`Error DTE (NC): ${err?.error ?? 'Error inesperado'}`),
+            });
+        },
+        error: (err) => {
+          this.emitting.set(false);
+          this.errorMessage.set(`Secuencias NC: ${err?.error?.message ?? err?.message ?? 'Error'}`);
+        },
+      });
+  }
+
+  private numberToSimpleWords(value: number): string {
+    const rounded = Number(value.toFixed(2));
+    const integerPart = Math.floor(rounded);
+    const decimalPart = Math.round((rounded - integerPart) * 100);
+    return `${integerPart} CON ${String(decimalPart).padStart(2, '0')}/100 DÓLARES`;
   }
 
   estadoSeverity(estado: string): 'success' | 'warn' | 'danger' | 'secondary' | 'info' {
@@ -492,6 +669,31 @@ export class CompRetencionComponent implements OnInit {
       case 'ANULADO': return 'danger';
       default: return 'secondary';
     }
+  }
+
+  // Badge de estado (estándar visual ccf: ESTADO + Sello → clave/etiqueta).
+  estadoBadgeKey(estado: unknown, sello?: unknown): 'ELABORACION' | 'PENDIENTE_EMITIR' | 'EMITIDO' | 'ANULADO' | 'OTRO' {
+    const n = this.normalizeEstadoValue(estado);
+    if (n === 'APLICADO') return String(sello ?? '').trim() ? 'EMITIDO' : 'PENDIENTE_EMITIR';
+    if (n === 'ANULADO') return 'ANULADO';
+    if (n === 'ELABORACION') return 'ELABORACION';
+    return 'OTRO';
+  }
+  estadoBadgeLabel(estado: unknown, sello?: unknown): string {
+    switch (this.estadoBadgeKey(estado, sello)) {
+      case 'ELABORACION': return 'En elaboración';
+      case 'PENDIENTE_EMITIR': return 'Pendiente de emitir';
+      case 'EMITIDO': return 'Emitido';
+      case 'ANULADO': return 'Anulado';
+      default: return String(estado ?? '').trim().toUpperCase() || '—';
+    }
+  }
+  private normalizeEstadoValue(value: unknown): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
+    const e = String(value ?? '').trim().toUpperCase();
+    if (!e || e === 'E' || e === 'BORRADOR' || e === 'ELABORACION') return 'ELABORACION';
+    if (e === 'A' || e === 'APLICADA' || e === 'APLICADO' || e === 'EMITIDO' || e === 'EMITIDA') return 'APLICADO';
+    if (e === 'N' || e === 'ANULADA' || e === 'ANULADO') return 'ANULADO';
+    return 'OTRO';
   }
 
   formatCurrency(v: number): string {

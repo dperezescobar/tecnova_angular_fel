@@ -52,6 +52,7 @@ export const ANEXO_CONFIGS: AnexoConfig[] = [
       { field: 'ClaseDocumento',          header: 'Clase',          type: 'text',   minWidth: '55px' },
       { field: 'Tipo_Documento',          header: 'T.Doc',          type: 'text',   minWidth: '55px' },
       { field: 'Numero_resolucion',       header: 'N.Resolución',   type: 'text',   minWidth: '110px' },
+      { field: 'Serie_Documento',         header: 'Serie/Sello',    type: 'text',   minWidth: '160px' },
       { field: 'Numero_Documento',        header: 'N.Documento',    type: 'text',   minWidth: '120px' },
       { field: 'NUMERO_CONTROL_INTERNO',  header: 'Ctrl.Interno',   type: 'text',   minWidth: '100px' },
       { field: 'NIT',                     header: 'NIT',            type: 'text',   minWidth: '100px' },
@@ -77,10 +78,12 @@ export const ANEXO_CONFIGS: AnexoConfig[] = [
       { field: 'ClaseDocumento',            header: 'Clase',            type: 'text',   minWidth: '55px' },
       { field: 'Tipo_Documento',            header: 'T.Doc',            type: 'text',   minWidth: '55px' },
       { field: 'Numero_resolucion',         header: 'N.Resolución',     type: 'text',   minWidth: '110px' },
+      { field: 'Serie_Documento',           header: 'Serie/Sello',      type: 'text',   minWidth: '160px' },
       { field: 'NumeroControlInternoDel',   header: 'Ctrl.Int.Desde',   type: 'text',   minWidth: '100px' },
       { field: 'NumeroControlInternoAl',    header: 'Ctrl.Int.Hasta',   type: 'text',   minWidth: '100px' },
       { field: 'Numero_DocumentoDel',       header: 'N.Doc.Desde',      type: 'text',   minWidth: '100px' },
       { field: 'Numero_DocumentoAl',        header: 'N.Doc.Hasta',      type: 'text',   minWidth: '100px' },
+      { field: 'NumeroMaqRegistradora',     header: 'N.Máq.Reg.',       type: 'text',   minWidth: '90px' },
       { field: 'EXENTAS',                   header: 'Exentas',          type: 'number', minWidth: '90px' },
       { field: 'VentasIntExeNoSujetas',     header: 'Int.Exe.NS',       type: 'number', minWidth: '90px' },
       { field: 'NO_SUJETAS',               header: 'No Sujetas',       type: 'number', minWidth: '90px' },
@@ -193,16 +196,29 @@ export class AnexosF07Service {
     writeFile(workbook, `${nombreArchivo}.xlsx`);
   }
 
+  // Formato exigido por el portal del MH (F07): delimitador ';', SIN BOM y codificación ANSI
+  // (Windows-1252). Con coma + BOM UTF-8 el portal lo rechaza (Excel en locale ES no separa por
+  // coma y los acentos UTF-8 quedan mal). Este formato coincide con el archivo que el portal acepta.
   exportarCsv(datos: any[], columnas: ColumnDef[], nombreArchivo: string): void {
-    const headers = columnas.map(c => c.header);
-    const rows = datos.map(row => columnas.map(c => {
-      const val = row[c.field] ?? '';
-      const str = String(val);
-      return str.includes(',') || str.includes('"') || str.includes('\n')
+    const DELIM = ';';
+    const esc = (val: unknown): string => {
+      const str = String(val ?? '');
+      return str.includes(DELIM) || str.includes('"') || str.includes('\n') || str.includes('\r')
         ? `"${str.replace(/"/g, '""')}"` : str;
-    }));
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    };
+    const headers = columnas.map(c => esc(c.header));
+    const rows = datos.map(row => columnas.map(c => esc(row[c.field] ?? '')));
+    const csv = [headers.join(DELIM), ...rows.map(r => r.join(DELIM))].join('\r\n');
+
+    // Codificar a Windows-1252 (un byte por carácter). Los acentos del español (á,é,í,ó,ú,ñ,¿,¡…)
+    // caen en 0xA0–0xFF y coinciden con Latin1; lo que no sea representable se sustituye por '?'.
+    const bytes = new Uint8Array(csv.length);
+    for (let i = 0; i < csv.length; i++) {
+      const code = csv.charCodeAt(i);
+      bytes[i] = code <= 0xff ? code : 0x3f;
+    }
+
+    const blob = new Blob([bytes], { type: 'text/csv;charset=windows-1252;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

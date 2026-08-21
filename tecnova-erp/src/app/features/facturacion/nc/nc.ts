@@ -8,6 +8,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Observable, catchError, finalize, forkJoin, from, map, of, switchMap, tap } from 'rxjs';
 
@@ -228,9 +229,36 @@ export class NcComponent {
   canAnular = computed(() => this.ncEstado() === 'APLICADO');
   hasUnsavedLines = computed(() => this.ncLineas().some((l) => l.isDirty));
 
+  private route = inject(ActivatedRoute);
+
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   constructor() {
     this.loadCatalogs();
+    this.route.queryParams.subscribe((params) => {
+      const facturaParam = String(params['factura'] || params['iddoc'] || '').trim();
+      const fechaParam = String(params['fecha'] || '').trim();
+      if (facturaParam) {
+        if (fechaParam) {
+          if (fechaParam < this.dateDesde()) {
+            this.dateDesde.set(fechaParam);
+          }
+          if (fechaParam > this.dateHasta()) {
+            this.dateHasta.set(fechaParam);
+          }
+        }
+        this.facturacionService.getNotasCredito(this.dateDesde(), this.dateHasta()).subscribe((rows) => {
+          const found = (rows ?? []).find((r) => {
+            const fullR = `${r.Prefijo || ''}${r.Factura || ''}`.trim();
+            const factR = String(r.Factura || '').trim();
+            const docR = String(r.iddoc || '').trim();
+            return fullR === facturaParam || factR === facturaParam || docR === facturaParam;
+          });
+          if (found) {
+            this.openEdit(found);
+          }
+        });
+      }
+    });
   }
 
   private loadCatalogs() {
@@ -1243,7 +1271,8 @@ export class NcComponent {
       DescuentoAdicional: 0,
       DTE: this.toNumber(raw.IdDTE),
       CorreoCliente: String(raw.CorreoElectronico ?? '').trim(),
-      TipoFactura: 'NC'
+      TipoFactura: 'NC',
+      TipoRegimen: ''
     };
   }
 

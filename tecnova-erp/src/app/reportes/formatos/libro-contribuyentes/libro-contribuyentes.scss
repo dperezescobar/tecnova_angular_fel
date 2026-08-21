@@ -218,3 +218,95 @@
   background-color: #f8fafc;
   border-radius: 50%;
 }
+
+/* ── Checkbox "Ver cuadro resumen" ─────────────────────────────────── */
+.ver-cuadro-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+
+  input { width: 15px; height: 15px; cursor: pointer; accent-color: #1e293b; }
+}
+
+/* ── Cuadro RESUMEN DE OPERACIONES (estilo formulario) + firma ──────── */
+.cuadro-op-wrap {
+  display: inline-block;          // se ajusta al contenido, no fuerza ancho total
+  max-width: 100%;
+  background: #fff;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  overflow-x: auto;
+}
+
+.cuadro-op { min-width: 0; }
+
+.cuadro-op-table {
+  border-collapse: collapse;
+  width: auto;                    // ancho por contenido → no se dispersa
+  table-layout: fixed;
+  font-size: 0.72rem;
+  color: #0f172a;
+
+  th, td { border: 1px solid #1f2937; padding: 4px 8px; vertical-align: middle; }
+
+  thead th {
+    text-align: center;
+    font-weight: 700;
+    background: #f8fafc;
+    text-transform: uppercase;
+    line-height: 1.15;
+  }
+
+  .op-title {
+    text-align: center;
+    width: 300px;                 // columna de conceptos, ancho fijo
+    font-size: 0.76rem;
+  }
+  .op-super { text-align: center; }
+
+  tbody td:first-child {
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    width: 300px;
+    white-space: normal;
+    word-break: break-word;
+  }
+  tbody td.num {
+    text-align: center;           // montos centrados
+    font-variant-numeric: tabular-nums;
+    width: 92px;
+    white-space: nowrap;
+  }
+  tbody tr.op-total td { font-weight: 700; background: #f8fafc; }
+}
+
+/* ── Firma (una sola vez) ──────────────────────────────────────────── */
+.firma-block {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 260px;
+}
+.firma-line {
+  width: 260px;
+  border-top: 1px solid #475569;
+  margin-bottom: 6px;
+}
+.firma-text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+}
+.firma-centrada {
+  margin-left: auto;
+  margin-right: auto;
+}

@@ -51,6 +51,7 @@
                 <th>Usuario</th>
                 <th>Nombre</th>
                 <th>Tipo</th>
+                <th>Roles Asignados</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -60,6 +61,7 @@
                   <td class="actions-col">
                     <div class="actions-group">
                       <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar usuario" pTooltip="Editar" tooltipPosition="top" (onClick)="openEditForm(usuario)"></p-button>
+                      <p-button icon="pi pi-shield" [text]="true" severity="help" styleClass="action-icon-btn" ariaLabel="Asignar roles" pTooltip="Asignar Roles (RBAC)" tooltipPosition="top" (onClick)="abrirModalRoles(usuario)"></p-button>
                       <p-button icon="pi pi-key" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Cambiar contraseña" pTooltip="Cambiar contraseña" tooltipPosition="top" (onClick)="abrirCambiarPassword(usuario)"></p-button>
                       <p-button icon="pi pi-refresh" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Reiniciar contraseña" pTooltip="Reiniciar contraseña" tooltipPosition="top" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarReiniciarPassword(usuario)"></p-button>
                       @if (usuario.bloqueado) {
@@ -76,6 +78,13 @@
                   <td>{{ usuario.nombre }}</td>
                   <td>{{ usuario.tipo === 'A' ? 'Administrador' : 'Usuario' }}</td>
                   <td>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+                      <span *ngFor="let r of usuario.roles" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px;">{{ r }}</span>
+                      <span *ngIf="!usuario.roles?.length && usuario.tipo === 'A'" style="font-size: 11px; color: #64748b; font-style: italic;">Todos (Admin)</span>
+                      <span *ngIf="!usuario.roles?.length && usuario.tipo !== 'A'" style="font-size: 11px; color: #94a3b8; font-style: italic;">Sin roles</span>
+                    </div>
+                  </td>
+                  <td>
                     <div class="estado-tags">
                       <p-tag [severity]="usuario.activo ? 'success' : 'secondary'" [value]="usuario.activo ? 'Activo' : 'Inactivo'"></p-tag>
                       @if (usuario.bloqueado) {
@@ -86,7 +95,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="5">No se encontraron usuarios con el filtro aplicado.</td>
+                  <td colspan="6">No se encontraron usuarios con el filtro aplicado.</td>
                 </tr>
               }
             </tbody>
@@ -106,6 +115,13 @@
                 <div class="card-row">
                   <span class="card-label">Tipo</span>
                   <span class="card-value">{{ usuario.tipo === 'A' ? 'Administrador' : 'Usuario' }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Roles</span>
+                  <span class="card-value d-flex flex-wrap gap-1">
+                    <span *ngFor="let r of usuario.roles" style="background: #eff6ff; color: #1d4ed8; font-size: 11px; padding: 1px 5px; border-radius: 4px;">{{ r }}</span>
+                    <span *ngIf="!usuario.roles?.length" style="font-size: 11px; color: #94a3b8;">{{ usuario.tipo === 'A' ? 'Todos (Admin)' : 'Sin roles' }}</span>
+                  </span>
                 </div>
                 <div class="card-row">
                   <span class="card-label">Estado</span>
@@ -243,5 +259,48 @@
         <p-button label="Entendido" icon="pi pi-check" (onClick)="cerrarReinicioResultado()"></p-button>
       </div>
     }
+  </p-dialog>
+
+  <!-- Dialog: Asignación de Roles Granulares (RBAC) -->
+  <p-dialog
+    [header]="'Asignar Roles a ' + (rolesDialogUsuario() ?? '')"
+    [visible]="showRolesDialog()"
+    (visibleChange)="showRolesDialog.set($event)"
+    [modal]="true"
+    [style]="{ width: '54rem', maxWidth: '95vw' }"
+  >
+    <div class="roles-dialog-body" style="margin-block: 8px;">
+      <p style="font-size: 13px; color: #64748b; margin: 0 0 12px;">
+        Seleccione los roles que tendrá asignados este usuario. Los administradores heredan todos los permisos automáticamente.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; max-height: 62vh; overflow-y: auto; padding-right: 4px;">
+        <div *ngFor="let item of catalogoRoles()" 
+             [style.background]="isRolSeleccionado(item.rol) ? '#eff6ff' : '#f8fafc'"
+             [style.border-color]="isRolSeleccionado(item.rol) ? '#3b82f6' : '#e2e8f0'"
+             style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: all 0.15s ease;"
+             (click)="toggleRolSeleccionado(item.rol)">
+          <input 
+            type="checkbox" 
+            [checked]="isRolSeleccionado(item.rol)" 
+            (change)="toggleRolSeleccionado(item.rol)"
+            style="width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb;" 
+          />
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 700; font-size: 13px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              {{ item.nombre || item.rol }}
+            </div>
+            <div style="font-size: 11px; color: #64748b; font-weight: 500;">
+              Código: <code>{{ item.rol }}</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions" style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <p-button label="Cancelar" severity="secondary" (onClick)="cerrarModalRoles()" [disabled]="savingRoles()"></p-button>
+      <p-button label="Guardar Roles" icon="pi pi-shield" [loading]="savingRoles()" (onClick)="guardarRolesUsuario()"></p-button>
+    </div>
   </p-dialog>
 </section>

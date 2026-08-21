@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, PLATF
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Observable, catchError, finalize, forkJoin, from, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, finalize, forkJoin, from, map, of, switchMap, timeout, timer } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -29,6 +29,7 @@ import {
   FormaPagoDto,
   PerfilClienteDto,
   ParametrosDteDto,
+  RespuestaDteDto,
   ParametrosDteAnulacionDto,
   CondicionPagoCatalogoDto,
   DeleteFacturaDto,
@@ -81,6 +82,12 @@ type BarcodeDetectorCtorLike = new (options?: { formats?: string[] }) => Barcode
   styleUrls: ['./fac-pos.scss']
 })
 export class FacPosComponent implements OnDestroy {
+  // Emisión normal ~4–8s. Tope con margen; si se agota, se reconcilia por si el documento ya se
+  // emitió aunque se perdiera la respuesta por red inestable.
+  private static readonly EMIT_TIMEOUT_MS = 15000;
+  private static readonly RECONCILE_INTERVAL_MS = 3000;
+  private static readonly RECONCILE_MAX_INTENTOS = 3;
+
   @ViewChild(ReenviarCorreoDialogComponent) reenviarCorreoDialog!: ReenviarCorreoDialogComponent;
   @ViewChild(EliminarConfirmDialogComponent) eliminarConfirmDialog!: EliminarConfirmDialogComponent;
 
@@ -185,7 +192,11 @@ export class FacPosComponent implements OnDestroy {
   // Solo aplica a FAC (Consumidor Final); CCF sigue el flujo real de emisión aunque ambiente sea 0.
   // En ambiente 1 esta bandera siempre es false y todo el comportamiento existente queda intacto.
   esAmbientePrueba = computed(() => this.getAmbiente() === '00');
-  esRegistroSinDte = computed(() => this.emiteDte() && this.esAmbientePrueba() && this.getCurrentTipoFactura() === 'FAC');
+  esRegistroSinDte = computed(() => {
+    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa;
+    if (idEmpresa === 21) return false; // idEmpresa 21 SIEMPRE realiza transmision DTE a Hacienda (con ambiente 00)
+    return this.emiteDte() && this.esAmbientePrueba() && this.getCurrentTipoFactura() === 'FAC';
+  });
 
   confirmarCobroLabel = computed(() =>{
     if (!this.emiteDte()) {
@@ -654,6 +665,9 @@ export class FacPosComponent implements OnDestroy {
           }
           this.hasSavedCurrentRecord.set(true);
           this.syncDisabledControls();
+          // El backend re-aplica precios preferenciales al guardar el encabezado (p. ej. tras cambiar
+          // de cliente). Recargamos el detalle para reflejar los precios recalculados en pantalla.
+          this.refreshDetalleYTotales();
           this.showInfo('FAC POS', 'Factura guardada correctamente.');
           this.loadMaestro();
         },
@@ -672,6 +686,9 @@ export class FacPosComponent implements OnDestroy {
 
     this.facturacionService.updateFacturacionAplicacion(payload).subscribe({
       next: () => {
+        // El backend re-aplica precios preferenciales al aplicar; recargamos el detalle para que
+        // pantalla y recibo reflejen los precios recalculados antes de cobrar.
+        this.refreshDetalleYTotales();
         this.applyDefaultFormaPago();
         this.cobroDialogVisible.set(true);
         this.syncDisabledControls();
@@ -1346,6 +1363,8 @@ if(!this.adminAccess()){
         this.setStep('verify', 'ok', 'Listo para emisión');
         this.setStep('emit', 'running', 'Enviando a Hacienda');
         return this.facturacionService.emitirDte(apiBaseUrl, payload, tipoFactura).pipe(
+          timeout(FacPosComponent.EMIT_TIMEOUT_MS),
+          catchError((emitError) => this.reconciliarEmisionPerdida$(emitError)),
           switchMap((response) => {
             if (!(response.SelloRecepcion ?? '').toString().trim()) {
               throw new Error(String(response.MensajeGeneral ?? 'Emisión sin sello de recepción.'));
@@ -1394,14 +1413,54 @@ if(!this.adminAccess()){
     });
   }
 
+  /**
+   * Reconciliación de emisión: si la respuesta de emisión se pierde (timeout/red inestable), el
+   * documento pudo haberse emitido igual. Reconsulta el encabezado; si ya trae Sello, devuelve una
+   * respuesta sintética para RECONECTAR el flujo y culminarlo (sincronizar → correo → vista previa)
+   * sin reemitir. Si tras varios reintentos no hay sello, propaga el error real.
+   */
+  private reconciliarEmisionPerdida$(emitError: unknown): Observable<RespuestaDteDto> {
+    this.setStep('emit', 'running', 'Sin respuesta de Hacienda; verificando si el documento se emitió…');
+
+    const chequear$ = (intento: number): Observable<RespuestaDteDto> =>
+      this.refreshEncabezadoAfterEmission(false).pipe(
+        switchMap((enc) => {
+          const sello = String(enc?.SelloRecepcion ?? '').trim();
+          const noControl = String(enc?.NoControl ?? '').trim();
+          if (sello) {
+            this.setStep('emit', 'ok', 'Emisión confirmada (respuesta recuperada tras la interrupción)');
+            return of({
+              SelloRecepcion: sello,
+              NoControl: noControl,
+              CodigoGeneracion: String(enc?.CodGeneracion ?? '').trim(),
+              MensajeGeneral: 'Emisión reconciliada'
+            } as RespuestaDteDto);
+          }
+          if (intento >= FacPosComponent.RECONCILE_MAX_INTENTOS - 1) throw emitError;
+          return timer(FacPosComponent.RECONCILE_INTERVAL_MS).pipe(switchMap(() => chequear$(intento + 1)));
+        })
+      );
+
+    return chequear$(0);
+  }
+
   isReadOnlyField(): boolean {
     return this.emitting() || this.currentEstado() !== 'ELABORACION';
   }
 
+  // Editabilidad del precio: se decide con el precio BASE del artículo (estable), no con el valor
+  // en vivo (si dependiera del valor, al teclear el 1er dígito se bloquearía a mitad de escritura
+  // para no-admin: input readonly, spinners desaparecen). Libre si admin, servicio (SV) o precio 0.
+  private precioLineaEditable = true;
+
+  private evaluarPrecioLineaEditable(precioBase: number, tipoArticulo?: string): void {
+    const esAdmin = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase() === 'A';
+    const esServicio = String(tipoArticulo ?? '').trim().toUpperCase() === 'SV';
+    this.precioLineaEditable = esAdmin || esServicio || Number(precioBase ?? 0) <= 0;
+  }
+
   canEditPrecioLinea(): boolean {
-    const tipoUsuario = String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase();
-    if (tipoUsuario === 'A') return true;
-    return Number(this.facForm.controls.LineaPrecio.value ?? 0) === 0;
+    return this.precioLineaEditable;
   }
 
   currentEstado(): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
@@ -1618,6 +1677,7 @@ else{
       LineaPrecioMayoreo: articulo.PRECIO_MAYOREO ?? 0,
       LineaCantidadMinimaMayoreo: articulo.cantidadmayoreo ?? 0
     });
+    this.evaluarPrecioLineaEditable(articulo.ULTIMO_PRECIO ?? 0, articulo.TIPO_ARTICULO);
     this.focusLineaCantidadInput();
     // Precio y existencia en línea (autoritativos sobre el catálogo cacheado).
     this.cargarInfoVentaEnLinea(articulo.ARTICULO, (info) => {
@@ -1626,6 +1686,7 @@ else{
         LineaPrecioMayoreo: info.precioMayoreo,
         LineaCantidadMinimaMayoreo: info.cantidadMayoreo
       });
+      this.evaluarPrecioLineaEditable(info.ultimoPrecio, articulo.TIPO_ARTICULO);
     });
   }
 
@@ -3273,6 +3334,10 @@ else{
     const normalized = String(message ?? '').replace(/\r/g, '\n').trim();
     if (!normalized) {
       return '';
+    }
+
+    if (/FK_FACTURA_PUNTO_VENTA|FOREIGN KEY constraint "FK_FACTURA_PUNTO_VENTA"/i.test(normalized)) {
+      return 'Usuario pendiente de ser asignado a punto de venta';
     }
 
     if (/The conversion of a nvarchar data type to a datetime data type resulted in an out-of-range value\.?/i.test(normalized)) {

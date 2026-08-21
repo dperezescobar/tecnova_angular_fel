@@ -3,30 +3,47 @@
   <app-reenviar-correo-dialog></app-reenviar-correo-dialog>
   <app-eliminar-confirm-dialog></app-eliminar-confirm-dialog>
 
-  <header class="cd-header">
-    <div><h1>Comprobantes de Donación</h1></div>
-    <div class="header-actions">
-      @if (!showForm()) {
+  <header class="fac-header">
+    <div class="fac-title-row">
+      @if (showForm()) {
+        <div class="header-back">
+          <p-button type="button" label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+        </div>
+      }
+      <h1>Comprobantes de Donación</h1>
+    </div>
+
+    @if (!showForm()) {
+      <div class="header-toolbar">
+        <div class="toolbar-nuevo-fac">
+          <p-button label="Nuevo CD" icon="pi pi-plus" severity="info" (onClick)="openCreateForm()" size="small"></p-button>
+        </div>
+
         <span class="search-box">
           <i class="pi pi-search"></i>
           <input pInputText type="text" placeholder="Buscar cliente o donante"
             [value]="filterText()" (input)="filterText.set($any($event.target).value)"
-            (keyup.enter)="loadListado()" />
+            (keyup.enter)="loadListado()" aria-label="Buscar comprobantes" />
         </span>
-        <input pInputText type="date" [value]="filterDesde()"
-          (change)="filterDesde.set($any($event.target).value)" />
-        <input pInputText type="date" [value]="filterHasta()"
-          (change)="filterHasta.set($any($event.target).value)" />
-        <div class="header-buttons">
-          <p-button label="Buscar" icon="pi pi-search" (onClick)="loadListado()" [loading]="loading()"></p-button>
-          <p-button label="Nuevo CD" icon="pi pi-plus" severity="info" (onClick)="openCreateForm()"></p-button>
+
+        <div class="toolbar-dates">
+          <div class="date-field">
+            <label for="cd-desde">Desde</label>
+            <input id="cd-desde" type="date" [value]="filterDesde()"
+              (change)="filterDesde.set($any($event.target).value)" aria-label="Fecha inicio de rango" />
+          </div>
+          <div class="date-field">
+            <label for="cd-hasta">Hasta</label>
+            <input id="cd-hasta" type="date" [value]="filterHasta()"
+              (change)="filterHasta.set($any($event.target).value)" aria-label="Fecha fin de rango" />
+          </div>
         </div>
-      } @else {
-        <div class="detail-actions">
-          <p-button label="Volver al listado" icon="pi pi-arrow-left" severity="secondary" (onClick)="closeForm()"></p-button>
+
+        <div class="toolbar-recargar">
+          <p-button label="Buscar" icon="pi pi-search" (onClick)="loadListado()" [loading]="loading()" size="small"></p-button>
         </div>
-      }
-    </div>
+      </div>
+    }
   </header>
 
   @if (errorMessage()) {
@@ -44,8 +61,8 @@
             <article class="cd-list-card">
               <div class="cd-list-card-top">
                 <div class="cd-list-card-primary">
-                  <span class="cd-list-card-fecha">{{ item.FECHA }}</span>
-                  <p-tag [value]="item.Estado" [severity]="estadoSeverity(item.Estado)"></p-tag>
+                  <span class="cd-list-card-num">{{ item.NOMBRE || item.CLIENTE }}</span>
+                  <span class="fac-estado-badge" [attr.data-estado]="estadoBadgeKey(item.Estado, item.SelloRecepcion)">{{ estadoBadgeLabel(item.Estado, item.SelloRecepcion) }}</span>
                 </div>
                 <div class="cd-list-card-actions">
                   <p-button icon="pi pi-pencil" [text]="true" severity="info"
@@ -61,9 +78,8 @@
                     title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
                 </div>
               </div>
-              <div class="cd-list-card-cliente">{{ item.NOMBRE || item.CLIENTE }}</div>
               <div class="cd-list-card-bottom">
-                <span class="cd-list-card-label">Total</span>
+                <span class="cd-list-card-fecha">{{ item.FECHA }}</span>
                 <span class="cd-list-card-total">{{ formatCurrency(item.TOTAL) }}</span>
               </div>
               @if (item.NoControl || item.CodGeneracion || item.SelloRecepcion) {
@@ -111,7 +127,7 @@
                       title="Reenviar correo" (onClick)="onReenviarCorreo(item)"></p-button>
                   </td>
                   <td class="col-nowrap">
-                    <p-tag [value]="item.Estado" [severity]="estadoSeverity(item.Estado)"></p-tag>
+                    <span class="fac-estado-badge" [attr.data-estado]="estadoBadgeKey(item.Estado, item.SelloRecepcion)">{{ estadoBadgeLabel(item.Estado, item.SelloRecepcion) }}</span>
                   </td>
                   <td class="col-nowrap">{{ item.FECHA }}</td>
                   <td>{{ item.NOMBRE || item.CLIENTE }}</td>

@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { distinctUntilChanged, finalize } from 'rxjs';
+import { Observable, catchError, distinctUntilChanged, finalize, of, retry, switchMap, tap, timeout } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -70,6 +71,7 @@ export class ClientesComponent {
   paisesOptions = signal<CatalogOptionDTO[]>([]);
   departamentosOptions = signal<CatalogOptionDTO[]>([]);
   municipiosOptions = signal<CatalogOptionDTO[]>([]);
+  cargandoMunicipios = signal(false);
   girosOptions = signal<CatalogOptionDTO[]>([]);
   condicionesPagoOptions = signal<CatalogOptionDTO[]>([]);
   giroSuggestions = signal<CatalogOptionDTO[]>([]);
@@ -105,12 +107,31 @@ export class ClientesComponent {
   CANTIDAD_MINIMA: [{ value: null as number | null, disabled: true }, [Validators.min(1)]], // Input, solo habilitado si es preferencial
   });
 
+  private route = inject(ActivatedRoute);
+
   constructor() {
     this.registerFormListeners();
     this.loadFormCatalogs();
     this.loadClientes();
 
-      // clientes.ts - Alrededor de la línea 106
+    this.route.queryParams.subscribe((params) => {
+      const editCode = String(params['edit'] || params['cliente'] || params['filtro'] || '').trim();
+      if (editCode) {
+        this.filterText.set(editCode);
+        this.clientesService.getClienteByCodigo(editCode).subscribe({
+          next: (detalle) => {
+            if (detalle) {
+              this.isEditMode.set(true);
+              this.syncEditLocks();
+              this.showForm.set(true);
+              this.applyClienteDetalle(detalle);
+            }
+          }
+        });
+      }
+    });
+
+    // clientes.ts - Alrededor de la línea 106
 this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferencial: boolean | null) => {
   const cantidadMinimaCtrl = this.clienteForm.get('CANTIDAD_MINIMA');
   
@@ -164,19 +185,42 @@ this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferenci
       this.loadDepartamentos(idPaisValue);
     });
 
-    this.clienteForm.controls.IDDEPARTAMENTO.valueChanges.pipe(distinctUntilChanged()).subscribe((idDepto) => {
-      const idPais = this.clienteForm.controls.IDPAIS.value;
-      const idPaisValue = String(idPais ?? '').trim();
-      const idDeptoValue = String(idDepto ?? '').trim();
-
-      if (!idPaisValue || !idDeptoValue) {
+    // Cascada resiliente: switchMap cancela la petición anterior (evita respuestas fuera de orden)
+    // y se limpian municipios + IDMUNICIPIO ANTES de cargar, para no dejar la lista del departamento
+    // anterior si la red falla (era el bug reportado: "no refrescó, dejó los anteriores").
+    this.clienteForm.controls.IDDEPARTAMENTO.valueChanges.pipe(
+      distinctUntilChanged(),
+      tap(() => {
         this.municipiosOptions.set([]);
         this.clienteForm.patchValue({ IDMUNICIPIO: '' }, { emitEvent: false });
-        return;
-      }
-
-      this.loadMunicipios(idDeptoValue, idPaisValue);
+      }),
+      switchMap((idDepto) => {
+        const idPaisValue = String(this.clienteForm.controls.IDPAIS.value ?? '').trim();
+        const idDeptoValue = String(idDepto ?? '').trim();
+        if (!idPaisValue || !idDeptoValue) return of<CatalogOptionDTO[]>([]);
+        return this.fetchMunicipios$(idDeptoValue, idPaisValue);
+      })
+    ).subscribe((items) => {
+      this.municipiosOptions.set(items ?? []);
+      const first = (items ?? [])[0];
+      if (first) this.clienteForm.patchValue({ IDMUNICIPIO: String(first.value) }, { emitEvent: false });
     });
+  }
+
+  // Carga de municipios tolerante a red inestable: timeout + reintentos; ante fallo NO deja la
+  // lista vieja (retorna []) y avisa. Reutilizada por la cascada y por la edición.
+  private fetchMunicipios$(idDepto: string, idPais: string): Observable<CatalogOptionDTO[]> {
+    this.cargandoMunicipios.set(true);
+    this.errorMessage.set('');
+    return this.clientesService.getMunicipios(idDepto, idPais).pipe(
+      timeout(12000),
+      retry({ count: 2, delay: 800 }),
+      catchError(() => {
+        this.errorMessage.set('No se pudieron cargar los municipios (conexión inestable). Vuelva a seleccionar el departamento.');
+        return of<CatalogOptionDTO[]>([]);
+      }),
+      finalize(() => this.cargandoMunicipios.set(false))
+    );
   }
 
   private loadFormCatalogs() {
@@ -247,20 +291,16 @@ this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferenci
   }
 
   private loadMunicipios(idDepto: string, idPais: string, selectedId?: string) {
-    this.clientesService.getMunicipios(idDepto, idPais).subscribe({
-      next: (items) => {
-        this.municipiosOptions.set(items ?? []);
-        if (selectedId) {
-          this.clienteForm.patchValue({ IDMUNICIPIO: selectedId }, { emitEvent: false });
-          return;
-        }
-
-        const firstMunicipio = (items ?? [])[0];
-        if (firstMunicipio) {
-          this.clienteForm.patchValue({ IDMUNICIPIO: String(firstMunicipio.value) }, { emitEvent: false });
-        }
-      },
-      error: () => this.errorMessage.set('No se pudo cargar municipios.')
+    this.fetchMunicipios$(idDepto, idPais).subscribe((items) => {
+      this.municipiosOptions.set(items ?? []);
+      if (selectedId) {
+        this.clienteForm.patchValue({ IDMUNICIPIO: selectedId }, { emitEvent: false });
+        return;
+      }
+      const firstMunicipio = (items ?? [])[0];
+      if (firstMunicipio) {
+        this.clienteForm.patchValue({ IDMUNICIPIO: String(firstMunicipio.value) }, { emitEvent: false });
+      }
     });
   }
 
@@ -463,35 +503,38 @@ this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferenci
 
     const value = this.clienteForm.getRawValue();
     const username = this.authService.currentUser()?.username ?? 'WEB';
-    const tipoCliente = value.TIPO_CLIENTE ?? '';
+    // Recorta espacios: el autorelleno de Chrome deja un espacio final que el backend rechaza
+    // (p. ej. ValidarCorreo devuelve 'Rechazado' con un correo que termina en espacio → 500).
+    const s = (v: unknown) => String(v ?? '').trim();
+    const tipoCliente = s(value.TIPO_CLIENTE);
     const tipoMtto = value.TipoMtto ?? (this.isEditMode() ? 'C' : 'A');
 
     const payload: ClienteUpdateDTO = {
-      CLIENTE: value.CLIENTE ?? '',
-      NOMBRE: value.NOMBRE ?? '',
-      ALIAS: value.ALIAS ?? '',
+      CLIENTE: s(value.CLIENTE),
+      NOMBRE: s(value.NOMBRE),
+      ALIAS: s(value.ALIAS),
       ORIGEN: this.toOrigen(tipoCliente),
-      DIRECCION: value.DIRECCION ?? '',
+      DIRECCION: s(value.DIRECCION),
       IDPAIS: this.toNumber(value.IDPAIS),
-      IDDEPARTAMENTO: String(value.IDDEPARTAMENTO ?? ''),
-      IDMUNICIPIO: String(value.IDMUNICIPIO ?? ''),
-      TELEFONO: value.TELEFONO ?? '',
-      NIT: value.NIT ?? '',
+      IDDEPARTAMENTO: s(value.IDDEPARTAMENTO),
+      IDMUNICIPIO: s(value.IDMUNICIPIO),
+      TELEFONO: s(value.TELEFONO),
+      NIT: s(value.NIT),
       ACTIVIDAD: '',
-      NRC: value.NRC ?? '',
-      CONDICION_PAGO: value.CONDICION_PAGO ?? '',
+      NRC: s(value.NRC),
+      CONDICION_PAGO: s(value.CONDICION_PAGO),
       ACTIVO: !!value.ACTIVO,
       USUARIO: username,
-      EMAIL: value.EMAIL ?? '',
+      EMAIL: s(value.EMAIL),
       MODIFICADO: tipoMtto === 'C' ? 1 : 0,
-      DUI: value.DUI ?? '',
+      DUI: s(value.DUI),
       IDGIRO: this.resolveGiroValue(value.IDGIRO),
       TIPOPERSONA: this.toNumber(value.TIPOPERSONA),
-      OBSERVACION: value.OBSERVACION ?? '',
+      OBSERVACION: s(value.OBSERVACION),
       TipoMtto: tipoMtto,
       tipoCliente: tipoCliente,
       CLIENTE_PREFERENCIAL: value.CLIENTE_PREFERENCIAL ?? false,
-  CANTIDAD_MINIMA: value.CANTIDAD_MINIMA ?? 0,
+      CANTIDAD_MINIMA: value.CANTIDAD_MINIMA ?? 0,
     };
 
     this.clientesService
@@ -509,10 +552,24 @@ this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferenci
           this.closeForm();
           this.loadClientes();
         },
-        error: () => {
-          this.errorMessage.set('No se pudo guardar el cliente. Verifica los datos requeridos.');
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(this.extractSaveError(error));
         }
       });
+  }
+
+  // Muestra el detalle REAL del backend en vez del genérico "verifica los datos requeridos"
+  // (que ocultaba la causa: sesión de empresa inválida, error del SP, o 0 filas afectadas).
+  private extractSaveError(error: HttpErrorResponse): string {
+    if (error?.status === 401) {
+      return 'Tu sesión de empresa no es válida. Cierra sesión e ingresa de nuevo, luego reintenta.';
+    }
+    const raw = error?.error;
+    const backend = (typeof raw === 'string'
+      ? raw
+      : String((raw as { message?: string; Message?: string })?.message ?? (raw as { Message?: string })?.Message ?? '')
+    ).trim();
+    return backend || 'No se pudo guardar el cliente. Verifica los datos requeridos.';
   }
 
   deleteCliente(cliente: ClienteListadoDTO) {

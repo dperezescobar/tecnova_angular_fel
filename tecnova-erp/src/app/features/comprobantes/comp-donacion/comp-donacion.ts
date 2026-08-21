@@ -610,6 +610,31 @@ export class CompDonacionComponent implements OnInit {
     }
   }
 
+  // Badge de estado (estándar visual ccf: ESTADO + Sello → clave/etiqueta).
+  estadoBadgeKey(estado: unknown, sello?: unknown): 'ELABORACION' | 'PENDIENTE_EMITIR' | 'EMITIDO' | 'ANULADO' | 'OTRO' {
+    const n = this.normalizeEstadoValue(estado);
+    if (n === 'APLICADO') return String(sello ?? '').trim() ? 'EMITIDO' : 'PENDIENTE_EMITIR';
+    if (n === 'ANULADO') return 'ANULADO';
+    if (n === 'ELABORACION') return 'ELABORACION';
+    return 'OTRO';
+  }
+  estadoBadgeLabel(estado: unknown, sello?: unknown): string {
+    switch (this.estadoBadgeKey(estado, sello)) {
+      case 'ELABORACION': return 'En elaboración';
+      case 'PENDIENTE_EMITIR': return 'Pendiente de emitir';
+      case 'EMITIDO': return 'Emitido';
+      case 'ANULADO': return 'Anulado';
+      default: return String(estado ?? '').trim().toUpperCase() || '—';
+    }
+  }
+  private normalizeEstadoValue(value: unknown): 'ELABORACION' | 'APLICADO' | 'ANULADO' | 'OTRO' {
+    const e = String(value ?? '').trim().toUpperCase();
+    if (!e || e === 'E' || e === 'BORRADOR' || e === 'ELABORACION') return 'ELABORACION';
+    if (e === 'A' || e === 'APLICADA' || e === 'APLICADO' || e === 'EMITIDO' || e === 'EMITIDA') return 'APLICADO';
+    if (e === 'N' || e === 'ANULADA' || e === 'ANULADO') return 'ANULADO';
+    return 'OTRO';
+  }
+
   formatCurrency(v: number): string {
     return new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(v ?? 0);
   }

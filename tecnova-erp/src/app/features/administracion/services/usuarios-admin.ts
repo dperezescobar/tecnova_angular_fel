@@ -39,7 +39,8 @@ export class UsuariosAdminService {
       correoElectronico: String(this.pick(raw, 'correoElectronico', 'CorreoElectronico') ?? ''),
       activo: this.toBoolean(this.pick(raw, 'activo', 'Activo')),
       bloqueado: this.toBoolean(this.pick(raw, 'bloqueado', 'Bloqueado')),
-      createdBy: String(this.pick(raw, 'createdBy', 'CreatedBy') ?? '') || undefined
+      createdBy: String(this.pick(raw, 'createdBy', 'CreatedBy') ?? '') || undefined,
+      roles: (this.pick(raw, 'roles', 'Roles') as string[]) ?? []
     };
   }
 

@@ -193,6 +193,21 @@
                 font-size: 0.77rem;
                 font-weight: 700;
                 line-height: 1.2;
+                
+                .sidebar-user-role {
+                    font-size: 0.65rem;
+                    color: #64748b;
+                    line-height: 1.2;
+
+                    .version-badge {
+                        color: #94a3b8;
+                        font-weight: 600;
+                        background: rgba(148, 163, 184, 0.12);
+                        padding: 1px 5px;
+                        border-radius: 4px;
+                        font-size: 0.62rem;
+                    }
+                }
             }
 
             .install-banner-text {
@@ -693,4 +708,234 @@
             background: rgba(2, 8, 20, 0.95);
         }
     }
+}
+
+/* ── ESTILOS DEL BOTÓN Y PANEL LATERAL DTE PENDIENTES ── */
+.topbar-dte-btn {
+    position: relative;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+
+    i { font-size: 1.1rem; }
+
+    &--has-pending {
+        background: #fef2f2;
+        color: #ef4444;
+        border-color: #fca5a5;
+        animation: pulseDte 2s infinite ease-in-out;
+    }
+
+    &:hover {
+        transform: scale(1.05);
+    }
+}
+
+.topbar-dte-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.15rem 0.35rem;
+    border-radius: 999px;
+    min-width: 1.25rem;
+    text-align: center;
+    line-height: 1;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulseDte {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Panel Lateral Slide-Over */
+.dte-drawer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 1040;
+}
+
+.dte-drawer-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 380px;
+    max-width: 90vw;
+    height: 100vh;
+    background: #ffffff;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.open {
+        transform: translateX(0);
+    }
+
+    .dte-drawer-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8fafc;
+
+        .dte-drawer-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-close-drawer {
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            &:hover { background: #e2e8f0; color: #0f172a; }
+        }
+    }
+
+    .dte-drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+}
+
+.dte-loading-state, .dte-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.dte-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.dte-item-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #f59e0b;
+    border-radius: 8px;
+    padding: 0.85rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+
+    &:hover {
+        border-color: #cbd5e1;
+        border-left-color: #d97706;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .dte-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.4rem;
+
+        .dte-item-date {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+    }
+
+    .dte-item-body {
+        margin-bottom: 0.6rem;
+
+        .dte-item-doc-num {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #1e293b;
+        }
+
+        .dte-item-entity {
+            font-size: 0.82rem;
+            color: #475569;
+            margin-top: 0.15rem;
+        }
+
+        .dte-item-amount {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #059669;
+            margin-top: 0.25rem;
+        }
+    }
+
+    .dte-item-footer {
+        display: flex;
+        justify-content: flex-end;
+    }
+}
+
+.spin {
+    animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ── Toast Pop-Up Flotante para Aprobación en Vivo del Manager ───────── */
+.manager-toast-backdrop {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99999;
+  animation: slideUpToast 0.3s ease-out forwards;
+}
+
+@keyframes slideUpToast {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.manager-toast-card {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: #ffffff;
+  border: 2px solid #f59e0b;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+  padding: 16px;
+  font-family: inherit;
+}
+
+.manager-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.topbar-manager-btn {
+  color: #d97706 !important;
+  &.topbar-manager-btn--has-pending {
+    background: #fef3c7 !important;
+    border-color: #f59e0b !important;
+  }
 }
