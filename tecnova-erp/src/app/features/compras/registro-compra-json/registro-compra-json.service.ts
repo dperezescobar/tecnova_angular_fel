@@ -27,6 +27,7 @@ export interface CompraGridviewDto {
   numeroAnexo: number;
   correl: number;
   numeroResolucion: string;
+  fechaLibro: string;
 }
 
 export interface CompraCargarJsonResult {
@@ -40,6 +41,7 @@ export interface CompraUpdateCamposDto {
   clasificacion: number;
   sector: number;
   codCostoGasto: number;
+  fechaLibro: string;
 }
 
 export interface ProveedorLookup {
@@ -48,6 +50,35 @@ export interface ProveedorLookup {
   alias?: string;
   registroComercio?: string;
   nit?: string;
+}
+
+export interface ReciboCompraLinea {
+  linea: number;
+  cantidad: number;
+  descripcion: string;
+  precioUnitario: number;
+  total: number;
+}
+
+export interface ReciboCompra {
+  // 'JSON' = reconstruido desde el DTE archivado (fiel al original). 'REGISTRO' = fallback
+  // con los datos ya guardados en COMPRA/DETALLE_COMPRA (no hay JSON archivado para esa compra).
+  fuente: 'JSON' | 'REGISTRO';
+  proveedor: string;
+  proveedorNombre: string;
+  proveedorNit: string;
+  proveedorDireccion: string;
+  proveedorTelefono: string;
+  numero: string;
+  numeroControl: string;
+  selloRecepcion: string;
+  tipoComprobante: string;
+  fecha: string;
+  lineas: ReciboCompraLinea[];
+  gravadas: number;
+  iva: number;
+  otrosImpuestos: number;
+  total: number;
 }
 
 export interface CompraManualForm {
@@ -87,6 +118,10 @@ export class ComprasService {
 
   updateCamposBulk(dtos: CompraUpdateCamposDto[]): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.api}/UpdateCamposBulk`, dtos);
+  }
+
+  getRecibo(correl: number): Observable<ReciboCompra> {
+    return this.http.get<ReciboCompra>(`${this.api}/${correl}/Recibo`);
   }
 
   eliminar(correl: number): Observable<{ message: string }> {

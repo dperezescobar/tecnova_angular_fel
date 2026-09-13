@@ -157,6 +157,10 @@
             </div>
             <div class="card-header-right">
               <span class="card-fecha">{{ compra.fecha }}</span>
+              <button type="button" class="btn-delete" (click)="verRecibo(compra)"
+                [disabled]="cargandoRecibo() === compra.correl" aria-label="Ver recibo">
+                <i [class]="'bi ' + (cargandoRecibo() === compra.correl ? 'bi-arrow-repeat' : 'bi-receipt')" aria-hidden="true"></i>
+              </button>
               <button type="button" class="btn-delete" (click)="eliminar(compra)" aria-label="Eliminar compra">
                 <i class="bi bi-trash" aria-hidden="true"></i>
               </button>
@@ -189,6 +193,13 @@
           </div>
 
           <div class="card-selects">
+            <div class="select-group">
+              <label>Fecha Libro</label>
+              <input type="date" class="date-input"
+                [attr.value]="compra.fechaLibro"
+                (change)="onFechaLibroChange(compra, $any($event.target).value)"
+                aria-label="Fecha Libro">
+            </div>
             <div class="select-group">
               <label>Clasificación</label>
               <select class="campo-select" [class.campo-ok]="compra.clasificacion > 0" [class.campo-pendiente]="compra.clasificacion === 0"
@@ -243,13 +254,13 @@
           <div class="form-field">
             <label>Fecha Compra <span class="req">*</span></label>
             <input type="date" class="date-input"
-              [value]="formManual().fecha"
+              [attr.value]="formManual().fecha"
               (change)="setManualField('fecha', $any($event.target).value)">
           </div>
           <div class="form-field">
             <label>Fecha Libro <span class="req">*</span></label>
             <input type="date" class="date-input"
-              [value]="formManual().fechaLibro"
+              [attr.value]="formManual().fechaLibro"
               (change)="setManualField('fechaLibro', $any($event.target).value)">
           </div>
         </div>

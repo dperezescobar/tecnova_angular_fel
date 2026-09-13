@@ -14,6 +14,7 @@ import {
   ProveedorLookup,
   CompraManualForm
 } from './registro-compra-json.service';
+import { ReciboCompraService } from './recibo-compra.service';
 
 interface CatalogOption { id: number; nombre: string; }
 
@@ -47,7 +48,7 @@ const OPTS_COSTO_GASTO: CatalogOption[] = [
   { id: 7, nombre: 'Mano de obra' }
 ];
 
-type OriginalMap = Map<number, { clasificacion: number; sector: number; codCostoGasto: number }>;
+type OriginalMap = Map<number, { clasificacion: number; sector: number; codCostoGasto: number; fechaLibro: string }>;
 
 @Component({
   selector: 'app-registro-compra-json',
@@ -59,7 +60,10 @@ type OriginalMap = Map<number, { clasificacion: number; sector: number; codCosto
 })
 export class RegistroCompraJsonComponent {
   private service = inject(ComprasService);
+  private reciboService = inject(ReciboCompraService);
   private toast = inject(MessageService);
+
+  cargandoRecibo = signal<number | null>(null);
 
   readonly optsClasificacion = OPTS_CLASIFICACION;
   readonly optsSector = OPTS_SECTOR;
@@ -132,7 +136,8 @@ export class RegistroCompraJsonComponent {
     return this.compras().filter(c => {
       const o = orig.get(c.correl);
       if (!o) return false;
-      return c.clasificacion !== o.clasificacion || c.sector !== o.sector || c.codCostoGasto !== o.codCostoGasto;
+      return c.clasificacion !== o.clasificacion || c.sector !== o.sector || c.codCostoGasto !== o.codCostoGasto
+        || c.fechaLibro !== o.fechaLibro;
     });
   });
 
@@ -148,7 +153,7 @@ export class RegistroCompraJsonComponent {
       next: data => {
         this.compras.set(data);
         const map: OriginalMap = new Map();
-        data.forEach(c => map.set(c.correl, { clasificacion: c.clasificacion, sector: c.sector, codCostoGasto: c.codCostoGasto }));
+        data.forEach(c => map.set(c.correl, { clasificacion: c.clasificacion, sector: c.sector, codCostoGasto: c.codCostoGasto, fechaLibro: c.fechaLibro }));
         this.originalValues.set(map);
         this.isLoading.set(false);
       },
@@ -229,6 +234,10 @@ export class RegistroCompraJsonComponent {
     this.compras.update(prev => prev.map(c => c.correl === compra.correl ? { ...c, [campo]: valor } : c));
   }
 
+  onFechaLibroChange(compra: CompraGridviewDto, valor: string) {
+    this.compras.update(prev => prev.map(c => c.correl === compra.correl ? { ...c, fechaLibro: valor } : c));
+  }
+
   guardarCambios() {
     const modificadas = this.comprasModificadas();
     if (!modificadas.length) return;
@@ -238,14 +247,15 @@ export class RegistroCompraJsonComponent {
       correl: c.correl,
       clasificacion: c.clasificacion,
       sector: c.sector,
-      codCostoGasto: c.codCostoGasto
+      codCostoGasto: c.codCostoGasto,
+      fechaLibro: c.fechaLibro
     }));
 
     this.service.updateCamposBulk(dtos).subscribe({
       next: () => {
         this.originalValues.update(map => {
           const newMap = new Map(map);
-          modificadas.forEach(c => newMap.set(c.correl, { clasificacion: c.clasificacion, sector: c.sector, codCostoGasto: c.codCostoGasto }));
+          modificadas.forEach(c => newMap.set(c.correl, { clasificacion: c.clasificacion, sector: c.sector, codCostoGasto: c.codCostoGasto, fechaLibro: c.fechaLibro }));
           return newMap;
         });
         this.toast.add({ severity: 'success', summary: 'Guardado', detail: `${modificadas.length} registro(s) actualizados.` });
@@ -261,7 +271,8 @@ export class RegistroCompraJsonComponent {
   esDirty(compra: CompraGridviewDto): boolean {
     const orig = this.originalValues().get(compra.correl);
     if (!orig) return false;
-    return compra.clasificacion !== orig.clasificacion || compra.sector !== orig.sector || compra.codCostoGasto !== orig.codCostoGasto;
+    return compra.clasificacion !== orig.clasificacion || compra.sector !== orig.sector || compra.codCostoGasto !== orig.codCostoGasto
+      || compra.fechaLibro !== orig.fechaLibro;
   }
 
   eliminar(compra: CompraGridviewDto) {
@@ -274,6 +285,43 @@ export class RegistroCompraJsonComponent {
       },
       error: err => this.toast.add({ severity: 'error', summary: 'Error', detail: err.message })
     });
+  }
+
+  verRecibo(compra: CompraGridviewDto) {
+    this.cargandoRecibo.set(compra.correl);
+    this.service.getRecibo(compra.correl).subscribe({
+      next: recibo => {
+        this.cargandoRecibo.set(null);
+        this.openDteVisualPreview(this.reciboService.buildDocumentoVisual(recibo));
+      },
+      error: err => {
+        this.cargandoRecibo.set(null);
+        const detail = err.error?.message ?? err.error ?? err.message ?? 'Error desconocido';
+        this.toast.add({ severity: 'error', summary: 'Error', detail });
+      }
+    });
+  }
+
+  private openDteVisualPreview(htmlCompleto: string) {
+    const popup = window.open('', '_blank');
+    if (!popup) {
+      this.toast.add({ severity: 'warn', summary: 'Recibo', detail: 'El navegador bloqueó la vista del recibo.' });
+      return;
+    }
+    const toolbarHtml = `
+      <div id="printToolbar" style="width:100%; text-align:center; padding:15px 0; background:#f8f9fa; border-bottom:1px solid #dee2e6; margin-bottom:20px; font-family:sans-serif;">
+        <button onclick="window.print()" style="padding:12px 25px; background:#023c8d; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          📥 Descargar / Imprimir
+        </button>
+      </div>
+      <style>@media print { #printToolbar { display:none !important; } body { margin:0; } }</style>
+    `;
+    const htmlFinal = htmlCompleto.includes('<body>')
+      ? htmlCompleto.replace('<body>', `<body>${toolbarHtml}`)
+      : `${toolbarHtml}${htmlCompleto}`;
+    popup.document.open();
+    popup.document.write(htmlFinal);
+    popup.document.close();
   }
 
   numeroCorto(numero: string): string {
