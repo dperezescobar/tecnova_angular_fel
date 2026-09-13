@@ -1,0 +1,92 @@
+<div class="pos-hib-config">
+  <h2>POS Híbrido — Recibos consolidables</h2>
+  <p class="hint">
+    Configuración opt-in por empresa. Mientras el interruptor esté apagado, el POS híbrido funciona
+    exactamente igual que hoy (una factura por venta, sin restricciones de rubro).
+  </p>
+
+  <div class="pos-hib-msg" *ngIf="mensaje() as m" [class.error]="m.tipo === 'error'" [class.ok]="m.tipo === 'ok'">
+    {{ m.texto }}
+  </div>
+
+  <div *ngIf="sinPermiso()" class="pos-hib-msg error">
+    Acceso restringido: solo un administrador puede ver y modificar esta configuración.
+  </div>
+
+  <ng-container *ngIf="!cargando() && !sinPermiso()">
+    <section class="card">
+      <h3>Interruptor maestro</h3>
+      <label class="switch-row">
+        <input type="checkbox" [ngModel]="activo()" (ngModelChange)="activo.set($event)" />
+        <span>Activar POS Híbrido (recibos consolidables) para esta empresa</span>
+      </label>
+      <button type="button" class="btn-primary" [disabled]="guardandoConfig()" (click)="guardarActivo()">
+        {{ guardandoConfig() ? 'Guardando…' : 'Guardar' }}
+      </button>
+    </section>
+
+    <section class="card">
+      <h3>Modo de documento por rubro</h3>
+      <p class="hint">
+        Rubros en <b>Factura directa</b> obligan a emitir factura de una vez (si se mezclan con
+        rubros de recibo en el mismo carrito, todo el ticket se factura). Rubros en <b>Recibo</b>
+        quedan aplicados y pendientes de facturar hasta que el admin los consolide.
+      </p>
+      <table class="pos-hib-table" *ngIf="rubros().length; else sinRubros">
+        <thead>
+          <tr><th>Rubro</th><th>Modo</th><th>Activo</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of rubros()">
+            <td>{{ r.descripcion }}</td>
+            <td>
+              <select [ngModel]="r.modoDocumento" (ngModelChange)="setModo(r.grupoInventario1, $event)">
+                <option value="FACTURA_DIRECTA">Factura directa</option>
+                <option value="RECIBO">Recibo</option>
+              </select>
+            </td>
+            <td class="c">
+              <input type="checkbox" [checked]="r.activo" (change)="toggleRubroActivo(r.grupoInventario1)" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #sinRubros><p class="hint">No se encontraron rubros en el catálogo (BOD01).</p></ng-template>
+      <button type="button" class="btn-primary" [disabled]="guardandoRubros() || !rubros().length" (click)="guardarRubros()">
+        {{ guardandoRubros() ? 'Guardando…' : 'Guardar rubros' }}
+      </button>
+    </section>
+
+    <section class="card">
+      <h3>Rubros permitidos por usuario</h3>
+      <p class="hint">
+        Sin restricción, un usuario ve todos los rubros (comportamiento actual). Al activar la
+        restricción, solo verá/facturará los rubros marcados.
+      </p>
+      <select class="usuario-select" [ngModel]="usuarioSel()" (ngModelChange)="seleccionarUsuario($event)">
+        <option value="">Seleccione un usuario…</option>
+        <option *ngFor="let u of usuarios()" [value]="u.usuario">{{ u.nombre || u.usuario }} ({{ u.usuario }})</option>
+      </select>
+
+      <ng-container *ngIf="usuarioSel()">
+        <label class="switch-row">
+          <input type="checkbox" [checked]="tieneRestriccion()" (change)="toggleRestriccion()" />
+          <span>Restringir rubros de {{ usuarioSel() }}</span>
+        </label>
+
+        <div class="rubro-checks" *ngIf="tieneRestriccion()">
+          <label *ngFor="let r of rubros()">
+            <input type="checkbox" [checked]="permitidos()[r.grupoInventario1]" (change)="toggleGrupoUsuario(r.grupoInventario1)" />
+            {{ r.descripcion }}
+          </label>
+        </div>
+
+        <button type="button" class="btn-primary" [disabled]="guardandoUsuario()" (click)="guardarUsuarioRubro()">
+          {{ guardandoUsuario() ? 'Guardando…' : 'Guardar rubros del usuario' }}
+        </button>
+      </ng-container>
+    </section>
+  </ng-container>
+
+  <div *ngIf="cargando()" class="hint">Cargando…</div>
+</div>

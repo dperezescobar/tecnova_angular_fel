@@ -1,11 +1,11 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, HostListener, OnDestroy, computed, effect, inject, signal, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, Subject, forkJoin, of } from 'rxjs';
 import { catchError, concatMap, finalize, map, switchMap, tap } from 'rxjs/operators';
 import { FacturacionService } from '../services/facturacion';
 import { ArticulosService } from '../../articulos/services/articulos';
-import { ArticuloPorBodegaDto, FacturaDetalleDto, FacturaGeneralDto, FormaPagoDto, PerfilClienteDto } from '../../../core/models/facturacion.models';
+import { ArticuloPorBodegaDto, FacturaDetalleDto, FacturaGeneralDto, FacturaTotalesDto, FormaPagoDto, PerfilClienteDto } from '../../../core/models/facturacion.models';
 import { AuthService } from '../../../core/services/auth';
 import { HttpClient } from '@angular/common/http';
 import { PosSignalRService } from '../../../core/services/pos-signalr.service';
@@ -15,6 +15,8 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { PosVentaService, PosVentaResultado, VentaKeys, PosLineaVenta, PosPago } from './pos-venta.service';
 import { PosTicketService } from './pos-ticket.service';
+import { PosHibridoConfigService } from './pos-hibrido-config.service';
+import { PosHibridoConfigDto, PosRubroConfigDto, PosUsuarioRubroDto } from '../../../core/models/facturacion.models';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 
@@ -26,10 +28,13 @@ interface CartItem {
   precio: number;
   precioOriginal?: number;
   tienePromocion?: boolean;
+  descuento?: number;
+  tipoDescuento?: string;
   cantidad: number;
   linea: number; // LINEA en el servidor (0 si aún no persistida)
   enAprobacion?: boolean;
   solicitudId?: number;
+  grupo?: string; // GRUPO_INVENTARIO_1 (para decidir FACTURA_DIRECTA vs RECIBO, ver PosHibridoConfig)
 }
 
 const GRUPO_SIN = '(Sin rubro)';
@@ -55,7 +60,7 @@ interface PagoLinea {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, DialogModule, ButtonModule, InputTextModule, ToastModule],
-  providers: [MessageService],
+  providers: [MessageService, PosVentaService],
   templateUrl: './pos-hibrido.html',
   styleUrls: ['./pos-hibrido.scss']
 })
@@ -65,6 +70,7 @@ export class PosHibridoComponent implements OnDestroy {
   private auth = inject(AuthService);
   private posVenta = inject(PosVentaService);
   private posTicket = inject(PosTicketService);
+  private posHibridoConfig = inject(PosHibridoConfigService);
   private http = inject(HttpClient);
   private messageService = inject(MessageService);
   public signalRService = inject(PosSignalRService);
@@ -76,21 +82,103 @@ export class PosHibridoComponent implements OnDestroy {
   motivoAjusteInput = signal<string>('');
   enviandoSolicitud = signal(false);
 
+  // Aprobación local con PIN (manager presente en la terminal, sin pasar por SignalR)
+  managersCaja = signal<{ usuario: string; nombre: string }[]>([]);
+  managerPinSel = signal<string>('');
+  pinLocalInput = signal<string>('');
+  aprobandoLocal = signal(false);
+
   // Modal Ingreso de Cantidad / Peso Fraccionado o Precio Cero
   modalCantidadVisible = signal(false);
   articuloCantSel = signal<ArticuloPorBodegaDto | null>(null);
   inputCantidadModal = signal<number>(1);
   inputPrecioModal = signal<number>(0);
 
+  // Edición de cantidad/peso de una línea ya en el carrito (vs. agregar artículo nuevo).
+  modoEdicionCantidad = signal(false);
+  private itemEditandoCantidad: CartItem | null = null;
+
+  // Teclado numérico en pantalla para el modal de Cantidad / Peso (independiente del de Cobro).
+  tecladoCantidadVisible = signal(true);
+  private bufferCant = signal<string>('');
+  private cantOverwrite = true;
+
+  // Listener de foco para re-enfocar el input si el modal sigue abierto
+  // cuando el usuario vuelve a la ventana del navegador tras cerrar el popup de impresión.
+  private _cantFocusListener: (() => void) | null = null;
+
+  private _focusCantInput(): void {
+    const el = document.querySelector<HTMLInputElement>('.pos-cant-dialog .pos-modal-cant-strong');
+    if (el) { el.focus(); el.select(); }
+  }
+
+  onModalCantShow(): void {
+    // Limpiar listener previo si quedó alguno
+    this._limpiarCantFocusListener();
+
+    // Intento inmediato (funciona cuando la ventana ya tiene el foco)
+    setTimeout(() => this._focusCantInput(), 80);
+
+    // Fallback: cuando el navegador recupere el foco del OS (tras cerrar popup de impresión),
+    // re-enfocar el input si el modal sigue abierto.
+    const handler = () => {
+      if (this.modalCantidadVisible()) {
+        setTimeout(() => this._focusCantInput(), 50);
+      }
+      this._limpiarCantFocusListener();
+    };
+    this._cantFocusListener = handler;
+    window.addEventListener('focus', handler);
+
+    // Seguridad: eliminar el listener luego de 30 s para no dejar basura
+    setTimeout(() => this._limpiarCantFocusListener(), 30_000);
+  }
+
+  private _limpiarCantFocusListener(): void {
+    if (this._cantFocusListener) {
+      window.removeEventListener('focus', this._cantFocusListener);
+      this._cantFocusListener = null;
+    }
+  }
+
   // Promociones Activas
   promociones = signal<Record<string, { tipo: string; valor: number }>>({});
 
-  private readonly bodega = 'BOD01'; // TODO: de la sucursal/punto de venta
+  // POS Híbrido - Fase 2 (opt-in). Sin PosHibridoConfig.Activo=1, todo se comporta como hoy.
+  private posHibConfig = signal<PosHibridoConfigDto>({ idEmpresa: 0, activo: false });
+  private posHibRubros = signal<PosRubroConfigDto[]>([]);
+  private posHibUsuarioRubros = signal<PosUsuarioRubroDto[]>([]);
+
+  @Input() set bodega(value: string) {
+    const b = (value || 'BOD01').trim();
+    if (this._bodega() !== b) {
+      this._bodega.set(b);
+      this.posVenta.setBodega(b);
+      this.cargar();
+    }
+  }
+  get bodega(): string {
+    return this._bodega();
+  }
+  private _bodega = signal<string>('BOD01');
+  @Input() @HostBinding('class.embedded') embedded = false;
 
   loading = signal(false);
   procesando = signal(false);        // cobro/cancelación en curso
   guardando = signal(false);         // op de línea/cliente en curso
+  ventaCompletada = signal(false);   // venta recién emitida (muestra botón Nueva venta)
   mensaje = signal<{ tipo: 'error' | 'ok'; texto: string } | null>(null);
+
+  nuevaVenta(): void {
+    this.ventaCompletada.set(false);
+    this.resetVenta();
+    this.mensaje.set(null);
+    this.vueltoUltimaVenta.set(null);
+  }
+
+  cerrarVueltoModal(): void {
+    this.vueltoUltimaVenta.set(null);
+  }
 
   confirmCancelar = signal(false);   // Fase B: diálogo "¿Cancelar venta?"
 
@@ -158,15 +246,26 @@ export class PosHibridoComponent implements OnDestroy {
   private requestedImg = new Set<string>();
   private objectUrls: string[] = [];
 
+  // Restringe el catálogo a los rubros permitidos del usuario (solo si la empresa activó el POS
+  // Híbrido Fase 2 y el usuario tiene filas explícitas en PosUsuarioRubro; si no, ve todo = hoy).
+  private articulosVisibles = computed<ArticuloPorBodegaDto[]>(() => {
+    const base = this.articulos();
+    if (!this.posHibConfig().activo) return base;
+    const misRubros = this.posHibUsuarioRubros();
+    if (!misRubros.length) return base;
+    const permitidos = new Set(misRubros.filter((r) => r.permitido).map((r) => r.grupoInventario1));
+    return base.filter((a) => permitidos.has((a.GRUPO_COD ?? '').trim()));
+  });
+
   grupos = computed<string[]>(() => {
     const set = new Set<string>();
-    for (const a of this.articulos()) set.add((a.GRUPO_DESC ?? '').trim() || GRUPO_SIN);
+    for (const a of this.articulosVisibles()) set.add((a.GRUPO_DESC ?? '').trim() || GRUPO_SIN);
     return Array.from(set).sort((x, y) => x.localeCompare(y));
   });
   private filtrados = computed<ArticuloPorBodegaDto[]>(() => {
     const grupo = this.grupoActivo();
     const q = this.filtro().trim().toLowerCase();
-    return this.articulos().filter((a) => {
+    return this.articulosVisibles().filter((a) => {
       const g = (a.GRUPO_DESC ?? '').trim() || GRUPO_SIN;
       if (grupo && g !== grupo) return false;
       if (!q) return true;
@@ -177,8 +276,48 @@ export class PosHibridoComponent implements OnDestroy {
   visibles = computed<ArticuloPorBodegaDto[]>(() => this.filtrados().slice(0, this.visibleCount()));
   hayMas = computed(() => this.visibleCount() < this.filtrados().length);
 
+  dbTotales = signal<FacturaTotalesDto | null>(null);
+
   totalUnidades = computed(() => this.cart().reduce((acc, i) => acc + i.cantidad, 0));
-  totalFactura = computed(() => this.cart().reduce((acc, i) => acc + this.subtotalLinea(i), 0));
+
+  // Subtotal bruto (antes de descuentos, IVA incluido). Coherente en ambas rutas: bruto = total + descuento.
+  subtotalBrutoTotal = computed(() => {
+    const db = this.dbTotales();
+    if (db !== null) {
+      return this.redondear(this.toNumber(db.TOTAL_FACTURA) + this.descuentoOfertaTotal());
+    }
+    return this.redondear(this.cart().reduce((acc, i) => acc + this.subtotalLinea(i), 0));
+  });
+
+  // Descuento por PROMOCIÓN/OFERTA = descuentos POR ARTÍCULO (DETALLE_FACTURA.Descuento, aplicados
+  // server-side vía Inventario.ArticuloDescuento en Update_DetalleFactura). NO usa DescuentoAdicional:
+  // ese campo es exclusivo para un descuento GLOBAL de la factura (p.ej. 10% sobre toda la compra),
+  // que el POS no maneja hoy y por eso siempre viaja en 0 (se incluye por si a futuro existiera).
+  descuentoOfertaTotal = computed(() => {
+    const db = this.dbTotales();
+    if (db !== null) {
+      return this.redondear(this.toNumber(db.DESCUENTO) + this.toNumber(db.DescuentoAdicional));
+    }
+    // Sin persistir aún (línea no persistida): estimación local basada en promociones vigentes.
+    return this.redondear(this.cart().reduce((acc, i) => acc + this.getDescuentoLinea(i), 0));
+  });
+
+  totalFactura = computed(() => {
+    const db = this.dbTotales();
+    const dbTotal = db ? this.toNumber(db.TOTAL_FACTURA) : 0;
+    const computedTotal = this.redondear(Math.max(0, this.subtotalBrutoTotal() - this.descuentoOfertaTotal()));
+    return dbTotal > 0 ? dbTotal : computedTotal;
+  });
+
+  getDescuentoLinea(item: CartItem): number {
+    const promo = this.getPromo(item.articulo);
+    if (!promo || promo.valor <= 0) return 0;
+    const subtotalBruto = this.redondear(item.precio * item.cantidad);
+    if (promo.tipo === 'P') {
+      return this.redondear(subtotalBruto * (promo.valor / 100));
+    }
+    return this.redondear(promo.valor * item.cantidad);
+  }
 
   // Líneas con existencia insuficiente (solo tipos que mueven inventario).
   hayFaltantes = computed(() => this.cart().some((i) => this.lineaInsuficiente(i)));
@@ -193,9 +332,22 @@ export class PosHibridoComponent implements OnDestroy {
   );
   cobroValido = computed(() => this.cart().length > 0 && Math.abs(this.pendienteCobro()) <= 0.009 && this.totalFactura() > 0);
 
+  // POS Híbrido - Fase 2: modo de documento para el carrito actual (ver PosHibridoConfigService).
+  // 'FACTURA_DIRECTA' siempre que el feature esté apagado para la empresa (comportamiento de hoy).
+  modoDocumentoCarrito = computed<'FACTURA_DIRECTA' | 'RECIBO'>(() => {
+    const grupos = Array.from(new Set(this.cart().map((i) => (i.grupo ?? '').trim()).filter(Boolean)));
+    return this.posHibridoConfig.resolverModo(this.posHibConfig(), this.posHibRubros(), grupos);
+  });
+  esVentaRecibo = computed(() => this.posHibConfig().activo && this.modoDocumentoCarrito() === 'RECIBO');
+
   preciosAprobados = signal<Record<string, number>>({});
 
+  // Vuelto de la última venta cobrada: se captura antes de resetVenta() (que limpia pagos(), de donde
+  // sale el cálculo) para que el cajero lo siga viendo aunque el panel de cobro ya se haya cerrado.
+  vueltoUltimaVenta = signal<number | null>(null);
+
   constructor() {
+    this.posVenta.setBodega(this.bodega);
     this.cargar();
     this.cargarClientes();
     this.signalRService.iniciarConexion(CAJA_ID, false);
@@ -204,18 +356,32 @@ export class PosHibridoComponent implements OnDestroy {
       next: (rows) => this.formasPago.set(rows ?? []),
       error: () => this.formasPago.set([])
     });
+
+    // POS Híbrido - Fase 2: config opt-in. Cualquier falla de red deja los defaults (feature off).
+    this.posHibridoConfig.getConfig().subscribe({ next: (c) => this.posHibConfig.set(c) });
+    this.posHibridoConfig.getRubroConfig().subscribe({ next: (r) => this.posHibRubros.set(r ?? []) });
+    const usuarioActual = String(this.auth.currentUser()?.username ?? '').trim();
+    if (usuarioActual) {
+      this.posHibridoConfig.getUsuarioRubro(usuarioActual).subscribe({ next: (r) => this.posHibUsuarioRubros.set(r ?? []) });
+    }
     effect(() => { for (const a of this.visibles()) this.cargarImagen(a); });
 
     effect(() => {
       const res = this.signalRService.respuestaAjusteSignal();
       if (!res) return;
 
-      // La respuesta solo aplica si la solicitud pertenece a una línea de ESTE carrito.
-      // (Evita que una aprobación de otra caja del mismo grupo altere precios aquí.)
-      const target = this.cart().find((i) => i.solicitudId === res.solicitudID);
+      // La respuesta solo aplica a una línea de ESTE carrito: por solicitud, con respaldo por artículo
+      // "en revisión" (la entrega ya está aislada por caja+empresa, así que el respaldo es seguro).
+      const resArt = String(res.articuloID ?? '').trim().toUpperCase();
+      const target = this.cart().find((i) => i.solicitudId === res.solicitudID)
+        ?? this.cart().find((i) => i.enAprobacion === true && String(i.articulo ?? '').trim().toUpperCase() === resArt);
       if (!target) return;
 
       const artCode = String(target.articulo ?? '').trim().toUpperCase();
+      const coincide = (i: CartItem) =>
+        i.solicitudId === res.solicitudID
+        || (i.enAprobacion === true && String(i.articulo ?? '').trim().toUpperCase() === artCode);
+
       if (res.aprobado) {
         this.preciosAprobados.update((m) => ({ ...m, [artCode]: res.precioFinal }));
       }
@@ -223,7 +389,7 @@ export class PosHibridoComponent implements OnDestroy {
       let itemAprobado: CartItem | null = null;
       this.cart.update((items) =>
         items.map((item) => {
-          if (item.solicitudId !== res.solicitudID) return item;
+          if (!coincide(item)) return item;
           if (res.aprobado) {
             itemAprobado = { ...item, precio: res.precioFinal, enAprobacion: false, solicitudId: undefined };
             return itemAprobado;
@@ -232,19 +398,10 @@ export class PosHibridoComponent implements OnDestroy {
         })
       );
 
-      if (res.aprobado && itemAprobado) {
-        const item: CartItem = itemAprobado;
+      if (res.aprobado) {
         const keys = this.ventaKeys();
         if (keys) {
-          const l: PosLineaVenta = {
-            articulo: item.articulo,
-            descripcion: item.descripcion,
-            unidad: item.unidad,
-            precio: item.precio,
-            cantidad: item.cantidad,
-            linea: item.linea
-          };
-          this.encolar(() => this.posVenta.actualizarCantidad(keys, l).pipe(switchMap(() => this.sync$(keys))));
+          this.encolar(() => this.sync$(keys));
         }
       }
 
@@ -260,6 +417,7 @@ export class PosHibridoComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this._limpiarCantFocusListener();
     this.objectUrls.forEach((u) => URL.revokeObjectURL(u));
     this.cola$.complete();
     this.signalRService.detenerConexion();
@@ -270,12 +428,90 @@ export class PosHibridoComponent implements OnDestroy {
     this.ajusteItemSel.set(item);
     this.precioSolicitadoInput.set(item.precio);
     this.motivoAjusteInput.set('Discrepancia en etiqueta física');
+    this.managerPinSel.set('');
+    this.pinLocalInput.set('');
     this.ajusteModalAbierto.set(true);
+    this.cargarManagersCaja();
   }
 
   cerrarAjusteModal(): void {
     this.ajusteModalAbierto.set(false);
     this.ajusteItemSel.set(null);
+    this.managerPinSel.set('');
+    this.pinLocalInput.set('');
+  }
+
+  cargarManagersCaja(): void {
+    this.http.get<{ usuario: string; nombre: string }[]>(`${environment.apiUrl}/promociones/managers-caja`)
+      .subscribe({
+        next: (rows) => this.managersCaja.set(rows ?? []),
+        error: () => this.managersCaja.set([])
+      });
+  }
+
+  // Manager presente en la terminal: aprueba con su PIN en una sola llamada, sin pasar por SignalR/PENDIENTE.
+  aprobarPrecioLocal(): void {
+    const item = this.ajusteItemSel();
+    if (!item || this.aprobandoLocal()) return;
+
+    const manager = this.managerPinSel();
+    const pin = this.pinLocalInput().trim();
+    if (!manager || !/^\d{4,6}$/.test(pin)) {
+      this.messageService.add({ severity: 'error', summary: 'PIN de autorización', detail: 'Seleccione un manager e ingrese su PIN.' });
+      return;
+    }
+
+    this.aprobandoLocal.set(true);
+    const keys = this.ventaKeys();
+    const precioFinal = Number(this.precioSolicitadoInput()) || item.precio;
+    const body = {
+      cajaID: CAJA_ID,
+      usuarioManager: manager,
+      pin,
+      articuloID: item.articulo,
+      articuloDescripcion: item.descripcion,
+      precioSistema: item.precio,
+      precioSolicitado: precioFinal,
+      motivo: this.motivoAjusteInput().trim() || 'Ajuste de precio en caja',
+      idFactura: keys?.idFactura ?? 0,
+      prefijo: keys?.prefijo ?? '',
+      factura: keys?.factura ?? '',
+      sucursal: keys?.sucursal ?? '',
+      puntoVenta: keys?.puntoVenta ?? '',
+      tipoFactura: 'FAC'
+    };
+
+    this.http.post<{ precioFinal: number; usuarioAprobo: string }>(`${environment.apiUrl}/promociones/aprobar-precio-local`, body)
+      .pipe(finalize(() => this.aprobandoLocal.set(false)))
+      .subscribe({
+        next: (res) => {
+          const artCode = String(item.articulo ?? '').trim().toUpperCase();
+          this.preciosAprobados.update((m) => ({ ...m, [artCode]: res.precioFinal }));
+
+          this.cart.update((items) =>
+            items.map((i) => {
+              if (i.articulo !== item.articulo) return i;
+              return { ...i, precio: res.precioFinal, enAprobacion: false, solicitudId: undefined };
+            })
+          );
+
+          if (keys) {
+            this.encolar(() => this.sync$(keys));
+          }
+
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Ajuste Aprobado',
+            detail: `Ajuste APROBADO por ${res.usuarioAprobo}: $${res.precioFinal.toFixed(2)}`,
+            life: 6000
+          });
+          this.cerrarAjusteModal();
+        },
+        error: (err) => {
+          const msg = this.sanearMensaje(err);
+          this.messageService.add({ severity: 'error', summary: 'PIN de autorización', detail: msg, life: 7000 });
+        }
+      });
   }
 
   enviarSolicitudAjuste(): void {
@@ -310,7 +546,7 @@ export class PosHibridoComponent implements OnDestroy {
           this.messageService.add({
             severity: 'success',
             summary: 'Solicitud Enviada',
-            detail: 'Solicitud enviada al manager vía SignalR. Esperando respuesta...',
+            detail: 'Solicitud enviada al manager. Esperando respuesta...',
             life: 5000
           });
           this.cerrarAjusteModal();
@@ -425,15 +661,16 @@ export class PosHibridoComponent implements OnDestroy {
   abrirClientePicker(): void { this.clienteBusqueda.set(''); this.clientePickerAbierto.set(true); }
   cerrarClientePicker(): void { this.clientePickerAbierto.set(false); }
 
-  // Cambiar cliente => si ya hay borrador, guardar encabezado y recargar detalle:
-  // el motor reprice (mayoreo/preferencial) y el carrito muestra los precios actualizados.
   seleccionarCliente(c: PerfilClienteDto | null): void {
     this.clienteSel.set(c);
     this.clientePickerAbierto.set(false);
     const keys = this.ventaKeys();
     if (keys && this.cart().length) {
       const efectivo = this.clienteEfectivo();
-      this.encolar(() => this.posVenta.guardarEncabezado(keys, efectivo).pipe(switchMap(() => this.sync$(keys))));
+      // Sin descuento en cabecera: las promociones son POR ARTÍCULO y las aplica el servidor
+      // (ArticuloDescuento en Update_DetalleFactura). Enviarlas también aquí las duplicaría.
+      // DescuentoAdicional queda reservado para un descuento GLOBAL manual (no implementado en POS).
+      this.encolar(() => this.posVenta.guardarEncabezado(keys, efectivo, 0).pipe(switchMap(() => this.sync$(keys))));
     }
   }
 
@@ -448,34 +685,134 @@ export class PosHibridoComponent implements OnDestroy {
   }
 
   abrirModalCantidad(a: ArticuloPorBodegaDto): void {
+    if (this.ventaCompletada()) {
+      this.nuevaVenta();
+    }
+    this.modoEdicionCantidad.set(false);
+    this.itemEditandoCantidad = null;
     this.articuloCantSel.set(a);
-    const p = this.toNumber(a.ULTIMO_PRECIO);
-    this.inputPrecioModal.set(p > 0 ? p : 0);
+    const codigo = (a.ARTICULO ?? '').trim();
+    const artCode = codigo.toUpperCase();
+    const precioAprobado = this.preciosAprobados()[artCode];
+    const base = precioAprobado != null && precioAprobado > 0 ? precioAprobado : this.toNumber(a.ULTIMO_PRECIO);
+    const promoPrecio = precioAprobado != null && precioAprobado > 0 ? precioAprobado : this.getPrecioFinal(codigo, base);
+    this.inputPrecioModal.set(promoPrecio > 0 ? promoPrecio : 0);
     this.inputCantidadModal.set(1);
+    this.seedBufferCant(1);
+    this.modalCantidadVisible.set(true);
+  }
+
+  // Editar la cantidad/peso de una línea que ya está en el carrito (botón "-" en unidades fraccionadas).
+  abrirModalPesoParaEditar(item: CartItem): void {
+    this.modoEdicionCantidad.set(true);
+    this.itemEditandoCantidad = item;
+    this.articuloCantSel.set({
+      ARTICULO: item.articulo,
+      DESCRIPCION: item.descripcion,
+      TIPO_ARTICULO: item.tipoArticulo,
+      ULTIMO_PRECIO: item.precio,
+      TIENE_IMAGEN: false,
+      PRECIO_MAYOREO: 0,
+      cantidadmayoreo: 0,
+      UNIDAD_MEDIDA: item.unidad
+    });
+    this.inputPrecioModal.set(0);
+    this.inputCantidadModal.set(item.cantidad);
+    this.seedBufferCant(item.cantidad);
     this.modalCantidadVisible.set(true);
   }
 
   cerrarModalCantidad(): void {
+    this._limpiarCantFocusListener();
     this.modalCantidadVisible.set(false);
     this.articuloCantSel.set(null);
+    this.modoEdicionCantidad.set(false);
+    this.itemEditandoCantidad = null;
   }
 
   setCantPreset(val: number): void {
     this.inputCantidadModal.set(val);
+    this.seedBufferCant(val);
   }
 
   confirmarAgregarConCantidad(): void {
-    const a = this.articuloCantSel();
     const cant = this.inputCantidadModal();
-    const precioCustom = this.inputPrecioModal();
+
+    if (this.modoEdicionCantidad()) {
+      const item = this.itemEditandoCantidad;
+      this.cerrarModalCantidad();
+      if (item) this.cambiarCantidad(item, cant);
+      return;
+    }
+
+    const a = this.articuloCantSel();
+    // Solo enviar precioCustom si el artículo NO tiene precio de catálogo (esPrecioCero),
+    // para evitar sobrescribir la promoción activa con el precio base.
+    const precioCustom = this.esPrecioCero(a?.ULTIMO_PRECIO) ? this.inputPrecioModal() : undefined;
     this.cerrarModalCantidad();
     if (a && cant > 0) {
-      this.ejecutarAgregar(a, cant, precioCustom > 0 ? precioCustom : undefined);
+      this.ejecutarAgregar(a, cant, precioCustom && precioCustom > 0 ? precioCustom : undefined);
     }
+  }
+
+  // ── Teclado numérico en pantalla del modal de Cantidad / Peso ──────────────
+  toggleTecladoCant(): void { this.tecladoCantidadVisible.update((v) => !v); }
+
+  private seedBufferCant(valorInicial: number): void {
+    this.bufferCant.set(valorInicial > 0 ? this.numeroABuffer(valorInicial) : '');
+    this.cantOverwrite = true;
+  }
+
+  textoCant(): string {
+    return this.bufferCant() === '' ? '0' : this.bufferCant();
+  }
+
+  // El input manual y el teclado en pantalla comparten el mismo signal; al escribir a mano
+  // se resincroniza el buffer para que el teclado continúe (no reemplace) desde ese valor.
+  onCantInputChange(valor: number): void {
+    this.inputCantidadModal.set(valor);
+    this.bufferCant.set(valor > 0 ? this.numeroABuffer(valor) : '');
+    this.cantOverwrite = false;
+  }
+
+  teclaCant(d: string): void {
+    let buf = this.cantOverwrite ? '' : this.bufferCant();
+    if (buf.includes('.')) {
+      const dec = buf.split('.')[1] ?? '';
+      if (dec.length >= 2) return; // máximo 2 decimales
+    }
+    if (buf.replace('.', '').length >= 7) return; // límite defensivo
+    buf = buf === '0' && d !== '.' ? d : buf + d;
+    this.bufferCant.set(buf);
+    this.cantOverwrite = false;
+    this.inputCantidadModal.set(this.toNumber(buf));
+  }
+
+  teclaPuntoCant(): void {
+    let buf = this.cantOverwrite ? '' : this.bufferCant();
+    if (!buf.includes('.')) buf = (buf === '' ? '0' : buf) + '.';
+    this.bufferCant.set(buf);
+    this.cantOverwrite = false;
+    this.inputCantidadModal.set(this.toNumber(buf));
+  }
+
+  teclaBorrarCant(): void {
+    this.cantOverwrite = false;
+    this.bufferCant.update((b) => b.slice(0, -1));
+    this.inputCantidadModal.set(this.bufferCant() === '' ? 0 : this.toNumber(this.bufferCant()));
+  }
+
+  teclaLimpiarCant(): void {
+    this.cantOverwrite = false;
+    this.bufferCant.set('');
+    this.inputCantidadModal.set(0);
   }
 
   // ── Carrito (persist-as-you-go) ─────────────────────────────────────────────
   agregar(a: ArticuloPorBodegaDto): void {
+    if (this.ventaCompletada()) {
+      this.nuevaVenta();
+    }
     const precioBase = this.toNumber(a.ULTIMO_PRECIO);
     if (this.esUnidadFraccionada(a.UNIDAD_MEDIDA) || precioBase <= 0) {
       this.abrirModalCantidad(a);
@@ -488,12 +825,13 @@ export class PosHibridoComponent implements OnDestroy {
     const codigo = (a.ARTICULO ?? '').trim();
     if (!codigo) return;
     this.loadExistencia(codigo);
-    // Precio NETO que se PERSISTE: precio manual si se ingresó; si no, el precio de catálogo con la
-    // promoción ya aplicada. Así el total del servidor (factura/DTE/pagos) coincide con lo que ve el
-    // cajero — la promo deja de ser solo un cálculo de pantalla.
-    const precioNeto = precioCustom != null && precioCustom > 0
+    const artCode = codigo.toUpperCase();
+    const precioAprobado = this.preciosAprobados()[artCode];
+    // MODELO B: En la línea del detalle se persiste el precio base de catálogo (o el precio manual libre/aprobado).
+    // El descuento acumulado por promociones se calcula a nivel global y se envía en DescuentoAdicional de la cabecera.
+    const precioBase = precioCustom != null && precioCustom > 0
       ? precioCustom
-      : this.getPrecioFinal(codigo, this.toNumber(a.ULTIMO_PRECIO));
+      : (precioAprobado != null && precioAprobado > 0 ? precioAprobado : this.toNumber(a.ULTIMO_PRECIO));
 
     this.encolar(() =>
       this.ensureBorrador$().pipe(
@@ -501,15 +839,27 @@ export class PosHibridoComponent implements OnDestroy {
           const existente = this.cart().find((i) => i.articulo === codigo);
           if (existente) {
             const cantNueva = this.redondear(existente.cantidad + cantidad);
-            const precioLinea = precioCustom != null && precioCustom > 0 ? precioCustom : existente.precio;
+            const precioLinea = precioCustom != null && precioCustom > 0
+              ? precioCustom
+              : (precioAprobado != null && precioAprobado > 0 ? precioAprobado : existente.precio);
             const l: PosLineaVenta = { articulo: codigo, descripcion: existente.descripcion, unidad: existente.unidad, precio: precioLinea, cantidad: cantNueva, linea: existente.linea };
             return this.posVenta.actualizarCantidad(keys, l).pipe(switchMap(() => this.sync$(keys)));
           }
-          const nueva: PosLineaVenta = { articulo: codigo, descripcion: (a.DESCRIPCION ?? '').trim(), unidad: (a.UNIDAD_MEDIDA ?? '').trim(), precio: precioNeto, cantidad: cantidad };
+          const nueva: PosLineaVenta = { articulo: codigo, descripcion: (a.DESCRIPCION ?? '').trim(), unidad: (a.UNIDAD_MEDIDA ?? '').trim(), precio: precioBase, cantidad: cantidad };
           return this.posVenta.agregarLinea(keys, nueva).pipe(switchMap(() => this.sync$(keys)));
         })
       )
     );
+  }
+
+  // Botón "-" de la línea: unidad entera → resta 1; unidad fraccionada (peso) → abre el modal para reingresar el peso exacto.
+  disminuirCantidad(item: CartItem): void {
+    if (item.enAprobacion) return;
+    if (this.esUnidadFraccionada(item.unidad)) {
+      this.abrirModalPesoParaEditar(item);
+      return;
+    }
+    this.cambiarCantidad(item, Math.max(0, this.redondear(item.cantidad - 1)));
   }
 
   cambiarCantidad(item: CartItem, valor: number | string): void {
@@ -565,7 +915,9 @@ export class PosHibridoComponent implements OnDestroy {
 
   existenciaDe(articulo: string): number | null {
     const cod = (articulo ?? '').trim();
-    return cod in this.existencias() ? this.existencias()[cod] : null;
+    if (!(cod in this.existencias())) return null;
+    // El sistema puede quedar con existencia negativa (ventas sin reposición); no se muestra así al cajero.
+    return Math.max(0, this.existencias()[cod]);
   }
 
   // Insuficiente solo si el tipo mueve inventario y la existencia conocida no cubre la cantidad.
@@ -796,11 +1148,16 @@ export class PosHibridoComponent implements OnDestroy {
     this.mensaje.set(null);
     this.cobroAbierto.set(false);
     const cliente = this.clienteEfectivo();
-    this.posVenta.finalizar(keys, cliente, pagos)
+    const modo = this.modoDocumentoCarrito();
+    this.posVenta.finalizar(keys, cliente, pagos, modo)
       .pipe(finalize(() => this.procesando.set(false)))
       .subscribe({
         next: (res) => {
-          this.imprimirTicket(res).then((impreso) => {
+          // Se lee ANTES de resetVenta() (que limpia pagos(), fuente del cálculo).
+          const vueltoFinal = this.vuelto();
+          this.vueltoUltimaVenta.set(vueltoFinal > 0.009 ? vueltoFinal : null);
+
+          this.imprimirTicket(res, vueltoFinal, modo === 'RECIBO').then((impreso) => {
             if (!impreso) {
               this.messageService.add({ severity: 'warn', summary: 'Impresión bloqueada', detail: 'El navegador bloqueó la ventana del ticket. Habilite las ventanas emergentes y reimprima desde el historial.', life: 9000 });
             }
@@ -808,9 +1165,14 @@ export class PosHibridoComponent implements OnDestroy {
           // El historial (facturasGeneral) está cacheado; invalidar para que la venta recién hecha aparezca.
           this.facturacionService.clearFacturasGeneralCache();
           this.resetVenta();
+          this.ventaCompletada.set(true);
 
           if (res.emitido) {
             this.mensaje.set({ tipo: 'ok', texto: 'Factura emitida e impresa.' });
+          } else if (modo === 'RECIBO') {
+            // Esperado: los rubros de este ticket están configurados como recibo. No es un error;
+            // el admin lo incluirá luego en una factura consolidada (Cierre de Recibos).
+            this.mensaje.set({ tipo: 'ok', texto: 'Recibo registrado y cobrado. Pendiente de facturar (Cierre de Recibos).' });
           } else {
             // C2: quedó aplicada y pagada, pero el DTE NO se transmitió a Hacienda. No es un éxito limpio.
             this.mensaje.set({ tipo: 'error', texto: 'Venta cobrada y aplicada, pero el DTE NO se transmitió a Hacienda. Emítalo desde Facturación (documento pendiente de emisión).' });
@@ -843,13 +1205,43 @@ export class PosHibridoComponent implements OnDestroy {
     return this.posVenta.crearBorrador(this.clienteEfectivo()).pipe(tap((k) => this.ventaKeys.set(k)));
   }
 
+  private cargarPromociones(): Observable<Record<string, { tipo: string; valor: number }>> {
+    return this.http.get<any[]>(`${environment.apiUrl}/GestionPrecios/promociones`).pipe(
+      map((rows) => {
+        const map: Record<string, { tipo: string; valor: number }> = {};
+        (rows || []).forEach((p) => {
+          if (p.activo && (p.estado === 'Activa' || p.estado === 'Activo') && p.articulo) {
+            map[p.articulo.trim().toUpperCase()] = { tipo: p.tipoDescuento || 'P', valor: Number(p.valorDescuento) || 0 };
+          }
+        });
+        return map;
+      }),
+      catchError(() => of(this.promociones()))   // si falla, conserva las actuales
+    );
+  }
+
   private sync$(keys: VentaKeys): Observable<unknown> {
-    return this.posVenta.cargarDetalle(keys).pipe(tap((detalle) => this.cart.set(this.mapDetalle(detalle))));
+    return forkJoin({
+      detalle: this.posVenta.cargarDetalle(keys),
+      totales: keys.idFactura ? this.posVenta.cargarTotales(keys.idFactura) : of(null),
+      promos:  this.cargarPromociones()         // refresca promos en cada sync para capturar cambios del admin
+    }).pipe(
+      tap(({ detalle, totales, promos }) => {
+        this.promociones.set(promos);            // actualiza primero, antes del cart (influye en badges)
+        this.cart.set(this.mapDetalle(detalle));
+        if (totales) {
+          this.dbTotales.set(totales);
+        }
+      })
+    );
   }
 
   private mapDetalle(detalle: FacturaDetalleDto[]): CartItem[] {
     const aprobados = this.preciosAprobados();
     const previo = this.cart();
+    // Catálogo COMPLETO (no articulosVisibles, que puede estar recortado por permisos de usuario):
+    // clasificar el rubro de una línea ya vendida no debe depender de qué ve el cajero hoy.
+    const catalogo = this.articulos();
     return (detalle ?? []).map((d) => {
       const articulo = String(d.ARTICULO ?? '').trim();
       const linea = this.toNumber(d.LINEA);
@@ -858,16 +1250,22 @@ export class PosHibridoComponent implements OnDestroy {
       const anterior = previo.find((p) => p.linea === linea && p.articulo === articulo)
         ?? previo.find((p) => p.articulo === articulo);
       const precioApproved = artCode in aprobados ? aprobados[artCode] : this.toNumber(d.PRECIO_UNITARIO);
+      const grupo = catalogo.find((a) => (a.ARTICULO ?? '').trim().toUpperCase() === artCode)?.GRUPO_COD?.trim() || anterior?.grupo;
       return {
         articulo,
         descripcion: String(d.DESCRIPCION ?? '').trim(),
         unidad: String(d.UNIDAD_MEDIDA ?? '').trim(),
-        tipoArticulo: String(d.TIPO_ARTICULO ?? '').trim().toUpperCase(),
+        tipoArticulo: anterior?.tipoArticulo ?? '',
         precio: precioApproved,
+        precioOriginal: anterior?.precioOriginal,
+        tienePromocion: anterior?.tienePromocion,
+        descuento: this.toNumber(d.Descuento),
+        tipoDescuento: String(d.TipoDescuento ?? '').trim(),
         cantidad: this.toNumber(d.CANTIDAD),
         linea,
         enAprobacion: anterior?.enAprobacion,
-        solicitudId: anterior?.solicitudId
+        solicitudId: anterior?.solicitudId,
+        grupo
       };
     });
   }
@@ -894,6 +1292,7 @@ export class PosHibridoComponent implements OnDestroy {
   private resetVenta(): void {
     this.ventaKeys.set(null);
     this.cart.set([]);
+    this.dbTotales.set(null);
     this.preciosAprobados.set({});
     this.clienteSel.set(null);
     this.pagos.set([]);
@@ -904,12 +1303,14 @@ export class PosHibridoComponent implements OnDestroy {
     this.masFormasAbierto.set(false);
   }
 
-  private imprimirTicket(res: PosVentaResultado): Promise<boolean> {
+  private imprimirTicket(res: PosVentaResultado, vuelto?: number, esRecibo: boolean = false): Promise<boolean> {
     return this.armarEImprimir(
       (res.cliente?.NOMBRE ?? '').trim() || 'Consumidor Final',
       this.fechaISO(),
       res.detalle ?? [],
-      res.emitido ? { ambiente: res.ambiente, codGeneracion: res.keys.codGeneracion, numeroControl: res.numeroControl, selloRecepcion: res.selloRecepcion, fechaEmi: this.fechaISO() } : undefined
+      res.emitido ? { ambiente: res.ambiente, codGeneracion: res.keys.codGeneracion, numeroControl: res.numeroControl, selloRecepcion: res.selloRecepcion, fechaEmi: this.fechaISO() } : undefined,
+      vuelto,
+      esRecibo
     );
   }
 
@@ -917,7 +1318,9 @@ export class PosHibridoComponent implements OnDestroy {
     clienteNombre: string,
     fecha: string,
     detalle: FacturaDetalleDto[],
-    dte?: { ambiente: string; codGeneracion: string; numeroControl: string; selloRecepcion: string; fechaEmi: string }
+    dte?: { ambiente: string; codGeneracion: string; numeroControl: string; selloRecepcion: string; fechaEmi: string },
+    vuelto?: number,
+    esRecibo: boolean = false
   ): Promise<boolean> {
     const empresa = this.auth.currentUser()?.selectedEmpresa;
     const logoRaw = String(empresa?.logo ?? '').trim();
@@ -932,13 +1335,26 @@ export class PosHibridoComponent implements OnDestroy {
     const lineas = (detalle ?? []).map((dl) => {
       const cantidad = this.toNumber(dl.CANTIDAD);
       const precio = this.toNumber(dl.PRECIO_UNITARIO);
-      return { cantidad, unidad: String(dl.UNIDAD_MEDIDA ?? '').trim(), descripcion: String(dl.DESCRIPCION ?? '').trim(), precio, total: this.redondear(cantidad * precio) };
+      const descuento = this.toNumber(dl.Descuento);
+      const bruto = cantidad * precio;
+      const total = this.redondear(bruto - descuento);
+      return {
+        cantidad, unidad: String(dl.UNIDAD_MEDIDA ?? '').trim(), descripcion: String(dl.DESCRIPCION ?? '').trim(),
+        precio, total,
+        descuento: descuento > 0 ? this.redondear(descuento) : undefined,
+        tipoDescuento: String(dl.TipoDescuento ?? '').trim() || undefined
+      };
     });
+    const subtotalBruto = lineas.reduce((a, l) => a + (l.total + (l.descuento ?? 0)), 0);
+    const descuentoTotal = lineas.reduce((a, l) => a + (l.descuento ?? 0), 0);
     const total = lineas.reduce((a, l) => a + l.total, 0);
 
     return this.posTicket.imprimir({
       nombreEmpresa: String(empresa?.nombreComercial || empresa?.nombre || 'EMPRESA'),
-      logoSrc, clienteNombre, fecha, lineas, total, dte
+      logoSrc, clienteNombre, fecha, lineas,
+      subtotalBruto: this.redondear(subtotalBruto), descuentoTotal: this.redondear(descuentoTotal), total: this.redondear(total),
+      vuelto: vuelto && vuelto > 0.009 ? this.redondear(vuelto) : undefined,
+      dte, esRecibo
     });
   }
 
@@ -962,9 +1378,15 @@ export class PosHibridoComponent implements OnDestroy {
 
   historialEmitido(f: FacturaGeneralDto): boolean { return !!String(f.SelloRecepcion ?? '').trim(); }
 
+  // CodGeneracion completo: Prefijo+Factura son las dos mitades del GUID armado en crearBorrador
+  // (Factura por sí solo es solo la segunda mitad, no sirve como código de generación visible).
+  codigoGeneracion(f: FacturaGeneralDto): string {
+    return `${String(f.Prefijo ?? '').trim()}${String(f.Factura ?? '').trim()}`;
+  }
+
   // Clave estable por documento (CodGeneracion viene vacío en este listado).
   facturaKey(f: FacturaGeneralDto): string {
-    return [f.Prefijo, f.Factura, f.SUCURSAL, f.PUNTO_VENTA].map((v) => String(v ?? '').trim()).join('|');
+    return [f.Prefijo, f.Factura, f.CODIGOSUCURSAL, f.PUNTO_VENTA].map((v) => String(v ?? '').trim()).join('|');
   }
 
   reimprimir(f: FacturaGeneralDto): void {
@@ -973,7 +1395,10 @@ export class PosHibridoComponent implements OnDestroy {
     this.reimprimiendo.set(key);
 
     const prefijo = String(f.Prefijo ?? ''), factura = String(f.Factura ?? '');
-    const sucursal = String(f.SUCURSAL ?? ''), puntoVenta = String(f.PUNTO_VENTA ?? '');
+    // OJO: vwFacturasGeneral.SUCURSAL trae el vendedor (ej. "OFICINA"), no el codigo de sucursal;
+    // el codigo real esta en CODIGOSUCURSAL. Usar SUCURSAL aqui hace que GetFacturaDetalle no
+    // encuentre lineas (SUCURSAL no matchea) y la reimpresion salga vacia.
+    const sucursal = String(f.CODIGOSUCURSAL ?? ''), puntoVenta = String(f.PUNTO_VENTA ?? '');
     const emitido = this.historialEmitido(f);
     const idEmpresa = this.auth.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
 
@@ -1012,8 +1437,9 @@ export class PosHibridoComponent implements OnDestroy {
   trackFactura = (_: number, f: FacturaGeneralDto) => this.facturaKey(f);
 
   subtotalLinea(item: CartItem): number {
-    // item.precio ya es el precio NETO persistido (promo/ajuste aplicados al agregar); no se re-descuenta.
-    return this.redondear(item.precio * item.cantidad);
+    // item.precio es el precio BASE (mayoreo/normal); el descuento por oferta se guarda aparte
+    // en item.descuento (Opcion A, servidor). Se resta aqui para reflejar el neto real.
+    return this.redondear((item.precio * item.cantidad) - (item.descuento ?? 0));
   }
   formatMoney(v: number): string { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v ?? 0); }
   trackArticulo = (_: number, a: ArticuloPorBodegaDto) => a.ARTICULO;

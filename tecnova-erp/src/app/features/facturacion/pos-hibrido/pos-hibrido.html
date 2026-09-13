@@ -67,8 +67,11 @@
   <aside class="pos-carrito">
     <header class="pos-carrito-head">
       <h2>Venta actual</h2>
-      <button type="button" class="pos-vaciar" (click)="solicitarCancelar()" [disabled]="!cart().length || procesando()">
+      <button type="button" class="pos-vaciar" (click)="solicitarCancelar()" *ngIf="!ventaCompletada()" [disabled]="!cart().length || procesando()">
         <i class="bi bi-trash"></i> Vaciar
+      </button>
+      <button type="button" class="pos-nueva-venta-head" (click)="nuevaVenta()" *ngIf="ventaCompletada()">
+        <i class="bi bi-plus-circle-fill"></i> Nueva venta
       </button>
     </header>
 
@@ -123,17 +126,28 @@
             {{ formatMoney(item.precio) }} / {{ item.unidad || 'UND' }}
             <ng-container *ngIf="existenciaDe(item.articulo) !== null"> · Exist: {{ existenciaDe(item.articulo) }}</ng-container>
           </span>
+          <span class="pos-item-promo-sub" *ngIf="!item.descuento && getPrecioFinal(item.articulo, item.precio) < item.precio">
+            Precio promo: {{ formatMoney(getPrecioFinal(item.articulo, item.precio)) }} / {{ item.unidad || 'UND' }}
+          </span>
+          <span class="pos-item-promo-sub" *ngIf="item.descuento">
+            Descuento {{ item.tipoDescuento }}: -{{ formatMoney(item.descuento!) }}
+          </span>
         </div>
-        <input
-          class="pos-item-cant"
-          type="number"
-          min="0"
-          step="any"
-          [ngModel]="item.cantidad"
-          (change)="cambiarCantidad(item, $any($event.target).value)"
-          (keyup.enter)="cambiarCantidad(item, $any($event.target).value)"
-          [attr.aria-label]="'Cantidad de ' + item.descripcion"
-        />
+        <div class="pos-item-cant-group">
+          <button type="button" class="pos-item-menos" (click)="disminuirCantidad(item)" [disabled]="item.enAprobacion" title="Disminuir cantidad">
+            <i class="bi bi-dash-lg"></i>
+          </button>
+          <input
+            class="pos-item-cant"
+            type="number"
+            min="0"
+            step="any"
+            [ngModel]="item.cantidad"
+            (change)="cambiarCantidad(item, $any($event.target).value)"
+            (keyup.enter)="cambiarCantidad(item, $any($event.target).value)"
+            [attr.aria-label]="'Cantidad de ' + item.descripcion"
+          />
+        </div>
         <span class="pos-item-total">{{ formatMoney(subtotalLinea(item)) }}</span>
         <button type="button" class="pos-item-ajuste" (click)="solicitarAjuste(item)" [disabled]="item.enAprobacion" title="Solicitar precio especial al manager">
           <i class="bi bi-shield-lock"></i>
@@ -149,9 +163,22 @@
         <span>Artículos</span>
         <span>{{ totalUnidades() }}</span>
       </div>
+      <div class="pos-total-row" *ngIf="descuentoOfertaTotal() > 0">
+        <span>Subtotal Bruto</span>
+        <span>{{ formatMoney(subtotalBrutoTotal()) }}</span>
+      </div>
+      <div class="pos-total-row text-danger" *ngIf="descuentoOfertaTotal() > 0">
+        <span>Descuento Oferta</span>
+        <span>-{{ formatMoney(descuentoOfertaTotal()) }}</span>
+      </div>
       <div class="pos-total-row grand">
         <span>Total (IVA incl.)</span>
         <span>{{ formatMoney(totalFactura()) }}</span>
+      </div>
+
+      <div class="pos-msg ok" *ngIf="esVentaRecibo() && cart().length">
+        <i class="bi bi-receipt"></i>
+        Se registrará como recibo interno, pendiente de facturar.
       </div>
 
       <div class="pos-msg" *ngIf="mensaje() as m" [class.error]="m.tipo === 'error'" [class.ok]="m.tipo === 'ok'">
@@ -165,7 +192,11 @@
         {{ verificandoExistencias() ? 'Verificando…' : 'Verificar existencias' }}
       </button>
 
-      <button type="button" class="pos-cobrar" [disabled]="!cart().length || procesando() || guardando()" (click)="cobrar()">
+      <button type="button" class="pos-nueva-venta" *ngIf="ventaCompletada()" (click)="nuevaVenta()">
+        <i class="bi bi-plus-circle-fill"></i> Nueva Venta
+      </button>
+
+      <button type="button" class="pos-cobrar" *ngIf="!ventaCompletada()" [disabled]="!cart().length || procesando() || guardando()" (click)="cobrar()">
         <i class="bi" [class.bi-cash-coin]="!procesando() && !guardando()" [class.bi-hourglass-split]="procesando() || guardando()"></i>
         {{ procesando() ? 'Procesando…' : (guardando() ? 'Guardando…' : 'Cobrar') }}
       </button>
@@ -181,6 +212,21 @@
       <div class="pos-confirm-acc">
         <button type="button" class="pos-btn-sec" (click)="cerrarConfirmCancelar()">No, volver</button>
         <button type="button" class="pos-btn-danger" (click)="vaciar()">Sí, cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vuelto de la última venta: sin cierre por click en el fondo (a propósito, para que el cajero
+       lo tenga a la vista mientras entrega el cambio; solo "Entregado" lo cierra). -->
+  <div class="pos-overlay" *ngIf="vueltoUltimaVenta() as vuelto">
+    <div class="pos-confirm pos-vuelto-modal" role="dialog" aria-modal="true" aria-label="Vuelto a entregar">
+      <i class="bi bi-cash-stack pos-confirm-ico ok"></i>
+      <h3>Vuelto a entregar</h3>
+      <p class="pos-vuelto-monto">{{ formatMoney(vuelto) }}</p>
+      <div class="pos-confirm-acc">
+        <button type="button" class="pos-btn-primary" (click)="cerrarVueltoModal()">
+          <i class="bi bi-check-circle-fill"></i> Entregado
+        </button>
       </div>
     </div>
   </div>
@@ -206,10 +252,10 @@
             <span class="pos-hcard-total">{{ formatMoney(historialTotal(f)) }}</span>
           </div>
           <div class="pos-hcard-meta">
-            <span>{{ f.PUNTO_VENTA }} · Nº {{ f.Factura }}</span>
+            <span>{{ f.PUNTO_VENTA }} · Nº {{ codigoGeneracion(f) }}</span>
             <span class="pos-hbadge" [class.emit]="historialEmitido(f)">
               <i class="bi" [class.bi-shield-check]="historialEmitido(f)" [class.bi-file-earmark]="!historialEmitido(f)"></i>
-              {{ historialEmitido(f) ? 'DTE emitido' : 'Interno' }}
+              {{ historialEmitido(f) ? 'Emitido' : 'Pendiente de emitir' }}
             </span>
           </div>
           <button type="button" class="pos-hcard-print" [disabled]="reimprimiendo() === facturaKey(f)" (click)="reimprimir(f)">
@@ -312,9 +358,10 @@
     </section>
   </div>
 
-  <!-- Fase D: Modal de Solicitud de Ajuste de Precio en Vivo -->
-  <div class="pos-overlay" *ngIf="ajusteModalAbierto()" (click)="cerrarAjusteModal()">
-    <div class="pos-confirm pos-modal-ajuste" role="dialog" aria-modal="true" aria-label="Solicitar ajuste de precio" (click)="$event.stopPropagation()" *ngIf="ajusteItemSel() as item">
+  <!-- Fase D: Modal de Solicitud de Ajuste de Precio en Vivo. Sin cierre por click en el fondo:
+       en pantallas táctiles un toque cercano lo cerraba sin querer; solo "Cancelar" lo cierra. -->
+  <div class="pos-overlay" *ngIf="ajusteModalAbierto()">
+    <div class="pos-confirm pos-modal-ajuste" role="dialog" aria-modal="true" aria-label="Solicitar ajuste de precio" *ngIf="ajusteItemSel() as item">
       <i class="bi bi-shield-lock pos-confirm-ico info"></i>
       <h3>Solicitar Ajuste de Precio</h3>
       <p class="pos-modal-desc">
@@ -346,11 +393,49 @@
       </div>
 
       <div class="pos-confirm-acc">
-        <button type="button" class="pos-btn-sec" (click)="cerrarAjusteModal()" [disabled]="enviandoSolicitud()">Cancelar</button>
-        <button type="button" class="pos-btn-primary" (click)="enviarSolicitudAjuste()" [disabled]="enviandoSolicitud() || !precioSolicitadoInput()">
+        <button type="button" class="pos-btn-sec pos-btn-cancelar" (click)="cerrarAjusteModal()" [disabled]="enviandoSolicitud() || aprobandoLocal()">Cancelar</button>
+        <button type="button" class="pos-btn-primary" (click)="enviarSolicitudAjuste()" [disabled]="enviandoSolicitud() || aprobandoLocal() || !precioSolicitadoInput()">
           <i class="bi bi-send-fill" *ngIf="!enviandoSolicitud()"></i>
           <i class="bi bi-hourglass-split" *ngIf="enviandoSolicitud()"></i>
-          {{ enviandoSolicitud() ? 'Enviando…' : 'Enviar a Manager (SignalR)' }}
+          {{ enviandoSolicitud() ? 'Enviando…' : 'Enviar a Manager' }}
+        </button>
+      </div>
+
+      <div class="pos-modal-divisor">
+        <span>o, si el manager está presente</span>
+      </div>
+
+      <div class="pos-form-group">
+        <label>Manager</label>
+        <select
+          class="pos-input-modal"
+          [ngModel]="managerPinSel()"
+          (ngModelChange)="managerPinSel.set($event)"
+        >
+          <option value="" disabled>Seleccione un manager…</option>
+          <option *ngFor="let m of managersCaja()" [value]="m.usuario">{{ m.nombre || m.usuario }}</option>
+        </select>
+      </div>
+
+      <div class="pos-form-group">
+        <label>PIN del manager</label>
+        <input
+          type="password"
+          inputmode="numeric"
+          maxlength="6"
+          autocomplete="off"
+          class="pos-input-modal"
+          placeholder="••••"
+          [ngModel]="pinLocalInput()"
+          (ngModelChange)="pinLocalInput.set($event)"
+        />
+      </div>
+
+      <div class="pos-confirm-acc">
+        <button type="button" class="pos-btn-primary" (click)="aprobarPrecioLocal()" [disabled]="enviandoSolicitud() || aprobandoLocal() || !managerPinSel() || !pinLocalInput() || !precioSolicitadoInput()">
+          <i class="bi bi-shield-lock-fill" *ngIf="!aprobandoLocal()"></i>
+          <i class="bi bi-hourglass-split" *ngIf="aprobandoLocal()"></i>
+          {{ aprobandoLocal() ? 'Aprobando…' : 'Aprobar aquí' }}
         </button>
       </div>
     </div>
@@ -361,18 +446,22 @@
 <p-dialog
   [(visible)]="modalCantidadVisible"
   [modal]="true"
-  [header]="'Ingresar ' + (esPrecioCero(articuloCantSel()?.ULTIMO_PRECIO) ? 'Precio y Cantidad' : 'Cantidad / Peso') + ' (' + (articuloCantSel()?.UNIDAD_MEDIDA || 'UND') + ')'"
+  [header]="(modoEdicionCantidad() ? 'Editar ' : 'Ingresar ') + (esPrecioCero(articuloCantSel()?.ULTIMO_PRECIO) ? 'Precio y Cantidad' : 'Cantidad / Peso') + ' (' + (articuloCantSel()?.UNIDAD_MEDIDA || 'UND') + ')'"
   [style]="{ width: '440px', 'max-width': '95vw' }"
   styleClass="pos-cant-dialog"
   [draggable]="false"
   [resizable]="false"
   appendTo="body"
+  (onShow)="onModalCantShow()"
 >
   <div class="pos-modal-cant-body" *ngIf="articuloCantSel() as a">
     <div class="pos-modal-art-title">{{ a.DESCRIPCION }}</div>
     <div class="pos-modal-art-sub">
       <ng-container *ngIf="!esPrecioCero(a.ULTIMO_PRECIO)">
-        Precio catálogo: <strong>{{ formatMoney(getPrecioFinal(a.ARTICULO, a.ULTIMO_PRECIO)) }}</strong> / {{ a.UNIDAD_MEDIDA || 'UND' }}
+        Precio base: <strong>{{ formatMoney(a.ULTIMO_PRECIO) }}</strong> / {{ a.UNIDAD_MEDIDA || 'UND' }}
+        <ng-container *ngIf="getPrecioFinal(a.ARTICULO, a.ULTIMO_PRECIO) < a.ULTIMO_PRECIO">
+          · Promo: <strong class="text-success">{{ formatMoney(getPrecioFinal(a.ARTICULO, a.ULTIMO_PRECIO)) }}</strong>
+        </ng-container>
         <span class="pos-item-promo-tag" *ngIf="getPromoBadgeText(a.ARTICULO) as badge">{{ badge }}</span>
       </ng-container>
       <ng-container *ngIf="esPrecioCero(a.ULTIMO_PRECIO)">
@@ -392,7 +481,6 @@
           [ngModel]="inputPrecioModal()"
           (ngModelChange)="inputPrecioModal.set($event)"
           placeholder="0.00"
-          autofocus
         />
         <span class="pos-modal-unit-badge pos-modal-badge-usd">USD</span>
       </div>
@@ -402,14 +490,14 @@
       <label class="pos-modal-label">Cantidad / Peso exacto:</label>
       <div class="pos-modal-input-wrap">
         <input
+          #cantInput
           type="number"
           step="any"
           min="0.01"
           class="p-inputtext p-component pos-modal-cant-input pos-modal-cant-strong"
           [ngModel]="inputCantidadModal()"
-          (ngModelChange)="inputCantidadModal.set($event)"
+          (ngModelChange)="onCantInputChange($event)"
           (keyup.enter)="confirmarAgregarConCantidad()"
-          [attr.autofocus]="!esPrecioCero(a.ULTIMO_PRECIO) ? true : null"
         />
         <span class="pos-modal-unit-badge pos-modal-badge-unit">{{ a.UNIDAD_MEDIDA || 'UND' }}</span>
       </div>
@@ -418,10 +506,32 @@
     <div class="pos-modal-subtotal-box mt-3" *ngIf="inputCantidadModal() > 0">
       Subtotal estimado: <strong>{{ formatMoney((inputPrecioModal() > 0 ? inputPrecioModal() : getPrecioFinal(a.ARTICULO, a.ULTIMO_PRECIO)) * inputCantidadModal()) }}</strong>
     </div>
+
+    <div class="pos-modal-teclado-head mt-2">
+      <button type="button" class="pos-teclado-toggle" (click)="toggleTecladoCant()">
+        <i class="bi" [class.bi-keyboard]="!tecladoCantidadVisible()" [class.bi-keyboard-fill]="tecladoCantidadVisible()"></i>
+        {{ tecladoCantidadVisible() ? 'Ocultar teclado' : 'Mostrar teclado' }}
+      </button>
+    </div>
+    <div class="pos-teclado pos-teclado-cant" *ngIf="tecladoCantidadVisible()">
+      <button type="button" (click)="teclaCant('7')">7</button>
+      <button type="button" (click)="teclaCant('8')">8</button>
+      <button type="button" (click)="teclaCant('9')">9</button>
+      <button type="button" (click)="teclaCant('4')">4</button>
+      <button type="button" (click)="teclaCant('5')">5</button>
+      <button type="button" (click)="teclaCant('6')">6</button>
+      <button type="button" (click)="teclaCant('1')">1</button>
+      <button type="button" (click)="teclaCant('2')">2</button>
+      <button type="button" (click)="teclaCant('3')">3</button>
+      <button type="button" (click)="teclaCant('0')">0</button>
+      <button type="button" class="op" (click)="teclaPuntoCant()">.</button>
+      <button type="button" class="op" (click)="teclaBorrarCant()"><i class="bi bi-backspace"></i></button>
+      <button type="button" class="op limpiar cspan" (click)="teclaLimpiarCant()">C · Limpiar</button>
+    </div>
   </div>
 
   <ng-template pTemplate="footer">
     <button pButton label="Cancelar" icon="bi bi-x" class="p-button-text p-button-secondary" (click)="cerrarModalCantidad()"></button>
-    <button pButton label="Agregar al Carrito" icon="bi bi-cart-plus" class="p-button-success" (click)="confirmarAgregarConCantidad()" [disabled]="inputCantidadModal() <= 0 || (esPrecioCero(articuloCantSel()?.ULTIMO_PRECIO) && inputPrecioModal() <= 0)"></button>
+    <button pButton [label]="modoEdicionCantidad() ? 'Actualizar' : 'Agregar al Carrito'" [icon]="modoEdicionCantidad() ? 'bi bi-check2' : 'bi bi-cart-plus'" class="p-button-success" (click)="confirmarAgregarConCantidad()" [disabled]="inputCantidadModal() <= 0 || (!modoEdicionCantidad() && esPrecioCero(articuloCantSel()?.ULTIMO_PRECIO) && inputPrecioModal() <= 0)"></button>
   </ng-template>
 </p-dialog>

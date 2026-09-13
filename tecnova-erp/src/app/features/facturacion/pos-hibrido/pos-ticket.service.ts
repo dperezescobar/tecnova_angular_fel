@@ -7,6 +7,8 @@ export interface PosTicketLinea {
   descripcion: string;
   precio: number;
   total: number;
+  descuento?: number;
+  tipoDescuento?: string;
 }
 
 export interface PosTicketDte {
@@ -23,13 +25,20 @@ export interface PosTicketDatos {
   clienteNombre: string;
   fecha: string;
   lineas: PosTicketLinea[];
+  subtotalBruto: number;
+  descuentoTotal: number;
   total: number;
-  dte?: PosTicketDte;      // presente sólo en ambiente 01 (documento emitido)
+  vuelto?: number;         // presente solo si hubo pago en efectivo con excedente
+  dte?: PosTicketDte;      // presente cuando el documento se emitió (hubo sello), sea ambiente '00' o '01'
+  // POS Híbrido - Fase 2: true si es un recibo interno pendiente de facturar (Cierre de Recibos),
+  // para distinguirlo en el ticket de un documento simplemente no emitido por otra razón.
+  esRecibo?: boolean;
 }
 
 /**
  * Ticket térmico 80mm del POS híbrido — código EXCLUSIVO del POS (no toca ReciboService).
- * En ambiente 00 imprime el recibo simple; en ambiente 01 agrega el bloque legal del DTE
+ * Si el documento se emitió (hay Sello de Recepción) agrega el bloque legal del DTE con el ambiente
+ * REAL en el QR ('00' pruebas / '01' producción); si no hubo emisión, imprime el recibo simple.
  * (Código de Generación, Número de Control, Sello de Recepción y QR de consulta del MH).
  * La apertura de gaveta se delega al driver de la impresora al enviar a imprimir.
  */
@@ -70,8 +79,18 @@ export class PosTicketService {
         <tr>
           <td class="c">${this.fmtCant(l.cantidad)}${l.unidad ? ' ' + this.esc(l.unidad) : ''}</td>
           <td>${this.esc(l.descripcion)}</td>
-          <td class="r">${this.money(l.total)}</td>
-        </tr>`
+          <td class="r">${this.money(l.cantidad * l.precio)}</td>
+        </tr>${l.descuento ? `
+        <tr class="desc-row">
+          <td></td>
+          <td>Precio unitario</td>
+          <td class="r">${this.money(l.precio)}</td>
+        </tr>
+        <tr class="desc-row">
+          <td></td>
+          <td>Descuento${l.tipoDescuento ? ' ' + this.esc(l.tipoDescuento) : ''}</td>
+          <td class="r">-${this.money(l.descuento)}</td>
+        </tr>` : ''}`
       )
       .join('');
 
@@ -103,7 +122,10 @@ export class PosTicketService {
   th.r, td.r { text-align: right; }
   th.c, td.c { text-align: center; white-space: nowrap; }
   td { padding: 2px 0; vertical-align: top; font-size: 11px; }
+  .desc-row td { padding: 0 0 3px; font-size: 10px; font-style: italic; color: #333; }
   .tot { border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; }
+  .tot .row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; }
+  .tot .row.vuelto { font-size: 13px; font-weight: 700; margin-top: 3px; }
   .tot .grand { display: flex; justify-content: space-between; font-size: 15px; font-weight: 700; }
   .iva { text-align: center; font-size: 10px; margin-top: 2px; }
   .dte { border-top: 1px dashed #000; margin-top: 6px; padding-top: 6px; font-size: 10px; }
@@ -119,7 +141,7 @@ export class PosTicketService {
   <div class="ticket">
     ${d.logoSrc ? `<img class="logo" src="${this.esc(d.logoSrc)}" alt="logo" />` : ''}
     <div class="emp">${this.esc(d.nombreEmpresa)}</div>
-    <div class="sub">${d.dte ? 'Factura (Consumidor Final)' : 'Recibo de venta'}</div>
+    <div class="sub">${d.dte ? 'Factura (Consumidor Final)' : (d.esRecibo ? 'Recibo interno - pendiente de facturar' : 'Recibo de venta')}</div>
     <div class="meta">
       <div><span>Fecha</span><span>${this.esc(d.fecha)}</span></div>
       <div><span>Cliente</span><span>${this.esc(d.clienteNombre)}</span></div>
@@ -129,8 +151,12 @@ export class PosTicketService {
       <tbody>${filas}</tbody>
     </table>
     <div class="tot">
+      ${d.descuentoTotal > 0 ? `
+      <div class="row"><span>Subtotal</span><span>${this.money(d.subtotalBruto)}</span></div>
+      <div class="row"><span>Descuento</span><span>-${this.money(d.descuentoTotal)}</span></div>` : ''}
       <div class="grand"><span>TOTAL</span><span>${this.money(d.total)}</span></div>
       <div class="iva">IVA incluido</div>
+      ${d.vuelto && d.vuelto > 0 ? `<div class="row vuelto"><span>Vuelto</span><span>${this.money(d.vuelto)}</span></div>` : ''}
     </div>
     ${dteBloque}
     <div class="foot">¡Gracias por su compra!</div>

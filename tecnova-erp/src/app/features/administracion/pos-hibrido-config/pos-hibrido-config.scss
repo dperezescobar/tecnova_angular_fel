@@ -1,0 +1,66 @@
+.pos-hib-config {
+  padding: 1.25rem;
+  max-width: 860px;
+
+  h2 { margin: 0 0 0.25rem; }
+  .hint { color: #666; font-size: 0.85rem; margin: 0.25rem 0 0.75rem; }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+
+    h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+  }
+
+  .switch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+  }
+
+  .pos-hib-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.75rem;
+
+    th, td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; text-align: left; }
+    th { font-size: 0.8rem; color: #555; }
+    td.c { text-align: center; }
+    select { padding: 0.25rem; }
+  }
+
+  .usuario-select { padding: 0.4rem; margin-bottom: 0.75rem; min-width: 260px; }
+
+  .rubro-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    margin: 0.5rem 0 0.75rem;
+
+    label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    &:disabled { opacity: 0.6; cursor: not-allowed; }
+  }
+
+  .pos-hib-msg {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    &.ok { background: #ecfdf5; color: #065f46; }
+    &.error { background: #fef2f2; color: #991b1b; }
+  }
+}

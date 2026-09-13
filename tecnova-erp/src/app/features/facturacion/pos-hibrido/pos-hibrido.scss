@@ -9,6 +9,10 @@
   /* Altura visible = viewport - topbar(56px+safe) - padding vertical del .content-shell.
      Así el POS llena el área y el scroll queda interno (no scrollea la página). */
   height: calc(100dvh - 56px - env(safe-area-inset-top, 0px) - 0.35rem - 1.25rem - env(safe-area-inset-bottom, 0px));
+
+  &.embedded {
+    height: 100%;
+  }
 }
 
 .pos {
@@ -241,9 +245,18 @@
 .pos-item-info { min-width: 0; display: flex; flex-direction: column; }
 .pos-item-desc { font-size: 13.5px; font-weight: 600; color: #0f1b2d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pos-item-precio { font-size: 11px; color: var(--pos-muted); }
+.pos-item-promo-sub { font-size: 11px; font-weight: 600; color: #16a34a; display: block; }
+.pos-item-cant-group { display: flex; align-items: center; gap: 4px; }
 .pos-item-cant {
   width: 100%; padding: 7px 6px; border: 1px solid var(--pos-border); border-radius: 8px;
   font-size: 14px; text-align: center; font-variant-numeric: tabular-nums; box-sizing: border-box;
+}
+.pos-item-menos {
+  flex-shrink: 0; width: 26px; height: 26px; border: 1px solid var(--pos-border); border-radius: 7px;
+  background: #f7f9fc; color: var(--pos-accent); cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  &:active { transform: scale(.94); background: #eef2f8; }
+  &:disabled { opacity: .5; cursor: default; }
 }
 .pos-item-total { font-size: 14px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .pos-item-del { border: none; background: transparent; color: var(--pos-muted); cursor: pointer; font-size: 13px; }
@@ -273,6 +286,20 @@
   background: var(--pos-good); color: #fff; font-size: 17px; font-weight: 700; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   &:disabled { background: #cbd5e1; cursor: default; }
+}
+.pos-nueva-venta {
+  width: 100%; margin-top: 12px; padding: 14px; border: none; border-radius: 12px;
+  background: #2563eb; color: #fff; font-size: 17px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  transition: all 0.15s ease;
+  &:hover { background: #1d4ed8; }
+}
+.pos-nueva-venta-head {
+  border: none; background: #e0f2fe; color: #0284c7; padding: 4px 10px;
+  border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  &:hover { background: #bae6fd; }
 }
 .pos-verificar {
   width: 100%; margin-top: 12px; padding: 12px; border: 1px solid #f59e0b; border-radius: 12px;
@@ -398,6 +425,12 @@
 }
 .pos-btn-sec { border: 1px solid var(--pos-border); background: var(--pos-surface); color: #0f1b2d; }
 .pos-btn-danger { border: none; background: #dc2626; color: #fff; }
+.pos-btn-cancelar {
+  border-color: #dc2626;
+  color: #dc2626;
+
+  &:hover:not(:disabled) { background: #fef2f2; }
+}
 
 /* Drawer historial */
 .pos-drawer {
@@ -491,6 +524,21 @@
   }
 }
 
+.pos-vuelto-modal {
+  .pos-confirm-ico.ok { color: #16a34a; }
+  .pos-confirm-acc { justify-content: center; }
+  .pos-btn-primary { flex: 0 1 auto; padding-left: 28px; padding-right: 28px; background: #16a34a; }
+  .pos-btn-primary:hover:not(:disabled) { background: color-mix(in srgb, #16a34a 85%, black); }
+}
+.pos-vuelto-monto {
+  font-size: 40px;
+  font-weight: 800;
+  color: #16a34a;
+  text-align: center;
+  margin: 4px 0 20px;
+  font-variant-numeric: tabular-nums;
+}
+
 .pos-form-group {
   display: flex;
   flex-direction: column;
@@ -501,6 +549,23 @@
     font-size: 13px;
     font-weight: 600;
     color: #0f1b2d;
+  }
+}
+
+.pos-modal-divisor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 14px;
+  font-size: 12px;
+  color: var(--pos-muted);
+  text-align: center;
+
+  &::before, &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--pos-border);
   }
 }
 
@@ -754,5 +819,18 @@
   .pos-modal-warn {
     color: #b45309;
     font-weight: 700;
+  }
+
+  .pos-modal-teclado-head {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .pos-teclado-cant {
+    width: auto;
+    border-left: none;
+    border-top: 1px solid var(--pos-border, #e2e8f0);
+    border-radius: 10px;
+    margin-top: 0.25rem;
   }
 }

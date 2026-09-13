@@ -6,6 +6,8 @@ import { FacturacionService } from '../services/facturacion';
 import {
   DeleteFacturaDto,
   FacturaDetalleDto,
+  FacturaEncabezadoDto,
+  FacturaTotalesDto,
   FormaPagoDto,
   ParametrosDteDto,
   PerfilClienteDto,
@@ -64,13 +66,24 @@ export class PosVentaService {
   private auth = inject(AuthService);
   private fact = inject(FacturacionService);
 
-  private readonly bodega = 'BOD01'; // TODO: de la sucursal/punto de venta
+  private bodega = 'BOD01'; // Configurable por sucursal/punto de venta o módulo externo (Cafetería EuroSoccer)
+  setBodega(b: string): void {
+    if (b) this.bodega = b.trim();
+  }
+  getBodega(): string {
+    return this.bodega;
+  }
   private readonly tipoFactura = 'FAC';
 
   private get usuario(): string { return String(this.auth.currentUser()?.username ?? '').trim(); }
   private get idEmpresa(): number { return this.auth.currentUser()?.selectedEmpresa?.idEmpresa ?? 0; }
   get ambiente(): string {
     return Number(this.auth.currentUser()?.selectedEmpresa?.ambienteEmision) === 0 ? '00' : '01';
+  }
+  /** Interruptor único por empresa (Configuracion.ConfigSistemaEmpresa, idParametro=6). Si está
+   * apagado, la venta se registra sin contactar Hacienda y el ticket sale sin bloque fiscal. */
+  get emiteDte(): boolean {
+    return !!this.auth.currentUser()?.selectedEmpresa?.emiteDte;
   }
 
   // ── Borrador ────────────────────────────────────────────────────────────────
@@ -95,8 +108,18 @@ export class PosVentaService {
     );
   }
 
-  guardarEncabezado(keys: VentaKeys, cliente: PerfilClienteDto | null): Observable<void> {
-    const header = this.buildHeader(keys.codGeneracion, keys.sucursal, keys.puntoVenta, cliente, 'C');
+  guardarEncabezado(keys: VentaKeys, cliente: PerfilClienteDto | null, descuentoAdicional: number = 0): Observable<void> {
+    const header = this.buildHeader(keys.codGeneracion, keys.sucursal, keys.puntoVenta, cliente, 'C', descuentoAdicional);
+    return this.fact.updateFactura(header).pipe(map(() => void 0));
+  }
+
+  /**
+   * Marca el documento como "recibo" del POS híbrido (Facturacion.FACTURA.EsRecibo) justo antes de
+   * cobrar, cuando PosHibridoConfig está activo para la empresa. Solo afecta a quien lo manda; el
+   * resto de facturas (fac, fac-pos, ccf, fex, nc y las ventas con esRecibo=false) no lo tocan.
+   */
+  marcarModoDocumento(keys: VentaKeys, cliente: PerfilClienteDto | null, esRecibo: boolean): Observable<void> {
+    const header = this.buildHeader(keys.codGeneracion, keys.sucursal, keys.puntoVenta, cliente, 'C', 0, esRecibo);
     return this.fact.updateFactura(header).pipe(map(() => void 0));
   }
 
@@ -117,6 +140,11 @@ export class PosVentaService {
     return this.fact
       .getFacturaDetalle(keys.prefijo, keys.factura, keys.sucursal, keys.puntoVenta, this.tipoFactura)
       .pipe(map((d) => d ?? []));
+  }
+
+  cargarTotales(idFactura: number): Observable<FacturaTotalesDto | null> {
+    if (!idFactura) return of(null);
+    return this.fact.getFacturaTotales(idFactura).pipe(catchError(() => of(null)));
   }
 
   /**
@@ -149,21 +177,44 @@ export class PosVentaService {
 
   // ── Cobro & Emisión DTE ─────────────────────────────────────────────────────
   /**
-   * Cobro: registrar formas de pago (deja el documento pagado aunque siga En Elaboración) →
-   * aplicar → emitir DTE a Hacienda (con ambiente '00' o '01') → recargar.
+   * Cobro: (si PosHibridoConfig está activo, marca EsRecibo según `modo`) → registrar formas de
+   * pago (deja el documento pagado aunque siga En Elaboración) → aplicar → si corresponde emitir
+   * DTE a Hacienda (con ambiente '00' o '01') → recargar.
+   *
+   * `modo='RECIBO'` (rubros configurados como recibo, sin queso en el carrito) NUNCA emite DTE, sin
+   * importar el interruptor EmiteDTE de la empresa: queda "Aplicada, pendiente de emitir" hasta que
+   * el admin la incluya en una factura consolidada (Cierre de Recibos). `modo='FACTURA_DIRECTA'`
+   * (default cuando PosHibridoConfig no está activo) es el comportamiento de siempre.
    */
-  finalizar(keys: VentaKeys, cliente: PerfilClienteDto | null, pagos: PosPago[]): Observable<PosVentaResultado> {
+  finalizar(keys: VentaKeys, cliente: PerfilClienteDto | null, pagos: PosPago[], modo: 'FACTURA_DIRECTA' | 'RECIBO' = 'FACTURA_DIRECTA'): Observable<PosVentaResultado> {
     const ambiente = this.ambiente;
-    return this.registrarPagos(keys, pagos).pipe(
+    const esRecibo = modo === 'RECIBO';
+    const marcar$ = esRecibo ? this.marcarModoDocumento(keys, cliente, true) : of(void 0);
+    return marcar$.pipe(
+      switchMap(() => this.registrarPagos(keys, pagos)),
       switchMap(() => this.fact.updateFacturacionAplicacion(this.buildAplicar(keys))),
       switchMap(() => this.cargarDetalle(keys)),
       switchMap((detalle) => {
         const base: PosVentaResultado = {
           keys, cliente, ambiente, detalle, numeroControl: '', selloRecepcion: '', emitido: false
         };
-        // Transmitir DTE a Hacienda usando el ambiente configurado ('00' para pruebas o '01' para prod)
+        if (esRecibo || !this.emiteDte) {
+          return of(base);
+        }
         return this.emitirDte(keys).pipe(
-          map((dte) => ({ ...base, numeroControl: dte.numeroControl, selloRecepcion: dte.selloRecepcion, emitido: !!dte.selloRecepcion })),
+          // La respuesta de la emisión no siempre trae NoControl (sí SelloRecepcion); se relee el
+          // encabezado recién persistido para tomar el valor real, igual que hace fac.ts al reconciliar.
+          switchMap((dte) =>
+            this.fact.getFacturaEncabezado(keys.prefijo, keys.factura, keys.sucursal, keys.puntoVenta, this.idEmpresa).pipe(
+              map((enc: FacturaEncabezadoDto) => ({
+                ...base,
+                numeroControl: String(enc?.NoControl ?? dte.numeroControl ?? '').trim(),
+                selloRecepcion: String(enc?.SelloRecepcion ?? dte.selloRecepcion ?? '').trim(),
+                emitido: !!dte.selloRecepcion
+              })),
+              catchError(() => of({ ...base, numeroControl: dte.numeroControl, selloRecepcion: dte.selloRecepcion, emitido: !!dte.selloRecepcion }))
+            )
+          ),
           catchError((err) => {
             console.error('Error en transmisión DTE:', err);
             return of(base);
@@ -213,32 +264,41 @@ export class PosVentaService {
 
     const ambiente = this.ambiente; // Preserva '00' para pruebas o '01' para producción
 
-    return this.fact.getSucursalPuntoVendedor(this.usuario).pipe(
-      switchMap((rows) => {
-        const sp = (rows ?? []).find((r) => r.Sucursal === keys.sucursal && r.PUNTO_VENTA === keys.puntoVenta) ?? (rows ?? [])[0] ?? null;
-        // Sin códigos MH resueltos NO se emite: emitir con valores ficticios generaría un DTE inválido.
-        const codEstablecimiento = String(sp?.CodigoMHSC ?? '').trim();
-        const codPuntoVenta = String(sp?.codigoMHPV ?? '').trim();
-        if (!codEstablecimiento || !codPuntoVenta) {
-          return throwError(() => new Error('No se pudieron resolver los códigos de establecimiento/punto de venta del Ministerio de Hacienda para esta sucursal. Verifique la configuración.'));
+    // keys.idFactura puede venir en 0 si crearBorrador no lo extrajo del alta; sin el IdFactura
+    // correcto el servicio de emisión no puede persistir Sello/NoControl en el documento real.
+    return this.idFacturaConfiable$(keys).pipe(
+      switchMap((idFactura) => {
+        if (idFactura <= 0) {
+          return throwError(() => new Error('No se pudo resolver el IdFactura del documento para emitir el DTE.'));
         }
-        const verifica: VerificarSecuenciasDto = { IdEmpresa: this.idEmpresa, AmbienteEmision: ambiente, TipoFactura: this.tipoFactura, TipoDoc: '01' };
-        const payload: ParametrosDteDto = {
-          idFactura: keys.idFactura, idEmpresa: this.idEmpresa, ambiente: ambiente,
-          codEstablecimiento,
-          codPuntoVenta,
-          user: this.usuario
-        };
-        return this.fact.serviceAvailable(apiBaseUrl).pipe(
-          switchMap((status) => {
-            if (String(status ?? '').trim().toLowerCase() !== 'online') return throwError(() => new Error('Servicio de emisión no disponible.'));
-            return this.fact.verificarSecuencias(verifica);
-          }),
-          switchMap(() => this.fact.emitirDte(apiBaseUrl, payload, this.tipoFactura)),
-          map((resp) => {
-            const sello = String(resp?.SelloRecepcion ?? '').trim();
-            if (!sello) throw new Error(String(resp?.MensajeGeneral ?? 'Emisión sin sello de recepción.'));
-            return { numeroControl: String(resp?.NoControl ?? '').trim(), selloRecepcion: sello };
+        return this.fact.getSucursalPuntoVendedor(this.usuario).pipe(
+          switchMap((rows) => {
+            const sp = (rows ?? []).find((r) => r.Sucursal === keys.sucursal && r.PUNTO_VENTA === keys.puntoVenta) ?? (rows ?? [])[0] ?? null;
+            // Sin códigos MH resueltos NO se emite: emitir con valores ficticios generaría un DTE inválido.
+            const codEstablecimiento = String(sp?.CodigoMHSC ?? '').trim();
+            const codPuntoVenta = String(sp?.codigoMHPV ?? '').trim();
+            if (!codEstablecimiento || !codPuntoVenta) {
+              return throwError(() => new Error('No se pudieron resolver los códigos de establecimiento/punto de venta del Ministerio de Hacienda para esta sucursal. Verifique la configuración.'));
+            }
+            const verifica: VerificarSecuenciasDto = { IdEmpresa: this.idEmpresa, AmbienteEmision: ambiente, TipoFactura: this.tipoFactura, TipoDoc: '01' };
+            const payload: ParametrosDteDto = {
+              idFactura, idEmpresa: this.idEmpresa, ambiente: ambiente,
+              codEstablecimiento,
+              codPuntoVenta,
+              user: this.usuario
+            };
+            return this.fact.serviceAvailable(apiBaseUrl).pipe(
+              switchMap((status) => {
+                if (String(status ?? '').trim().toLowerCase() !== 'online') return throwError(() => new Error('Servicio de emisión no disponible.'));
+                return this.fact.verificarSecuencias(verifica);
+              }),
+              switchMap(() => this.fact.emitirDte(apiBaseUrl, payload, this.tipoFactura)),
+              map((resp) => {
+                const sello = String(resp?.SelloRecepcion ?? '').trim();
+                if (!sello) throw new Error(String(resp?.MensajeGeneral ?? 'Emisión sin sello de recepción.'));
+                return { numeroControl: String(resp?.NoControl ?? '').trim(), selloRecepcion: sello };
+              })
+            );
           })
         );
       })
@@ -246,7 +306,7 @@ export class PosVentaService {
   }
 
   // ── Builders de payload ─────────────────────────────────────────────────────
-  private buildHeader(codGeneracion: string, sucursal: string, puntoVenta: string, cliente: PerfilClienteDto | null, tipoMtto: 'A' | 'C' = 'A'): UpdateFacturaDto {
+  private buildHeader(codGeneracion: string, sucursal: string, puntoVenta: string, cliente: PerfilClienteDto | null, tipoMtto: 'A' | 'C' = 'A', descuentoAdicional: number = 0, esRecibo: boolean = false): UpdateFacturaDto {
     const anonimo = !cliente;
     return {
       CodGeneracion: codGeneracion,
@@ -266,10 +326,11 @@ export class PosVentaService {
       IdModoTransporte: 0, NombreConductor: '', NumeroConductor: '', PlacaTransporte: '',
       IdRecintoFiscal: 0, IdIncoterm: 0, IdRegimenExportacion: 0,
       PrecioConIVA: 1,
-      Flete: 0, Seguro: 0, DescuentoAdicional: 0, DTE: 0,
+      Flete: 0, Seguro: 0, DescuentoAdicional: descuentoAdicional, DTE: 0,
       CorreoCliente: (cliente?.CORREO_ELECTRONICO ?? '').trim(),
       TipoFactura: this.tipoFactura,
-      TipoRegimen: ''
+      TipoRegimen: '',
+      EsRecibo: esRecibo
     };
   }
 

@@ -17,7 +17,8 @@
     "moduleResolution": "bundler",
     "paths": {
       "tslib": ["./node_modules/tslib/tslib.d.ts"],
-      "@primeuix/*": ["./node_modules/@primeuix/*"]
+      "@primeuix/*": ["./node_modules/@primeuix/*"],
+      "@app/*": ["./src/app/*"]
     }
   },
   "angularCompilerOptions": {
