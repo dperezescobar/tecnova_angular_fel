@@ -14,9 +14,9 @@
       <div>
         <h1 class="inv-title">
           @if (modo() === 'listado') {
-            Ingresos de Inventario
+            {{ titulo() }}
           } @else {
-            Ingreso
+            {{ operacionLabel() }}
             @if (documentoInv() > 0) {
               <span class="inv-doc-num">#{{ documentoInv() }}</span>
             } @else {
@@ -24,7 +24,7 @@
             }
           }
         </h1>
-        <p class="inv-subtitle">Registro de entradas de mercadería y ajustes</p>
+        <p class="inv-subtitle">{{ subtitulo() }}</p>
       </div>
     </div>
 
@@ -43,7 +43,7 @@
               (change)="fechaHasta.set($any($event.target).value); cargarMovimientos()" />
           </div>
         </div>
-        <p-button label="Nuevo Ingreso" icon="pi pi-plus" severity="info" size="small" (onClick)="nuevoIngreso()"></p-button>
+        <p-button [label]="btnNuevoLabel()" icon="pi pi-plus" severity="info" size="small" (onClick)="nuevoIngreso()"></p-button>
       </div>
     }
 
@@ -107,7 +107,7 @@
         } @empty {
           <div class="empty-state">
             <i class="pi pi-inbox text-4xl mb-3 opacity-50 block"></i>
-            Sin ingresos registrados en este periodo.
+            Sin registros en este periodo.
           </div>
         }
       </div>
@@ -142,7 +142,7 @@
     <section class="section-card">
       <div class="section-card-hdr">
         <span class="section-card-icon" aria-hidden="true"><i class="pi pi-file-edit"></i></span>
-        <span class="section-card-title">Datos del Ingreso</span>
+        <span class="section-card-title">Datos del {{ operacionLabel() }}</span>
       </div>
       <div class="section-card-body">
         <form [formGroup]="maestroForm" class="ingresos-maestro-form">
@@ -150,6 +150,24 @@
             <label>Fecha</label>
             <input type="date" formControlName="fecha" />
           </div>
+          <div class="field-item">
+            <label>Bodega {{ operacion() === 'TRASLADO' ? 'Origen' : '' }}</label>
+            <select formControlName="bodega">
+              @for (b of bodegas(); track b.bodega) {
+                <option [value]="b.bodega">{{ b.bodega }} - {{ b.descripcion }}</option>
+              }
+            </select>
+          </div>
+          @if (operacion() === 'TRASLADO') {
+            <div class="field-item">
+              <label>Bodega Destino</label>
+              <select formControlName="bodegaDestino">
+                @for (b of bodegas(); track b.bodega) {
+                  <option [value]="b.bodega">{{ b.bodega }} - {{ b.descripcion }}</option>
+                }
+              </select>
+            </div>
+          }
           <div class="field-item summary-observaciones">
             <label for="observacion">Observación</label>
             <textarea id="observacion" rows="2" formControlName="observacion"></textarea>

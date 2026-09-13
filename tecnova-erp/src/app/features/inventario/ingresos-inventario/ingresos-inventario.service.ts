@@ -50,6 +50,10 @@ export class IngresosInventarioService {
     return this.http.get<any[]>(`${this.api}/GetMovimientos?desde=${desde}&hasta=${hasta}`);
   }
 
+  getBodegas() {
+    return this.http.get<{ bodega: string; descripcion: string }[]>(`${this.api}/GetBodegas`);
+  }
+
   getMovimientoDetalle(documentoInv: number) {
     return this.http.get<any[]>(`${this.api}/GetMovimientoDetalle?documentoInv=${documentoInv}`);
   }

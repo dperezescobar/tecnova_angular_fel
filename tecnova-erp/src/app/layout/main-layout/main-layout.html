@@ -49,7 +49,7 @@
             </div>
             }
 
-            @if (grupoVisible(['INV_INGRESOS','INV_PRECIOS','INV_REP_EXISTENCIAS','INV_REP_MOVIMIENTOS'])) {
+            @if (grupoVisible(['INV_INGRESOS','INV_SALIDAS','INV_TRASLADOS','INV_PRECIOS','INV_REP_EXISTENCIAS','INV_REP_MOVIMIENTOS'])) {
             <div class="nav-group">
                 <div class="nav-item cursor-pointer" (click)="toggleInventarios()">
                     <i class="bi bi-boxes"></i>
@@ -64,6 +64,24 @@
                        [class.nav-subitem--disabled]="!aplicaInventarios()"
                        (click)="aplicaInventarios() && onNavLinkClick()">
                         <span class="nav-subitem-dot" aria-hidden="true"></span>Ingresos de inventario
+                    </a>
+                    }
+                    @if (puedeVer('INV_SALIDAS')) {
+                    <a [routerLink]="aplicaInventarios() ? '/inventario/salidas' : null"
+                       routerLinkActive="active"
+                       class="nav-subitem"
+                       [class.nav-subitem--disabled]="!aplicaInventarios()"
+                       (click)="aplicaInventarios() && onNavLinkClick()">
+                        <span class="nav-subitem-dot" aria-hidden="true"></span>Salidas de inventario
+                    </a>
+                    }
+                    @if (puedeVer('INV_TRASLADOS')) {
+                    <a [routerLink]="aplicaInventarios() ? '/inventario/traslados' : null"
+                       routerLinkActive="active"
+                       class="nav-subitem"
+                       [class.nav-subitem--disabled]="!aplicaInventarios()"
+                       (click)="aplicaInventarios() && onNavLinkClick()">
+                        <span class="nav-subitem-dot" aria-hidden="true"></span>Traslados entre bodegas
                     </a>
                     }
                     @if(adminAccess()) {
@@ -127,6 +145,7 @@
                     @if (puedeVer('FAC_CCF')) { <a routerLink="/facturacion/ccf" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>CCF - Crédito Fiscal</a> }
                     @if (puedeVer('FAC_NC')) { <a routerLink="/facturacion/nc" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>NC - Nota de Crédito</a> }
                     @if (puedeVer('FAC_FEX')) { <a routerLink="/facturacion/fex" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>FEX - Factura de Exportación</a> }
+                    @if (esRoot() || adminAccess()) { <a routerLink="/facturacion/cierre-recibos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Cierre de Recibos</a> }
                 </div>
             </div>
             }
@@ -183,8 +202,10 @@
             </div>
             }
 
-            @if (esRoot()) {
+            @if (esRoot() || adminAccess()) {
                 <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Administración</span>
+            }
+            @if (esRoot()) {
                 <a routerLink="/administracion/usuarios" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
                     <i class="bi bi-person-gear"></i>
                     <span *ngIf="!isSidebarInIconMode()">Usuarios</span>
@@ -196,6 +217,12 @@
                 <a routerLink="/administracion/menu" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
                     <i class="bi bi-ui-checks-grid"></i>
                     <span *ngIf="!isSidebarInIconMode()">Administrador de menú</span>
+                </a>
+            }
+            @if (esRoot() || adminAccess()) {
+                <a routerLink="/administracion/pos-hibrido" routerLinkActive="active" class="nav-item" (click)="onNavLinkClick()">
+                    <i class="bi bi-gear-wide-connected"></i>
+                    <span *ngIf="!isSidebarInIconMode()">POS Híbrido</span>
                 </a>
             }
 

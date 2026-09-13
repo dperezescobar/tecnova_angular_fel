@@ -1,4 +1,5 @@
 import { Component, signal, computed, inject, viewChild, effect } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -58,6 +59,42 @@ interface DetalleForm {
    providers: [MessageService]
 })
 export class IngresosInventarioComponent {
+  private route = inject(ActivatedRoute);
+  operacion = signal<'INGRESO' | 'SALIDA' | 'TRASLADO'>('INGRESO');
+  bodegas = signal<{ bodega: string; descripcion: string }[]>([]);
+
+  titulo = computed(() => {
+    switch (this.operacion()) {
+      case 'SALIDA': return 'Salidas de Inventario';
+      case 'TRASLADO': return 'Traslados entre Bodegas';
+      default: return 'Ingresos de Inventario';
+    }
+  });
+
+  subtitulo = computed(() => {
+    switch (this.operacion()) {
+      case 'SALIDA': return 'Registro de descargos de mercadería, mermas y ajustes de salida';
+      case 'TRASLADO': return 'Transferencia de existencias entre bodegas de la empresa';
+      default: return 'Registro de entradas de mercadería y ajustes';
+    }
+  });
+
+  operacionLabel = computed(() => {
+    switch (this.operacion()) {
+      case 'SALIDA': return 'Salida';
+      case 'TRASLADO': return 'Traslado';
+      default: return 'Ingreso';
+    }
+  });
+
+  btnNuevoLabel = computed(() => {
+    switch (this.operacion()) {
+      case 'SALIDA': return 'Nueva Salida';
+      case 'TRASLADO': return 'Nuevo Traslado';
+      default: return 'Nuevo Ingreso';
+    }
+  });
+
   // Filtros de fecha para el listado
   fechaDesde = signal< string >(this.getPrimerDiaMesAnterior());
   fechaHasta = signal< string >(this.getFechaActual());
@@ -209,7 +246,14 @@ puedoDesaplicar = computed(() => this.estadoDocumento() === 'APLICADO' && this.d
       costoUnitario: valor
     }, { emitEvent: false }); // false para no disparar eventos infinitos
   });
-    this.cargarMovimientos();
+    this.cargarBodegas();
+    this.route.data.subscribe(data => {
+      const op = data['operacion'] as ('INGRESO' | 'SALIDA' | 'TRASLADO');
+      if (op) {
+        this.operacion.set(op);
+      }
+      this.cargarMovimientos();
+    });
     this.cargarRolesUsuario();
 
     // Las imágenes del carrito solo se piden para la página actualmente visible (ver
@@ -300,21 +344,54 @@ onArticuloCreado(codigoArticulo: string) {
       });
     }, 800);
   }
+  cargarBodegas(): void {
+    this.api.getBodegas().subscribe({
+      next: (bods) => {
+        this.bodegas.set(bods);
+        if (bods.length > 0 && !this.maestroForm.get('bodega')?.value) {
+          this.maestroForm.patchValue({ bodega: bods[0].bodega });
+        }
+      },
+      error: () => {}
+    });
+  }
+
   nuevoIngreso() {
     this.modo.set('nuevo');
+    const op = this.operacion();
+    let trans = 'ENT';
+    let mov = 'I';
+    let corre = 'EN';
+    if (op === 'SALIDA') {
+      trans = 'SAL';
+      mov = 'S';
+      corre = 'SA';
+    } else if (op === 'TRASLADO') {
+      trans = 'TRAF';
+      mov = 'T';
+      corre = 'TR';
+    }
+    const bods = this.bodegas();
+    const bodOrigen = bods.length > 0 ? bods[0].bodega : 'BOD01';
+    let bodDestino = bodOrigen;
+    if (op === 'TRASLADO' && bods.length > 1) {
+      bodDestino = bods[1].bodega;
+    }
+
     this.maestroForm.reset({
       fecha: new Date(),
       observacion: '',
-      bodega: 'BOD01',
-      bodegaDestino: 'BOD01',
-      tipoTransInv: 'ENT',
-      tipoMov: 'I',
+      bodega: bodOrigen,
+      bodegaDestino: bodDestino,
+      tipoTransInv: trans,
+      tipoMov: mov,
       contabilizar: 0,
       tipoMtto: 'A',
       sucursal: 'SC0001',
       documentoSujetoDevolucion: false,
       existenciaFecDoc: 0,
-      correlativoInv: 'EN'
+      correlativoInv: corre,
+      aplicado: 'ELABORACION'
     });
     this.detalles.set([]);
     this.documentoInv.set(0);
@@ -331,11 +408,18 @@ onArticuloCreado(codigoArticulo: string) {
     };
     this.api.getMovimientos(desde, hasta).subscribe({
       next: (data) => {
-        // Aplicar el mapeo de estados
-        const dataConEstados = data.map((item) => ({
+        let dataConEstados = (data || []).map((item) => ({
           ...item,
           aplicado: mapaEstados[item.aplicado] || item.aplicado
         }));
+        const op = this.operacion();
+        if (op === 'SALIDA') {
+          dataConEstados = dataConEstados.filter(item => item.tipoMovimiento === 'Salida');
+        } else if (op === 'TRASLADO') {
+          dataConEstados = dataConEstados.filter(item => item.tipoMovimiento === 'Traslado');
+        } else {
+          dataConEstados = dataConEstados.filter(item => item.tipoMovimiento === 'Entrada');
+        }
         this.movimientos.set(dataConEstados);
       },
       error: () => this.movimientos.set([]),
@@ -346,21 +430,32 @@ onArticuloCreado(codigoArticulo: string) {
   continuarMaestro() {
     if (!this.maestroForm.valid) return;
     const form = this.maestroForm.value;
+    const op = this.operacion();
+
+    if (op === 'TRASLADO' && form.bodega === form.bodegaDestino) {
+      this.showError('Traslado entre bodegas', 'La bodega de origen y la bodega destino deben ser diferentes.');
+      return;
+    }
+
+    let defaultCorre = 'EN';
+    if (op === 'SALIDA') defaultCorre = 'SA';
+    if (op === 'TRASLADO') defaultCorre = 'TR';
+
     const dto: MovimientoInventarioGuardarDto = {
       documentoInv: 0,
-      correlativoInv: form.correlativoInv || 'EN',
+      correlativoInv: form.correlativoInv || defaultCorre,
       fecha: (form.fecha instanceof Date ? form.fecha.toISOString().substring(0, 10) : form.fecha),
       comentario: form.observacion,
-      bodega: form.bodega,
-      bodegaDestino: form.bodegaDestino,
-      tipoTransInv: form.tipoTransInv,
-      tipoMov: form.tipoMov,
+      bodega: form.bodega || 'BOD01',
+      bodegaDestino: form.bodegaDestino || form.bodega || 'BOD01',
+      tipoTransInv: form.tipoTransInv || (op === 'SALIDA' ? 'SAL' : op === 'TRASLADO' ? 'TRAF' : 'ENT'),
+      tipoMov: form.tipoMov || (op === 'SALIDA' ? 'S' : op === 'TRASLADO' ? 'T' : 'I'),
       contabilizar: form.contabilizar,
-      tipoMtto: form.tipoMtto,
-      sucursal: form.sucursal,
+      tipoMtto: form.tipoMtto || 'A',
+      sucursal: form.sucursal || 'SC0001',
       documentoSujetoDevolucion: form.documentoSujetoDevolucion,
       existenciaFecDoc: form.existenciaFecDoc,
-usuario: this.authService.currentUser()?.username ?? ''
+      usuario: this.authService.currentUser()?.username ?? ''
     };
     this.api.guardarMovimiento(dto).subscribe({
       next: (resp) => {
@@ -369,27 +464,42 @@ usuario: this.authService.currentUser()?.username ?? ''
         this.estadoDocumento.set('ELABORACION');
         this.cargarDetallesApi(resp.documentoInv);
         this.reiniciarBusquedaArticulos();
+      },
+      error: (err) => {
+        const msg = err.error?.message || 'Error al crear el documento.';
+        this.showError(this.titulo(), msg);
       }
     });
   }
   guardarCambios() {
     if (!this.maestroForm.valid) return;
     const form = this.maestroForm.value;
+    const op = this.operacion();
+
+    if (op === 'TRASLADO' && form.bodega === form.bodegaDestino) {
+      this.showError('Traslado entre bodegas', 'La bodega de origen y la bodega destino deben ser diferentes.');
+      return;
+    }
+
+    let defaultCorre = 'EN';
+    if (op === 'SALIDA') defaultCorre = 'SA';
+    if (op === 'TRASLADO') defaultCorre = 'TR';
+
     const dto: MovimientoInventarioGuardarDto = {
       documentoInv: this.documentoInv(),
-      correlativoInv: form.correlativoInv || 'EN',
+      correlativoInv: form.correlativoInv || defaultCorre,
       fecha: (form.fecha instanceof Date ? form.fecha.toISOString().substring(0, 10) : form.fecha),
       comentario: form.observacion,
-      bodega: form.bodega,
-      bodegaDestino: form.bodegaDestino,
-      tipoTransInv: form.tipoTransInv,
-      tipoMov: form.tipoMov,
+      bodega: form.bodega || 'BOD01',
+      bodegaDestino: form.bodegaDestino || form.bodega || 'BOD01',
+      tipoTransInv: form.tipoTransInv || (op === 'SALIDA' ? 'SAL' : op === 'TRASLADO' ? 'TRAF' : 'ENT'),
+      tipoMov: form.tipoMov || (op === 'SALIDA' ? 'S' : op === 'TRASLADO' ? 'T' : 'I'),
       contabilizar: form.contabilizar,
       tipoMtto: 'C',
-      sucursal: form.sucursal,
+      sucursal: form.sucursal || 'SC0001',
       documentoSujetoDevolucion: form.documentoSujetoDevolucion,
       existenciaFecDoc: form.existenciaFecDoc,
-usuario: this.authService.currentUser()?.username ?? ''
+      usuario: this.authService.currentUser()?.username ?? ''
     };
     this.api.guardarMovimiento(dto).subscribe({
       next: (resp) => {
@@ -397,11 +507,16 @@ usuario: this.authService.currentUser()?.username ?? ''
         this.modo.set('edicion');
         this.estadoDocumento.set('ELABORACION');
         this.cargarDetallesApi(resp.documentoInv);
+        this.showInfo(this.titulo(), 'Actualizado correctamente.');
+      },
+      error: (err) => {
+        const msg = err.error?.message || 'Error al guardar los cambios.';
+        this.showError(this.titulo(), msg);
       }
     });
-    this.showInfo('Ingreso de Inventario', 'Actualizado correctamente.');
   }
-    private showInfo(summary: string, detail: string) {
+
+  private showInfo(summary: string, detail: string) {
     this.messageService.add({ severity: 'info', summary, detail });
   }
 
@@ -440,7 +555,8 @@ usuario: this.authService.currentUser()?.username ?? ''
     this.articuloListLoadingFlag = true;
     this.articuloListLoading.set(true);
     const skip = this.articuloListSkip;
-    this.articulosLazyService.getArticulosPorBodegaLazy('BOD01', this.articuloListQuery, skip, this.articuloPageSize)
+    const bodegaActual = this.maestroForm.get('bodega')?.value || 'BOD01';
+    this.articulosLazyService.getArticulosPorBodegaLazy(bodegaActual, this.articuloListQuery, skip, this.articuloPageSize)
       .pipe(finalize(() => { this.articuloListLoadingFlag = false; this.articuloListLoading.set(false); }))
       .subscribe({
         next: (rows) => {
@@ -481,7 +597,8 @@ usuario: this.authService.currentUser()?.username ?? ''
     if (this.articuloImgLoading() || !this.articuloImgHasMore()) return;
     this.articuloImgLoading.set(true);
     const skip = this.articuloImgSkip;
-    this.articulosLazyService.getArticulosPorBodegaLazy('BOD01', this.articuloImgQuery(), skip, this.articuloPageSize)
+    const bodegaActual = this.maestroForm.get('bodega')?.value || 'BOD01';
+    this.articulosLazyService.getArticulosPorBodegaLazy(bodegaActual, this.articuloImgQuery(), skip, this.articuloPageSize)
       .pipe(finalize(() => this.articuloImgLoading.set(false)))
       .subscribe({
         next: (rows) => {
@@ -617,11 +734,16 @@ usuario: this.authService.currentUser()?.username ?? ''
     const mov = this.movimientos().find(m => m.documentoInv === documentoInv);
     if (mov) {
       const fechaFormateada = new Date(mov.fecha).toISOString().split('T')[0];
-       this.estadoDocumento.set(mov.aplicado);
+      this.estadoDocumento.set(mov.aplicado);
       this.maestroForm.patchValue({
         documentoInv: mov.documentoInv,
         fecha: fechaFormateada,
         observacion: mov.comentario,
+        bodega: mov.bodega || 'BOD01',
+        bodegaDestino: mov.bodegaDestino || mov.bodega || 'BOD01',
+        tipoTransInv: mov.tipoTransInv,
+        tipoMov: mov.tipoMov,
+        correlativoInv: mov.correlativoInv,
         aplicado: mov.aplicado
       });
     }

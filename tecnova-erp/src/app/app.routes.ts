@@ -84,10 +84,26 @@ export const routes: Routes = [
                 data: { clave: 'FAC_POS' }
             },
             {
+                path: 'facturacion/cierre-recibos',
+                loadComponent: () => import('./features/facturacion/cierre-recibos/cierre-recibos').then((m) => m.CierreRecibosComponent)
+            },
+            {
                 path: 'inventario/ingresos',
                 loadComponent: () => import('./features/inventario/ingresos-inventario/ingresos-inventario').then(m => m.IngresosInventarioComponent),
                 canActivate: [menuGuard],
-                data: { clave: 'INV_INGRESOS' }
+                data: { clave: 'INV_INGRESOS', operacion: 'INGRESO' }
+            },
+            {
+                path: 'inventario/salidas',
+                loadComponent: () => import('./features/inventario/ingresos-inventario/ingresos-inventario').then(m => m.IngresosInventarioComponent),
+                canActivate: [menuGuard],
+                data: { clave: 'INV_SALIDAS', operacion: 'SALIDA' }
+            },
+            {
+                path: 'inventario/traslados',
+                loadComponent: () => import('./features/inventario/ingresos-inventario/ingresos-inventario').then(m => m.IngresosInventarioComponent),
+                canActivate: [menuGuard],
+                data: { clave: 'INV_TRASLADOS', operacion: 'TRASLADO' }
             },
             {
                 path:'reportes/selector-libros',
@@ -159,6 +175,10 @@ export const routes: Routes = [
             {
                 path: 'administracion/menu',
                 loadComponent: () => import('./features/administracion/admin-menu/admin-menu').then(m => m.AdminMenuComponent)
+            },
+            {
+                path: 'administracion/pos-hibrido',
+                loadComponent: () => import('./features/administracion/pos-hibrido-config/pos-hibrido-config').then(m => m.PosHibridoConfigComponent)
             },
             {
                 path: 'manuales',
