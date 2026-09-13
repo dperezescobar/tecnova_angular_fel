@@ -377,6 +377,8 @@ export interface UpdateFacturaDto {
   DTE: number;
   CorreoCliente: string;
   TipoFactura: string;
+  // POS híbrido - Fase 2 (opcional; default false en el backend, no afecta otros callers).
+  EsRecibo?: boolean;
 }
 
 export interface UpdateFacturaRetencionDto {
@@ -496,3 +498,47 @@ export interface UpdateFacturaDevolucionDto {
 }
 
 export type NcModo = 'DESCUENTO' | 'DEVOLUCION';
+
+// ── POS Híbrido - Fase 2: recibos consolidables (opt-in, ver PosHibridoConfig.Activo) ──────────
+export type PosModoDocumento = 'FACTURA_DIRECTA' | 'RECIBO';
+
+export interface PosHibridoConfigDto {
+  idEmpresa: number;
+  activo: boolean;
+}
+
+export interface PosRubroConfigDto {
+  grupoInventario1: string;
+  modoDocumento: PosModoDocumento;
+  activo: boolean;
+}
+
+export interface PosUsuarioRubroDto {
+  usuario: string;
+  grupoInventario1: string;
+  permitido: boolean;
+}
+
+export interface ReciboPendienteDto {
+  idFactura: number;
+  prefijo: string;
+  factura: string;
+  sucursal: string;
+  puntoVenta: string;
+  fecha: string;
+  cliente: string;
+  facturarA: string;
+  total: number;
+  vendedor: string;
+  rubros: string[];
+}
+
+export interface ConsolidacionResultDto {
+  idFacturaConsolidada: number;
+  prefijo: string;
+  factura: string;
+  sucursal: string;
+  puntoVenta: string;
+  total: number;
+  origenes: ReciboPendienteDto[];
+}

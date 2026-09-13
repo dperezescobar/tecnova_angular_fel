@@ -3009,23 +3009,14 @@ this.clientesFiltradosParaTabla.set(profiles);
     this.cdr.markForCheck();
   }
 
+  // Solo DescuentoAdicional resta de Sumas (ver Recalculo_Factura_Encabezado); el descuento de
+  // detalle ya viene neteado dentro de Sumas, así que no se muestra aquí para no confundir.
   private resolveDescuentosFromTotales(totales: FacturaTotalesDto): number {
-    const candidates = [totales.DescuentoTotal, totales.DescuentoAdicional, totales.DESCUENTO];
-    const explicit = candidates.map((value) => this.roundAmount(value)).find((value) => value > 0);
-    if (explicit !== undefined) {
-      return explicit;
-    }
-
-    return this.roundAmount(Math.max(this.toNumber(totales.SUMAS) - this.toNumber(totales.TotalOperacion), 0));
+    return this.roundAmount(totales.DescuentoAdicional);
   }
 
   private resolveDescuentosFromEncabezado(encabezado: FacturaEncabezadoDto): number {
-    const explicit = this.roundAmount(encabezado.DescuentoAdicional);
-    if (explicit > 0) {
-      return explicit;
-    }
-
-    return this.roundAmount(Math.max(this.toNumber(encabezado.Sumas) - this.toNumber(encabezado.TotalOperacion), 0));
+    return this.roundAmount(encabezado.DescuentoAdicional);
   }
 
   private normalizeFacturaTotals(source: {

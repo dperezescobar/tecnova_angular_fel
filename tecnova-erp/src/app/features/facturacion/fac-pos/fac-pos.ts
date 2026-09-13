@@ -181,21 +181,20 @@ export class FacPosComponent implements OnDestroy {
   saldoPendienteCobro = computed(() => Number((this.toNumber(this.facForm.controls.TotalFactura.value) - this.totalFormasPago()).toFixed(2)));
   isNewUnsaved = computed(() => !this.hasSavedCurrentRecord() && !this.selectedFactura());
   isAnonimoClient = signal(false);
-  emiteDte = signal(false);
+  // Interruptor único por empresa (Configuracion.ConfigSistemaEmpresa, idParametro=6), cargado al
+  // login en selectedEmpresa.emiteDte. Reemplaza la consulta en runtime a GetEmiteDte/Credencial.
+  emiteDte = computed(() => !!this.authService.currentUser()?.selectedEmpresa?.emiteDte);
   cambioTipoFacturaLabel = computed(() =>
     this.getCurrentTipoFactura() === 'FAC'
       ? 'Cambiar a Crédito Fiscal'
       : 'Cambiar a consumidor final'
   );
-  // Excepción ambiente de pruebas (00): empresas que SÍ emiten DTE pero están en el ambiente de
-  // Hacienda de pruebas registran la venta con un recibo local, sin contactar a Hacienda.
-  // Solo aplica a FAC (Consumidor Final); CCF sigue el flujo real de emisión aunque ambiente sea 0.
-  // En ambiente 1 esta bandera siempre es false y todo el comportamiento existente queda intacto.
-  esAmbientePrueba = computed(() => this.getAmbiente() === '00');
+  // Si la empresa no tiene EmiteDTE activo, se registra con recibo local sin contactar Hacienda,
+  // sin importar el ambiente (00/01). Solo aplica a FAC; CCF sigue el flujo real de emisión.
   esRegistroSinDte = computed(() => {
     const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa;
     if (idEmpresa === 21) return false; // idEmpresa 21 SIEMPRE realiza transmision DTE a Hacienda (con ambiente 00)
-    return this.emiteDte() && this.esAmbientePrueba() && this.getCurrentTipoFactura() === 'FAC';
+    return !this.emiteDte() && this.getCurrentTipoFactura() === 'FAC';
   });
 
   confirmarCobroLabel = computed(() =>{
@@ -396,12 +395,6 @@ export class FacPosComponent implements OnDestroy {
       this.loadMaestro();
       this.openCreate();
     });
-    const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa;
-    if (idEmpresa) {
-        this.facturacionService.getEmiteDte(idEmpresa).subscribe(status => {
-            this.emiteDte.set(status); // 'emiteDte' es tu Signal<boolean>
-        });
-    }
   }
 
   onFilterChange(value: string) { this.filterText.set(value); }
@@ -839,7 +832,7 @@ export class FacPosComponent implements OnDestroy {
 
   private esDocumentoSinDte(item: FacturaGeneralDto): boolean {
     const tipo = String(item.Tipo_Factura ?? '').trim().toUpperCase();
-    return this.emiteDte() && this.esAmbientePrueba() && tipo === 'FAC';
+    return !this.emiteDte() && tipo === 'FAC';
   }
 
   cambiarTipoFacturaCobro() {
@@ -3178,13 +3171,7 @@ else{
   }
 
   private isEmpresaAutorizadaEmiteDte(): boolean {
-    const empresa = this.authService.currentUser()?.selectedEmpresa as Record<string, unknown> | null | undefined;
-    const flag = empresa?.['emiteDTE'] ?? empresa?.['EmiteDTE'];
-    if (flag === undefined || flag === null || flag === '') {
-      return true;
-    }
-    const normalized = String(flag).trim().toLowerCase();
-    return normalized === '1' || normalized === 'true' || normalized === 'si' || normalized === 'sí';
+    return this.emiteDte();
   }
 
   private resolveTipoDocMh(tipoFactura: string): string {

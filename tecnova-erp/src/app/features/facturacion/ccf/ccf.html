@@ -781,6 +781,12 @@
                           <span class="detalle-card-label">Precio</span>
                           <span class="detalle-card-value">{{ item.PRECIO_UNITARIO | currency:'USD':'symbol':'1.2-2' }}</span>
                         </div>
+                        @if (item.Descuento > 0) {
+                          <div class="detalle-card-metric">
+                            <span class="detalle-card-label">Descuento@if (item.TipoDescuento) { ({{ item.TipoDescuento }}) }</span>
+                            <span class="detalle-card-value">-{{ item.Descuento | currency:'USD':'symbol':'1.2-2' }}</span>
+                          </div>
+                        }
                         <div class="detalle-card-metric total-metric">
                           <span class="detalle-card-label">Total</span>
                           <span class="detalle-card-value">{{ (item.TotalVenta || item.TOTAL) | currency:'USD':'symbol':'1.2-2' }}</span>
@@ -802,6 +808,7 @@
                         <th>Descripcion</th>
                         <th>Cantidad</th>
                         <th>Precio</th>
+                        <th>Descuento</th>
                         <th>Total</th>
                         <th class="actions-col">Accion</th>
                       </tr>
@@ -814,6 +821,7 @@
                           <td>{{ item.DESCRIPCION }}</td>
                           <td>{{ item.CANTIDAD | number:'1.0-0' }}</td>
                           <td>{{ item.PRECIO_UNITARIO | currency:'USD':'symbol':'1.2-2' }}</td>
+                          <td>@if (item.Descuento > 0) { -{{ item.Descuento | currency:'USD':'symbol':'1.2-2' }}@if (item.TipoDescuento) { ({{ item.TipoDescuento }}) } } @else { — }</td>
                           <td>{{ (item.TotalVenta || item.TOTAL) | currency:'USD':'symbol':'1.2-2' }}</td>
                           <td class="actions-col">
                             <p-button
@@ -829,7 +837,7 @@
                         </tr>
                       } @empty {
                         <tr>
-                          <td colspan="7">Sin lineas de detalle agregadas.</td>
+                          <td colspan="8">Sin lineas de detalle agregadas.</td>
                         </tr>
                       }
                     </tbody>

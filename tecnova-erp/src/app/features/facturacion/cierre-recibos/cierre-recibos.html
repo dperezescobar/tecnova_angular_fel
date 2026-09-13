@@ -1,0 +1,83 @@
+<div class="cierre-recibos">
+  <h2>Cierre de Recibos</h2>
+  <p class="hint">Agrupe recibos pendientes (aplicados, sin emitir) en una sola factura consolidada.</p>
+
+  <div class="cr-msg" *ngIf="mensaje() as m" [class.error]="m.tipo === 'error'" [class.ok]="m.tipo === 'ok'">{{ m.texto }}</div>
+  <div *ngIf="sinPermiso()" class="cr-msg error">Acceso restringido: solo un administrador puede consolidar recibos.</div>
+
+  <ng-container *ngIf="!sinPermiso()">
+    <!-- Vista de borrador consolidado -->
+    <section class="card" *ngIf="consolidado() as c">
+      <h3>Consolidación en borrador</h3>
+      <div class="cr-resumen">
+        <div><span>Documento</span><b>{{ c.prefijo }} / {{ c.factura }}</b></div>
+        <div><span>Sucursal / Punto</span><b>{{ c.sucursal }} / {{ c.puntoVenta }}</b></div>
+        <div><span>Total</span><b>{{ c.total | currency }}</b></div>
+      </div>
+
+      <table class="cr-table">
+        <thead><tr><th>Factura origen</th><th>Vendedor</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let o of c.origenes">
+            <td>{{ o.prefijo }} / {{ o.factura }}</td>
+            <td>{{ o.vendedor }}</td>
+            <td class="c">
+              <button type="button" class="btn-link" [disabled]="procesando()" (click)="quitarOrigen(o.idFactura)">Quitar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="cr-actions">
+        <button type="button" class="btn-secondary" [disabled]="procesando()" (click)="cancelarConsolidacion()">Cancelar consolidación</button>
+        <button type="button" class="btn-primary" [disabled]="procesando()" (click)="aplicarConsolidacion()">
+          {{ procesando() ? 'Procesando…' : 'Aplicar factura consolidada' }}
+        </button>
+      </div>
+      <p class="hint">
+        Una vez aplicada, búsquela en Facturación (FAC) por el prefijo/número anterior para emitir el DTE.
+        Antes de emitir aún puede volver aquí y quitar recibos si se equivocó al armarla.
+      </p>
+    </section>
+
+    <!-- Búsqueda de pendientes -->
+    <section class="card" *ngIf="!consolidado()">
+      <h3>Recibos pendientes</h3>
+      <div class="cr-filtros">
+        <label>Desde <input type="date" [ngModel]="fechaDesde()" (ngModelChange)="fechaDesde.set($event)" /></label>
+        <label>Hasta <input type="date" [ngModel]="fechaHasta()" (ngModelChange)="fechaHasta.set($event)" /></label>
+        <button type="button" class="btn-secondary" [disabled]="cargando()" (click)="buscar()">
+          {{ cargando() ? 'Buscando…' : 'Buscar' }}
+        </button>
+      </div>
+
+      <ng-container *ngIf="pendientes().length; else sinPendientes">
+        <div class="cr-todos">
+          <label><input type="checkbox" [checked]="seleccionados().size === pendientes().length" (change)="marcarTodos(seleccionados().size !== pendientes().length)" /> Marcar todos</label>
+          <span class="cr-total-sel">Seleccionado: {{ totalSeleccionado() | currency }}</span>
+        </div>
+
+        <table class="cr-table">
+          <thead><tr><th></th><th>Fecha</th><th>Cliente</th><th>Rubros</th><th>Vendedor</th><th class="r">Total</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let r of pendientes()">
+              <td class="c"><input type="checkbox" [checked]="seleccionados().has(r.idFactura)" (change)="toggleSeleccion(r.idFactura)" /></td>
+              <td>{{ r.fecha | date:'yyyy-MM-dd' }}</td>
+              <td>{{ r.facturarA || r.cliente }}</td>
+              <td>{{ r.rubros.join(', ') }}</td>
+              <td>{{ r.vendedor }}</td>
+              <td class="r">{{ r.total | currency }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="cr-actions">
+          <button type="button" class="btn-primary" [disabled]="!haySeleccion() || procesando()" (click)="armarConsolidacion()">
+            {{ procesando() ? 'Armando…' : 'Armar consolidación' }}
+          </button>
+        </div>
+      </ng-container>
+      <ng-template #sinPendientes><p class="hint">No hay recibos pendientes en ese rango de fechas.</p></ng-template>
+    </section>
+  </ng-container>
+</div>

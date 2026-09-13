@@ -645,13 +645,28 @@ export class FacturacionService {
         })
       );
   }
-getEmiteDte(idEmpresa:number): Observable<boolean> {
-    const params = new HttpParams().set('idEmpresa', idEmpresa);
+getEmiteDte(): Observable<boolean> {
     return this.http
-      .get<boolean>(`${this.facturaApiUrl}/GetEmiteDte`, { params })
+      .get<boolean>(`${this.facturaApiUrl}/GetEmiteDte`)
       .pipe(map((response) => response === true),
       catchError(() =>{return of(false)})
       );
+  }
+
+  setEmiteDte(emite: boolean): Observable<unknown> {
+    return this.http.post(`${this.facturaApiUrl}/SetEmiteDte`, { Emite: emite });
+  }
+
+  getValidarExistencia(): Observable<boolean> {
+    return this.http
+      .get<boolean>(`${this.facturaApiUrl}/GetValidarExistencia`)
+      .pipe(map((response) => response !== false),
+      catchError(() => { return of(true); })
+      );
+  }
+
+  setValidarExistencia(validar: boolean): Observable<unknown> {
+    return this.http.post(`${this.facturaApiUrl}/SetValidarExistencia`, { Validar: validar });
   }
   private extractPlainTextError(error: unknown): string {
     if (typeof error === 'string') {
@@ -710,7 +725,10 @@ getEmiteDte(idEmpresa:number): Observable<boolean> {
     const tipo = String(tipoFactura ?? '').trim().toUpperCase() || 'FAC';
     return this.http
       .post<Record<string, unknown>>(this.join(apiBaseUrl, `api/DteemitidosV2/Post${tipo}`), payload)
-      .pipe(map((row) => this.mapRespuestaDte(row ?? {})));
+      .pipe(
+        map((row) => this.mapRespuestaDte(row ?? {})),
+        tap(() => this.invalidateFacturasGeneralCache())
+      );
   }
 
   emitirFac(apiBaseUrl: string, payload: ParametrosDteDto): Observable<RespuestaDteDto> {

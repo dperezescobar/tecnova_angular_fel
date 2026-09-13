@@ -103,11 +103,11 @@ export class FacComponent {
   private reciboService = inject(ReciboService);
   private articulosLazyService = inject(ArticulosLazyService);
 
-  // Excepción ambiente de pruebas (00): igual que en fac-pos, se registra la venta con un recibo
-  // local sin contactar Hacienda. fac.ts solo maneja FAC, así que no hace falta filtrar por tipo.
-  // En ambiente 1 esAmbientePrueba() siempre es false y no cambia nada del comportamiento actual.
-  esAmbientePrueba = computed(() => this.getAmbiente() === '00');
-  esRegistroSinDte = computed(() => this.esAmbientePrueba());
+  // Interruptor único por empresa (Configuracion.ConfigSistemaEmpresa, idParametro=6): si la
+  // empresa no tiene EmiteDTE activo, se registra con recibo local sin contactar Hacienda,
+  // sin importar el ambiente (00/01). fac.ts solo maneja FAC, así que no hace falta filtrar por tipo.
+  emiteDte = computed(() => !!this.authService.currentUser()?.selectedEmpresa?.emiteDte);
+  esRegistroSinDte = computed(() => !this.emiteDte());
   emitirDteLabel = computed(() => (this.esRegistroSinDte() ? 'Registrar factura' : 'Emitir DTE'));
   isEmpresa2 = computed(() => this.authService.currentUser()?.selectedEmpresa?.idEmpresa === 2);
   private route = inject(ActivatedRoute);
@@ -684,7 +684,7 @@ refreshClientes(): void {
     const perfil = this.perfilClientes().find((c) => String(c.CLIENTE ?? '').trim() === String(item.CLIENTE ?? '').trim());
     const correoDefault = String(perfil?.CORREO_ELECTRONICO ?? '').trim();
 
-    if (this.esAmbientePrueba()) {
+    if (this.esRegistroSinDte()) {
       this.reenviarCorreoDialog.abrir(idEmpresa, idFactura, 'FAC', correoDefault, (correoDestino) =>
         this.enviarReciboDesdeListado(item, correoDestino)
       );
@@ -1916,6 +1916,10 @@ refreshClientes(): void {
     }
 
     const incluyeIva = !!this.facForm.controls.IncluyeIVA.value;
+    // El total con IVA es solo para la vista previa local (computeTotalsFromDetalleRows asume
+    // TOTAL/TotalVenta con IVA incluido). El PRECIO_UNITARIO que se envía al servidor debe ir SIN
+    // multiplicar: Update_DetalleFactura ya aplica el IVA cuando PrecioConIVA=0 (lee el flag de la
+    // cabecera) — multiplicarlo también aquí lo duplicaba (420 -> 474.60 -> 536.30).
     const precioUnitarioDetalle = incluyeIva ? precio : Number((precio * 1.13).toFixed(6));
 
     const nextLine = this.detalleRows().length + 1;
@@ -1927,7 +1931,7 @@ refreshClientes(): void {
       DESCRIPCION: descripcion,
       CALIDAD: '',
       CANTIDAD: cantidad,
-      PRECIO_UNITARIO: precioUnitarioDetalle,
+      PRECIO_UNITARIO: precio,
       COSTO_UNITARIO: 0,
       TOTAL: total,
       UNIDAD_MEDIDA: '',
@@ -3125,23 +3129,14 @@ this.clientesFiltradosParaTabla.set(profiles);
     this.cdr.markForCheck();
   }
 
+  // Solo DescuentoAdicional resta de Sumas (ver Recalculo_Factura_Encabezado); el descuento de
+  // detalle ya viene neteado dentro de Sumas, así que no se muestra aquí para no confundir.
   private resolveDescuentosFromTotales(totales: FacturaTotalesDto): number {
-    const candidates = [totales.DescuentoTotal, totales.DescuentoAdicional, totales.DESCUENTO];
-    const explicit = candidates.map((value) => this.roundAmount(value)).find((value) => value > 0);
-    if (explicit !== undefined) {
-      return explicit;
-    }
-
-    return this.roundAmount(Math.max(this.toNumber(totales.SUMAS) - this.toNumber(totales.TotalOperacion), 0));
+    return this.roundAmount(totales.DescuentoAdicional);
   }
 
   private resolveDescuentosFromEncabezado(encabezado: FacturaEncabezadoDto): number {
-    const explicit = this.roundAmount(encabezado.DescuentoAdicional);
-    if (explicit > 0) {
-      return explicit;
-    }
-
-    return this.roundAmount(Math.max(this.toNumber(encabezado.Sumas) - this.toNumber(encabezado.TotalOperacion), 0));
+    return this.roundAmount(encabezado.DescuentoAdicional);
   }
 
   private normalizeFacturaTotals(source: {
