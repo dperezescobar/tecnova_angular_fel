@@ -244,8 +244,8 @@ export class AdminGestionPreciosComponent implements OnInit {
     }
 
     this.isSaving.set(true);
-    const fdesdeStr = val.fdesde ? new Date(val.fdesde).toISOString() : new Date().toISOString();
-    const fhastaStr = val.fHasta ? new Date(val.fHasta).toISOString() : new Date().toISOString();
+    const fdesdeStr = this.toLocalIsoString(val.fdesde);
+    const fhastaStr = this.toLocalIsoString(val.fHasta);
 
     this.service.guardarPromocion({
       idArticuloDescuento: val.idArticuloDescuento || 0,
@@ -264,6 +264,14 @@ export class AdminGestionPreciosComponent implements OnInit {
       error: (err) => this.showError('Error', err?.error?.message || 'No se guardó la promoción'),
       complete: () => this.isSaving.set(false)
     });
+  }
+
+  private toLocalIsoString(d: Date | string | null | undefined): string {
+    if (!d) return new Date().toISOString().substring(0, 19);
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return new Date().toISOString().substring(0, 19);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
   desactivarPromo(p: PromocionItem) {

@@ -241,6 +241,25 @@
   background: color-mix(in srgb, var(--p-primary-300, #93b8ff) 22%, transparent);
 }
 
+.disponible-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.disponible-badge.disponible-si {
+  color: var(--p-green-700, #15803d);
+  background: color-mix(in srgb, var(--p-green-500, #22c55e) 16%, transparent);
+}
+
+.disponible-badge.disponible-no {
+  color: var(--p-red-700, #b91c1c);
+  background: color-mix(in srgb, var(--p-red-500, #ef4444) 16%, transparent);
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

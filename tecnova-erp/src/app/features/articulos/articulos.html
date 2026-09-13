@@ -44,6 +44,7 @@
                 <th>Artículo</th>
                 <th>Descripción</th>
                 <th>Tipo</th>
+                <th>Disponible</th>
               </tr>
             </thead>
             <tbody>
@@ -70,10 +71,15 @@
                   <td>{{ item.Articulo }}</td>
                   <td>{{ item.Descripcion }}</td>
                   <td>{{ item.TipoArticulo }}</td>
+                  <td>
+                    <span class="disponible-badge" [class.disponible-si]="item.Activo" [class.disponible-no]="!item.Activo">
+                      {{ item.Activo ? 'Sí' : 'No' }}
+                    </span>
+                  </td>
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="4">No se encontraron artículos con el filtro actual.</td>
+                  <td colspan="5">No se encontraron artículos con el filtro actual.</td>
                 </tr>
               }
             </tbody>
@@ -93,6 +99,12 @@
                 <div class="card-row">
                   <span class="card-label">Tipo</span>
                   <span class="card-value">{{ item.TipoArticulo }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Disponible</span>
+                  <span class="disponible-badge" [class.disponible-si]="item.Activo" [class.disponible-no]="!item.Activo">
+                    {{ item.Activo ? 'Sí' : 'No' }}
+                  </span>
                 </div>
                 <div class="card-actions">
                   <p-button

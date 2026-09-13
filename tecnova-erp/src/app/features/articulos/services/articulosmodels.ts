@@ -47,6 +47,12 @@ export class ArticulosService {
     return String(value ?? '').trim();
   }
 
+  private toBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') return value;
+    const text = String(value ?? '').trim().toLowerCase();
+    return text === 'true' || text === '1';
+  }
+
   private pickArray(raw: Record<string, unknown>, ...keys: string[]): Array<Record<string, unknown>> {
     const value = this.pick(raw, ...keys);
     return Array.isArray(value) ? (value as Array<Record<string, unknown>>) : [];
@@ -60,7 +66,8 @@ export class ArticulosService {
       GravadoComo: this.toText(this.pick(raw, 'GravadoComo', 'gravadoComo', 'GRAVADO_COMO')),
       UltimoPrecio: this.toNumber(this.pick(raw, 'UltimoPrecio', 'ultimoPrecio', 'ULTIMO_PRECIO')),
       MaterialId: this.toNumber(this.pick(raw, 'MaterialId', 'materialId', 'MATERIALID')),
-      UsuarioCreacion: this.toText(this.pick(raw, 'UsuarioCreacion', 'usuarioCreacion', 'Usuario_creacion'))
+      UsuarioCreacion: this.toText(this.pick(raw, 'UsuarioCreacion', 'usuarioCreacion', 'Usuario_creacion')),
+      Activo: this.toBoolean(this.pick(raw, 'Activo', 'activo', 'ACTIVO'))
     };
   }
 

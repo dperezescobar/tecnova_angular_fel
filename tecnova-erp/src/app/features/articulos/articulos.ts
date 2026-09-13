@@ -1099,7 +1099,8 @@ this.articulosService.deleteArticulo(codigo).subscribe({
             GravadoComo: articuloPayload.Gravado,
             UltimoPrecio: articuloPayload.UltimoPrecio,
             MaterialId: articuloPayload.MaterialId,
-            UsuarioCreacion: currentUser
+            UsuarioCreacion: currentUser,
+            Activo: articuloPayload.Activo
           };
 
           if (modificar === 1) {

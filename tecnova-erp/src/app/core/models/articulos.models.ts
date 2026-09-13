@@ -6,6 +6,7 @@ export interface ArticuloDto {
   UltimoPrecio: number;
   MaterialId: number;
   UsuarioCreacion: string;
+  Activo: boolean;
 }
 
 export interface ArticuloBodegaDto {
@@ -31,7 +32,7 @@ export interface ArticuloDescuentoDto {
   FechaIngreso: string;
 }
 
-export interface ArticuloDetalleDto extends ArticuloDto {
+export interface ArticuloDetalleDto extends Omit<ArticuloDto, 'Activo'> {
   GrupoInventario1: string;
   Des1: string;
   GrupoInventario2: string;
