@@ -6,10 +6,13 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { finalize } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
+import { CheckboxModule } from 'primeng/checkbox';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ToastModule } from 'primeng/toast';
@@ -21,11 +24,12 @@ import { AuthService } from '../../core/services/auth';
 import { NotificacionesService } from '../../core/services/notificaciones.service';
 import { FacturacionService } from '../facturacion/services/facturacion';
 import { AbonoEmpresaDto, PerfilEmpresaDto } from '../../core/models/perfil.models';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-mi-perfil',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ButtonModule, InputTextModule, ProgressSpinnerModule, ToastModule, TabsModule],
+  imports: [CommonModule, FormsModule, ButtonModule, CheckboxModule, InputTextModule, ProgressSpinnerModule, ToastModule, TabsModule],
   providers: [MessageService],
   templateUrl: './mi-perfil.html',
   styleUrl: './mi-perfil.scss',
@@ -37,14 +41,25 @@ export class MiPerfilComponent implements OnInit {
   private facturacionService = inject(FacturacionService);
   private route = inject(ActivatedRoute);
   private messageService = inject(MessageService);
+  private http = inject(HttpClient);
 
   perfil = signal<PerfilEmpresaDto | null>(null);
+  esManagerPOS = signal(false);
+  pinPasswordActual = signal('');
+  pinNuevo = signal('');
+  pinNuevoConfirmar = signal('');
+  guardandoPin = signal(false);
   abonos = signal<AbonoEmpresaDto[]>([]);
   loadingPerfil = signal(false);
   loadingAbonos = signal(false);
   loadingConfig = signal(false);
   savingConfig = signal(false);
   minimoGlobalInput = signal(6);
+  emiteDteInput = signal(false);
+  savingEmiteDte = signal(false);
+  aplicaInventarioInput = signal(false);
+  validarExistenciaInput = signal(true);
+  savingValidarExistencia = signal(false);
   activeTab = signal('mis-datos');
 
   private get idEmpresa(): number {
@@ -64,6 +79,60 @@ export class MiPerfilComponent implements OnInit {
     this.loadPerfil();
     this.loadAbonos();
     this.loadMinimoGlobal();
+    this.loadEmiteDte();
+    this.loadAplicaInventario();
+    this.loadValidarExistencia();
+    this.loadRoles();
+  }
+
+  private loadRoles(): void {
+    const username = this.authService.currentUser()?.username || '';
+    if (!username) return;
+    this.http.get<string[]>(`${environment.apiUrl}/promociones/mis-roles?usuario=${encodeURIComponent(username)}`)
+      .subscribe({
+        next: (roles) => this.esManagerPOS.set((roles || []).includes('MANAGER_POS') || (roles || []).includes('ADMIN')),
+        error: () => this.esManagerPOS.set(false)
+      });
+  }
+
+  guardarPin(): void {
+    if (this.guardandoPin()) return;
+
+    const pin = this.pinNuevo().trim();
+    if (!/^\d{4,6}$/.test(pin)) {
+      this.messageService.add({ severity: 'error', summary: 'PIN de autorización', detail: 'El PIN debe ser numérico, de 4 a 6 dígitos.' });
+      return;
+    }
+    if (pin !== this.pinNuevoConfirmar().trim()) {
+      this.messageService.add({ severity: 'error', summary: 'PIN de autorización', detail: 'Los PIN ingresados no coinciden.' });
+      return;
+    }
+    if (!this.pinPasswordActual()) {
+      this.messageService.add({ severity: 'error', summary: 'PIN de autorización', detail: 'Debe confirmar su contraseña actual.' });
+      return;
+    }
+
+    this.guardandoPin.set(true);
+    this.http.post(`${environment.apiUrl}/promociones/mi-pin`, {
+      passwordActual: this.pinPasswordActual(),
+      pinNuevo: pin
+    }).pipe(finalize(() => this.guardandoPin.set(false)))
+      .subscribe({
+        next: () => {
+          this.pinPasswordActual.set('');
+          this.pinNuevo.set('');
+          this.pinNuevoConfirmar.set('');
+          this.messageService.add({ severity: 'success', summary: 'PIN de autorización', detail: 'PIN configurado correctamente.' });
+        },
+        error: (err) => {
+          const detail = err?.error?.message || 'No se pudo guardar el PIN.';
+          this.messageService.add({ severity: 'error', summary: 'PIN de autorización', detail });
+        }
+      });
+  }
+
+  esRoot(): boolean {
+    return this.authService.isRoot();
   }
 
   onTabChange(value: string | number | undefined): void {
@@ -163,6 +232,70 @@ export class MiPerfilComponent implements OnInit {
         this.messageService.add({ severity: 'success', summary: 'Configuración', detail: 'Mínimo global mayoreo guardado.' });
       },
       error: () => {
+        this.messageService.add({ severity: 'error', summary: 'Configuración', detail: 'No se pudo guardar la configuración.' });
+      }
+    });
+  }
+
+  loadEmiteDte(): void {
+    this.facturacionService.getEmiteDte().subscribe({
+      next: (emite) => this.emiteDteInput.set(emite),
+      error: () => {}
+    });
+  }
+
+  onEmiteDteChange(checked: boolean): void {
+    const anterior = this.emiteDteInput();
+    this.emiteDteInput.set(checked);
+    this.savingEmiteDte.set(true);
+    this.facturacionService.setEmiteDte(checked).pipe(
+      finalize(() => this.savingEmiteDte.set(false))
+    ).subscribe({
+      next: () => {
+        this.authService.setSelectedEmpresaEmiteDte(checked);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Configuración',
+          detail: `Emisión de DTE ${checked ? 'activada' : 'desactivada'}.`
+        });
+      },
+      error: () => {
+        this.emiteDteInput.set(anterior);
+        this.messageService.add({ severity: 'error', summary: 'Configuración', detail: 'No se pudo guardar la configuración.' });
+      }
+    });
+  }
+
+  loadAplicaInventario(): void {
+    this.facturacionService.getAplicaInventarios().subscribe({
+      next: (aplica) => this.aplicaInventarioInput.set(aplica),
+      error: () => {}
+    });
+  }
+
+  loadValidarExistencia(): void {
+    this.facturacionService.getValidarExistencia().subscribe({
+      next: (validar) => this.validarExistenciaInput.set(validar),
+      error: () => {}
+    });
+  }
+
+  onValidarExistenciaChange(checked: boolean): void {
+    const anterior = this.validarExistenciaInput();
+    this.validarExistenciaInput.set(checked);
+    this.savingValidarExistencia.set(true);
+    this.facturacionService.setValidarExistencia(checked).pipe(
+      finalize(() => this.savingValidarExistencia.set(false))
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Configuración',
+          detail: `Validación de existencia al facturar ${checked ? 'activada' : 'desactivada'}.`
+        });
+      },
+      error: () => {
+        this.validarExistenciaInput.set(anterior);
         this.messageService.add({ severity: 'error', summary: 'Configuración', detail: 'No se pudo guardar la configuración.' });
       }
     });

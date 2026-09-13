@@ -95,6 +95,12 @@ export class AuthService {
     };
   }
 
+  private toEmiteDteBool(raw: unknown): boolean {
+    if (typeof raw === 'boolean') return raw;
+    const s = String(raw ?? '').trim().toLowerCase();
+    return s === '1' || s === 's' || s === 'true' || s === 'si' || s === 'sí';
+  }
+
   private normalizeEmpresa(raw: Partial<Empresa> & { [key: string]: unknown }): Empresa {
     const dbName = String(
       raw.dbName ??
@@ -131,6 +137,7 @@ export class AuthService {
       urlApi,
       logo: String(raw.logo ?? raw['Logo'] ?? ''),
       ambienteEmision: Number(raw.ambienteEmision ?? raw['AmbienteEmision'] ?? 0),
+      emiteDte: this.toEmiteDteBool(raw.emiteDte ?? raw['emiteDTE'] ?? raw['EmiteDTE'] ?? raw['EmiteDte']),
       dbName
     };
   }
@@ -195,6 +202,15 @@ export class AuthService {
     localStorage.setItem('contask_session', JSON.stringify(session));
     this.currentUser.set(session);
     this.scheduleTokenRefresh(session.expiration);
+  }
+
+  /** Refleja en la sesión activa un cambio de EmiteDTE ya guardado en el servidor, sin re-login. */
+  setSelectedEmpresaEmiteDte(emite: boolean): void {
+    const current = this.currentUser();
+    if (!current?.selectedEmpresa) return;
+    const updated: UserSession = { ...current, selectedEmpresa: { ...current.selectedEmpresa, emiteDte: emite } };
+    localStorage.setItem('contask_session', JSON.stringify(updated));
+    this.currentUser.set(updated);
   }
 
   getCurrentNombreUsuario(): string {

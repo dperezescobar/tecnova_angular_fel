@@ -31,6 +31,7 @@ export interface Empresa {
   urlApi?: string;
   logo: string; // Logo64
   ambienteEmision: number;
+  emiteDte: boolean;
   dbName: string;
 }
 

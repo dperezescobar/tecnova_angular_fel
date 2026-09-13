@@ -176,6 +176,121 @@
               </div>
             </div>
           </div>
+
+          <!-- ── Configuración de facturación electrónica ── -->
+          <div class="perfil-group perfil-group-full config-section">
+            <h2 class="perfil-group-title">
+              <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
+              Configuración de facturación electrónica
+            </h2>
+            <div class="perfil-fields">
+              <div class="perfil-field">
+                <span class="pf-label">Emitir DTE a Hacienda</span>
+                <div class="config-row">
+                  <p-checkbox
+                    [binary]="true"
+                    [ngModel]="emiteDteInput()"
+                    (onChange)="onEmiteDteChange($event.checked)"
+                    [disabled]="savingEmiteDte()"
+                    inputId="emiteDte"
+                  ></p-checkbox>
+                  <label for="emiteDte" class="pf-value">
+                    {{ emiteDteInput() ? 'Activado — la factura se transmite a Hacienda' : 'Desactivado — se emite recibo sin información fiscal' }}
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Configuración de inventario (root, solo si la empresa tiene Inventario habilitado) ── -->
+          @if (esRoot() && aplicaInventarioInput()) {
+            <div class="perfil-group perfil-group-full config-section">
+              <h2 class="perfil-group-title">
+                <i class="bi bi-boxes" aria-hidden="true"></i>
+                Configuración de inventario
+              </h2>
+              <div class="perfil-fields">
+                <div class="perfil-field">
+                  <span class="pf-label">Validar existencia al facturar</span>
+                  <div class="config-row">
+                    <p-checkbox
+                      [binary]="true"
+                      [ngModel]="validarExistenciaInput()"
+                      (onChange)="onValidarExistenciaChange($event.checked)"
+                      [disabled]="savingValidarExistencia()"
+                      inputId="validarExistencia"
+                    ></p-checkbox>
+                    <label for="validarExistencia" class="pf-value">
+                      {{ validarExistenciaInput() ? 'Activado — bloquea la venta si no hay existencia suficiente' : 'Desactivado — permite facturar aunque la existencia quede negativa (usar solo durante ajustes de inventario)' }}
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- ── PIN de autorización (POS) — solo managers/admins ── -->
+          @if (esManagerPOS()) {
+            <div class="perfil-group perfil-group-full config-section">
+              <h2 class="perfil-group-title">
+                <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                PIN de autorización (POS)
+              </h2>
+              <p class="pf-value" style="margin-bottom: 0.75rem;">
+                Este PIN le permite aprobar ajustes de precio directamente en la terminal del cajero, sin necesidad de conectarse de forma remota. No lo comparta.
+              </p>
+              <div class="perfil-fields">
+                <div class="perfil-field">
+                  <span class="pf-label">Contraseña actual</span>
+                  <input
+                    pInputText
+                    type="password"
+                    autocomplete="current-password"
+                    class="config-input"
+                    [ngModel]="pinPasswordActual()"
+                    (ngModelChange)="pinPasswordActual.set($event)"
+                  />
+                </div>
+                <div class="perfil-field">
+                  <span class="pf-label">PIN nuevo (4 a 6 dígitos)</span>
+                  <input
+                    pInputText
+                    type="password"
+                    inputmode="numeric"
+                    maxlength="6"
+                    autocomplete="off"
+                    class="config-input"
+                    [ngModel]="pinNuevo()"
+                    (ngModelChange)="pinNuevo.set($event)"
+                  />
+                </div>
+                <div class="perfil-field">
+                  <span class="pf-label">Confirmar PIN nuevo</span>
+                  <input
+                    pInputText
+                    type="password"
+                    inputmode="numeric"
+                    maxlength="6"
+                    autocomplete="off"
+                    class="config-input"
+                    [ngModel]="pinNuevoConfirmar()"
+                    (ngModelChange)="pinNuevoConfirmar.set($event)"
+                  />
+                </div>
+              </div>
+              <div class="config-row" style="margin-top: 0.75rem;">
+                <p-button
+                  label="Guardar PIN"
+                  icon="pi pi-check"
+                  severity="success"
+                  size="small"
+                  [loading]="guardandoPin()"
+                  [disabled]="guardandoPin()"
+                  (onClick)="guardarPin()"
+                ></p-button>
+              </div>
+            </div>
+          }
         </p-tabpanel>
 
         <!-- ══ PESTAÑA: Historial de Pagos ══ -->
