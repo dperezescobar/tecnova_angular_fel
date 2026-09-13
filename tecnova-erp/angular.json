@@ -87,6 +87,71 @@
           "builder": "@angular/build:unit-test"
         }
       }
+    },
+    "eurosoccer-app": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "projects/eurosoccer-app",
+      "sourceRoot": "projects/eurosoccer-app/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "index": "projects/eurosoccer-app/src/index.html",
+            "browser": "projects/eurosoccer-app/src/main.ts",
+            "polyfills": [ "zone.js" ],
+            "tsConfig": "projects/eurosoccer-app/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/eurosoccer-app/public"
+              }
+            ],
+            "styles": [
+              "node_modules/primeicons/primeicons.css",
+              "projects/eurosoccer-app/src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [
+                {
+                  "replace": "projects/eurosoccer-app/src/environments/environment.ts",
+                  "with": "projects/eurosoccer-app/src/environments/environment.development.ts"
+                }
+              ]
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "port": 4300
+          },
+          "configurations": {
+            "production": {
+              "buildTarget": "eurosoccer-app:build:production"
+            },
+            "development": {
+              "buildTarget": "eurosoccer-app:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
     }
   }
 }

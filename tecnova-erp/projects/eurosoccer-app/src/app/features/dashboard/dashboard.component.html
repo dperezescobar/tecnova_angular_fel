@@ -1,0 +1,1424 @@
+<div class="min-h-screen flex flex-col bg-pitch-dark text-slate-100 font-outfit antialiased selection:bg-brand-500 selection:text-white">
+
+  <p-toast position="top-right"></p-toast>
+  <p-confirmDialog [style]="{ maxWidth: '28rem' }"></p-confirmDialog>
+
+  <!-- TOP HEADER BAR -->
+  <header class="h-16 bg-pitch-card/90 backdrop-blur-md border-b border-pitch-border/80 sticky top-0 z-40 px-3 sm:px-6 lg:px-8 flex items-center justify-between shadow-lg">
+    <!-- Brand Info & Mobile Menu Toggle -->
+    <div class="flex items-center space-x-2.5 sm:space-x-3">
+      <!-- Mobile Menu Toggle Button -->
+      <button (click)="toggleMobileSidebar()" type="button" aria-label="Abrir Menú de Navegación" class="lg:hidden p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition">
+        <i class="fa-solid fa-bars text-base"></i>
+      </button>
+
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 ring-2 ring-emerald-400/30 shrink-0">
+        <i class="fa-solid fa-futbol text-white text-lg sm:text-xl"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-1.5 sm:space-x-2">
+          <span class="font-extrabold text-base sm:text-lg tracking-wider text-white">EURO<span class="text-brand-400 font-black">SOCCER</span></span>
+          <span class="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold bg-brand-500/20 text-brand-400 rounded-full border border-brand-500/30">CLUB</span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden md:block">Complejo Deportivo & Academia de Fútbol</p>
+      </div>
+    </div>
+
+    <!-- Quick Status & Global Actions -->
+    <div class="flex items-center space-x-1.5 sm:space-x-3">
+      <!-- Live Clock & Date -->
+      <div class="hidden xl:flex flex-col text-right">
+        <span class="text-xs text-slate-400 font-medium">{{ currentDateDisplay() }}</span>
+        <span class="text-xs font-mono font-semibold text-emerald-400">{{ currentTimeDisplay() }}</span>
+      </div>
+
+      <!-- Currency Badge -->
+      <div class="hidden sm:flex bg-slate-800/80 border border-slate-700/60 px-2.5 py-1.5 rounded-lg items-center space-x-1 text-xs text-slate-300">
+        <i class="fa-solid fa-dollar-sign text-emerald-400"></i>
+        <span class="font-semibold text-white">USD ($)</span>
+      </div>
+
+      <!-- User Badge -->
+      <div class="bg-slate-800/80 border border-slate-700/60 px-2.5 sm:px-3 py-1.5 rounded-lg items-center space-x-2 text-xs text-slate-300 flex">
+        <i class="fa-solid fa-user text-brand-400"></i>
+        <span class="font-semibold text-white truncate max-w-[120px] sm:max-w-[180px]">{{ authService.currentUser()?.username }}</span>
+      </div>
+
+      <!-- BOTÓN DE ADMINISTRACIÓN (SOLO VISIBLE PARA ADMINISTRADORES) -->
+      @if (authService.isAdmin()) {
+        <button (click)="activeTab.set('admin')" [class]="activeTab() === 'admin' ? 'bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-amber-400 text-white' : 'bg-slate-800 hover:bg-slate-700 border border-amber-500/50 text-amber-400 hover:text-white'" class="font-semibold text-xs px-2.5 sm:px-3.5 py-2 rounded-lg transition flex items-center space-x-1.5 cursor-pointer shadow-md">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span class="hidden md:inline">Administración</span>
+        </button>
+      }
+
+      <!-- Quick New Action Button -->
+      <button (click)="openNuevaReservaModal()" class="bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-semibold text-xs px-2.5 sm:px-3.5 py-2 rounded-lg shadow-md shadow-emerald-950 transition flex items-center space-x-1.5 cursor-pointer">
+        <i class="fa-solid fa-plus"></i>
+        <span class="hidden md:inline">Nueva Reserva</span>
+      </button>
+
+      <!-- Logout Button -->
+      <button (click)="logout()" title="Cerrar Sesión" class="bg-slate-800 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/40 text-slate-300 hover:text-rose-300 text-xs p-2 sm:px-3 sm:py-2 rounded-lg transition flex items-center space-x-1.5 cursor-pointer">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span class="hidden sm:inline">Salir</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- APP LAYOUT WRAPPER -->
+  <div class="flex flex-1 overflow-hidden relative">
+
+    <!-- Backdrop Overlay for Mobile Sidebar -->
+    @if (mobileSidebarOpen()) {
+      <div (click)="toggleMobileSidebar()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-30 lg:hidden transition-opacity"></div>
+    }
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="mainSidebar" [class.mobile-open]="mobileSidebarOpen()" class="fixed inset-y-0 left-0 top-16 z-40 w-72 lg:w-64 bg-pitch-card/95 lg:bg-pitch-card/60 border-r border-pitch-border/80 flex flex-col justify-between shrink-0 select-none transform -translate-x-full lg:translate-x-0 lg:static lg:top-0 transition-transform duration-300 ease-in-out">
+      <div class="p-4 space-y-6 overflow-y-auto">
+        <!-- Close button for mobile -->
+        <div class="lg:hidden flex items-center justify-between pb-2 border-b border-slate-800">
+          <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Menú Euro Soccer</span>
+          <button (click)="toggleMobileSidebar()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <i class="fa-solid fa-xmark text-sm"></i>
+          </button>
+        </div>
+
+        <!-- Navigation Section -->
+        <div>
+          <div class="px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Panel Principal</div>
+          <nav class="space-y-1">
+            <button (click)="activeTab.set('dashboard')" [class.active]="activeTab() === 'dashboard'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <i class="fa-solid fa-chart-pie w-5 text-center text-brand-400"></i>
+              <span>Dashboard Gerencial</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- ZONA ADMINISTRATIVA (SOLO ADMINISTRADOR) -->
+        @if (authService.isAdmin()) {
+          <div>
+            <div class="px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center space-x-1.5">
+              <i class="fa-solid fa-shield-halved text-xs"></i>
+              <span>Administración</span>
+            </div>
+            <nav class="space-y-1">
+              <button (click)="activeTab.set('admin')" [class.active]="activeTab() === 'admin'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+                <div class="flex items-center space-x-3">
+                  <i class="fa-solid fa-gear w-5 text-center text-amber-400"></i>
+                  <span>Gestión Canchas & Balones</span>
+                </div>
+                <span class="text-[9px] font-black px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded border border-amber-500/30">ADMIN</span>
+              </button>
+            </nav>
+          </div>
+        }
+
+        <div>
+          <div class="px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Unidades de Negocio (6)</div>
+          <nav class="space-y-1">
+            <button (click)="activeTab.set('canchas')" [class.active]="activeTab() === 'canchas'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <i class="fa-solid fa-calendar-check w-5 text-center text-emerald-400"></i>
+              <span>1. Alquiler de Canchas</span>
+            </button>
+            <button (click)="activeTab.set('balones')" [class.active]="activeTab() === 'balones'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <i class="fa-solid fa-futbol w-5 text-center text-amber-400"></i>
+              <span>2. Alquiler de Pelotas</span>
+            </button>
+            <button (click)="activeTab.set('torneos')" [class.active]="activeTab() === 'torneos'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-trophy w-5 text-center text-yellow-400"></i>
+                <span>3. Torneos & Ligas</span>
+              </div>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded border border-slate-700">Fase 2</span>
+            </button>
+            <button (click)="activeTab.set('escuela')" [class.active]="activeTab() === 'escuela'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-graduation-cap w-5 text-center text-sky-400"></i>
+                <span>4. Escuela de Niños</span>
+              </div>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded border border-slate-700">Fase 2</span>
+            </button>
+            <button (click)="activeTab.set('cafeteria')" [class.active]="activeTab() === 'cafeteria'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-utensils w-5 text-center text-rose-400"></i>
+                <span>5. Cafetería (POS)</span>
+              </div>
+              <span class="text-[9px] font-black px-1.5 py-0.5 bg-rose-500/20 text-rose-300 rounded border border-rose-500/30">POS</span>
+            </button>
+            <button (click)="activeTab.set('tienda')" [class.active]="activeTab() === 'tienda'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-shirt w-5 text-center text-indigo-400"></i>
+                <span>6. Tienda Deportiva (POS)</span>
+              </div>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded border border-slate-700">Fase 2</span>
+            </button>
+            <button (click)="activeTab.set('inventario'); cargarInventarioEuro()" [class.active]="activeTab() === 'inventario'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-boxes-stacked w-5 text-center text-teal-400"></i>
+                <span>7. Control de Inventario</span>
+              </div>
+              <span class="text-[9px] font-black px-1.5 py-0.5 bg-teal-500/20 text-teal-300 rounded border border-teal-500/30">EURO</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- User/Operator Footer Card -->
+      <div class="p-4 border-t border-pitch-border/60 bg-pitch-card/80">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-xs">
+            ES
+          </div>
+          <div class="overflow-hidden">
+            <p class="text-xs font-semibold text-white truncate">{{ authService.currentUser()?.username }}</p>
+            <p class="text-[10px] text-emerald-400 truncate flex items-center space-x-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Caja Activa (Canchas & Pelotas)</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEWPORT -->
+    <main class="flex-1 overflow-y-auto stadium-bg pitch-pattern p-4 lg:p-8 min-h-[calc(100vh-4rem)]">
+
+      <!-- ========================================================
+           TAB ADMIN: GESTIÓN CRUD DE CANCHAS Y BALONES
+           ======================================================== -->
+      @if (activeTab() === 'admin' && authService.isAdmin()) {
+        <section class="space-y-6">
+          <!-- Header con Selector de Subpestañas (Canchas vs Balones) -->
+          <div class="glass-panel p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-amber-500/30">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center space-x-1">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  <span>MODO ADMINISTRADOR</span>
+                </span>
+                <h2 class="text-xl font-bold text-white">Mantenimiento de Catálogos (CRUD)</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Creación, actualización de tarifas y control de inventario deportivo</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center bg-slate-900 rounded-xl p-1 border border-slate-700">
+                <button (click)="adminSubTab.set('canchas')" [class]="adminSubTab() === 'canchas' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-4 py-2 rounded-lg text-xs transition cursor-pointer flex items-center space-x-2">
+                  <i class="fa-solid fa-flag"></i>
+                  <span>Canchas ({{ canchas().length }})</span>
+                </button>
+                <button (click)="adminSubTab.set('balones')" [class]="adminSubTab() === 'balones' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-4 py-2 rounded-lg text-xs transition cursor-pointer flex items-center space-x-2">
+                  <i class="fa-solid fa-futbol"></i>
+                  <span>Balones ({{ balones().length }})</span>
+                </button>
+              </div>
+
+              @if (adminSubTab() === 'canchas') {
+                <button (click)="abrirModalNuevaCancha()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition flex items-center space-x-2 shadow-lg shadow-emerald-950 cursor-pointer">
+                  <i class="fa-solid fa-plus"></i>
+                  <span>Nueva Cancha</span>
+                </button>
+              } @else {
+                <button (click)="abrirModalNuevoBalon()" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition flex items-center space-x-2 shadow-lg shadow-amber-950 cursor-pointer">
+                  <i class="fa-solid fa-plus"></i>
+                  <span>Nuevo Balón</span>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- SUBTAB 1: CRUD CANCHAS -->
+          @if (adminSubTab() === 'canchas') {
+            <div class="glass-panel p-6 rounded-2xl">
+              <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-flag text-emerald-400"></i>
+                    <span>Catálogo de Canchas Deportivas</span>
+                  </h3>
+                  <p class="text-xs text-slate-400">Tarifas diurnas, tarifas nocturnas y estatus de servicio</p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  {{ canchas().length }} Registrada(s)
+                </span>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-slate-900/60 uppercase tracking-wider text-[11px] text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th class="py-3 px-4">ID</th>
+                      <th class="py-3 px-4">Nombre Cancha</th>
+                      <th class="py-3 px-4">Tipo / Formato</th>
+                      <th class="py-3 px-4">Tarifa Día ($/h)</th>
+                      <th class="py-3 px-4">Tarifa Noche ($/h)</th>
+                      <th class="py-3 px-4">Hora Inicio Noche</th>
+                      <th class="py-3 px-4">Estado</th>
+                      <th class="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60">
+                    @for (c of canchas(); track c.idCancha) {
+                      <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3 px-4 font-mono font-bold text-slate-400">#{{ c.idCancha }}</td>
+                        <td class="py-3 px-4 font-bold text-white text-sm">
+                          <i class="fa-solid fa-futbol mr-2 text-emerald-400"></i>{{ c.nombre }}
+                        </td>
+                        <td class="py-3 px-4">
+                          <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[11px]">
+                            {{ c.tipo }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4 font-mono font-bold text-emerald-400">${{ c.precioDia | number:'1.2-2' }}</td>
+                        <td class="py-3 px-4 font-mono font-bold text-amber-400">${{ c.precioNoche | number:'1.2-2' }}</td>
+                        <td class="py-3 px-4 font-mono text-slate-300">{{ c.horaInicioNoche }}</td>
+                        <td class="py-3 px-4">
+                          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold" [class]="c.estado === 'Disponible' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
+                            {{ c.estado }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                          <div class="flex items-center justify-center space-x-2">
+                            <button (click)="abrirModalEditarCancha(c)" title="Editar Cancha" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+                              <i class="fa-solid fa-pen-to-square text-emerald-400"></i>
+                            </button>
+                            <button (click)="eliminarCancha(c.idCancha)" title="Desactivar Cancha" class="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition cursor-pointer">
+                              <i class="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+
+          <!-- SUBTAB 2: CRUD BALONES -->
+          @if (adminSubTab() === 'balones') {
+            <div class="glass-panel p-6 rounded-2xl">
+              <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-futbol text-amber-400"></i>
+                    <span>Catálogo de Inventario de Balones</span>
+                  </h3>
+                  <p class="text-xs text-slate-400">Códigos únicos, marcas, números y estado de préstamos</p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  {{ balones().length }} Balón(es)
+                </span>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-slate-900/60 uppercase tracking-wider text-[11px] text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th class="py-3 px-4">ID</th>
+                      <th class="py-3 px-4">Código</th>
+                      <th class="py-3 px-4">Marca</th>
+                      <th class="py-3 px-4">Número</th>
+                      <th class="py-3 px-4">Estado Físico</th>
+                      <th class="py-3 px-4">Estado Préstamo</th>
+                      <th class="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60">
+                    @for (b of balones(); track b.idBalon) {
+                      <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3 px-4 font-mono font-bold text-slate-400">#{{ b.idBalon }}</td>
+                        <td class="py-3 px-4 font-mono font-bold text-white">{{ b.codigo }}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-200">{{ b.marca }}</td>
+                        <td class="py-3 px-4 font-mono text-slate-300">{{ b.numero }}</td>
+                        <td class="py-3 px-4">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold" [class]="b.estadoFisico === 'Excelente' || b.estadoFisico === 'Bueno' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'">
+                            {{ b.estadoFisico }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4">
+                          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold" [class]="b.estadoPrestamo === 'Disponible' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
+                            {{ b.estadoPrestamo }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                          <div class="flex items-center justify-center space-x-2">
+                            <button (click)="abrirModalEditarBalon(b)" title="Editar Balón" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+                              <i class="fa-solid fa-pen-to-square text-amber-400"></i>
+                            </button>
+                            <button (click)="eliminarBalon(b.idBalon)" title="Desactivar Balón" class="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition cursor-pointer">
+                              <i class="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ========================================================
+           TAB INVENTARIO: CONTROL DE EXISTENCIAS BODEGA EURO
+           ======================================================== -->
+      @if (activeTab() === 'inventario') {
+        <section class="space-y-6">
+          <!-- Header del Inventario -->
+          <div class="glass-panel p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-teal-500/30">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center space-x-1">
+                  <i class="fa-solid fa-boxes-stacked"></i>
+                  <span>BODEGA BODEURO</span>
+                </span>
+                <h2 class="text-xl font-bold text-white">Control de Inventario EuroSoccer</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Control de existencias, ingresos, salidas y remisión hacia Bodega General central</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button (click)="cargarInventarioEuro()" title="Recargar existencias" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer">
+                <i class="fa-solid fa-rotate" [class.fa-spin]="loadingInventario()"></i>
+              </button>
+
+              <button (click)="abrirModalMovimiento('INGRESO')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-emerald-950 cursor-pointer">
+                <i class="fa-solid fa-arrow-down"></i>
+                <span>Ingreso</span>
+              </button>
+
+              <button (click)="abrirModalMovimiento('SALIDA')" class="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-rose-950 cursor-pointer">
+                <i class="fa-solid fa-arrow-up"></i>
+                <span>Salida / Descargo</span>
+              </button>
+
+              <button (click)="abrirModalMovimiento('TRASLADO')" class="bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-teal-950 cursor-pointer">
+                <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                <span>Transferir a Central</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Banner Informativo Regla de Negocio -->
+          <div class="p-4 rounded-xl bg-slate-900/80 border border-teal-500/20 flex items-start space-x-3 text-xs">
+            <div class="p-2 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 shrink-0 mt-0.5">
+              <i class="fa-solid fa-shield-halved text-sm"></i>
+            </div>
+            <div>
+              <p class="font-bold text-teal-300">Regla de Negocio de Transferencias:</p>
+              <p class="text-slate-400 mt-0.5">EuroSoccer tiene habilitada la transferencia de productos exclusivamente desde <strong>BODEURO</strong> hacia la Bodega General <strong>(BOD01)</strong>. EuroSoccer no puede servirse directamente de la bodega general (cualquier despacho central hacia Euro debe registrarse en Tecnova ERP).</p>
+            </div>
+          </div>
+
+          <!-- Tabla de Existencias en BODEURO -->
+          <div class="glass-panel p-6 rounded-2xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-boxes-stacked text-teal-400"></i>
+                  <span>Existencias Disponibles (BODEURO)</span>
+                </h3>
+                <p class="text-xs text-slate-400">Productos y stock vivo registrado en el sistema</p>
+              </div>
+
+              <!-- Filtro de Búsqueda -->
+              <div class="flex items-center space-x-2">
+                <div class="relative">
+                  <i class="fa-solid fa-search absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                  <input type="text"
+                    [value]="inventarioBusqueda()"
+                    (input)="inventarioBusqueda.set($any($event.target).value)"
+                    placeholder="Buscar código o descripción..."
+                    class="pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 text-white rounded-xl text-xs outline-none focus:border-teal-500 w-56 sm:w-64" />
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-500/30 whitespace-nowrap">
+                  {{ articulosInventarioFiltrados().length }} producto(s)
+                </span>
+              </div>
+            </div>
+
+            @if (loadingInventario()) {
+              <div class="py-12 text-center text-slate-400">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl text-teal-400 mb-2"></i>
+                <p class="text-xs">Consultando existencias de BODEURO...</p>
+              </div>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-slate-900/60 uppercase tracking-wider text-[11px] text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th class="py-3 px-4">Código</th>
+                      <th class="py-3 px-4">Descripción del Artículo</th>
+                      <th class="py-3 px-4">Bodega</th>
+                      <th class="py-3 px-4 text-center">Unidad</th>
+                      <th class="py-3 px-4 text-right">Existencia Actual</th>
+                      <th class="py-3 px-4 text-right">Precio Ref. ($)</th>
+                      <th class="py-3 px-4 text-center">Operaciones Rápidas</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60">
+                    @for (item of articulosInventarioFiltrados(); track item.articulo) {
+                      <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3.5 px-4 font-mono font-bold text-teal-300">{{ item.articulo }}</td>
+                        <td class="py-3.5 px-4 font-semibold text-white">{{ item.descripcion }}</td>
+                        <td class="py-3.5 px-4">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/30">
+                            {{ item.bodega }}
+                          </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">{{ item.unidadMedida || 'UNI' }}</td>
+                        <td class="py-3.5 px-4 text-right">
+                          <span [class]="item.saldo > 5 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : (item.saldo > 0 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30')" class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold border">
+                            {{ item.saldo | number:'1.2-2' }}
+                          </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-right font-mono text-slate-300">
+                          ${{ (item.precioUnitario || 0) | number:'1.2-2' }}
+                        </td>
+                        <td class="py-3.5 px-4">
+                          <div class="flex items-center justify-center space-x-1.5">
+                            <button (click)="abrirModalMovimiento('INGRESO', item)" title="Ingreso a este producto" class="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition text-[11px] font-semibold flex items-center space-x-1 cursor-pointer">
+                              <i class="fa-solid fa-plus text-[10px]"></i>
+                              <span>Ingresar</span>
+                            </button>
+                            <button (click)="abrirModalMovimiento('SALIDA', item)" title="Salida o merma" class="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition text-[11px] font-semibold flex items-center space-x-1 cursor-pointer">
+                              <i class="fa-solid fa-minus text-[10px]"></i>
+                              <span>Salida</span>
+                            </button>
+                            <button (click)="abrirModalMovimiento('TRASLADO', item)" title="Transferir hacia Bodega General BOD01" class="px-2 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 transition text-[11px] font-semibold flex items-center space-x-1 cursor-pointer">
+                              <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                              <span>A General</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="7" class="py-8 text-center text-slate-400 text-xs">
+                          <i class="fa-solid fa-inbox text-3xl mb-2 text-slate-600 block"></i>
+                          No se encontraron existencias registradas en la bodega EuroSoccer.
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ========================================================
+           TAB 0: DASHBOARD GERENCIAL
+           ======================================================== -->
+      @if (activeTab() === 'dashboard') {
+        <section class="space-y-6">
+          <!-- Welcome Banner -->
+          <div class="glass-panel p-6 rounded-2xl relative overflow-hidden border border-emerald-500/20">
+            <div class="absolute right-0 top-0 w-96 h-full bg-gradient-to-l from-emerald-500/10 to-transparent pointer-events-none"></div>
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div class="inline-flex items-center space-x-2 px-2.5 py-1 rounded-full bg-brand-500/20 border border-brand-500/30 text-brand-300 text-xs font-semibold mb-2">
+                  <i class="fa-solid fa-circle-check text-brand-400"></i>
+                  <span>Complejo Operando en Vivo</span>
+                </div>
+                <h1 class="text-2xl lg:text-3xl font-bold text-white tracking-tight">Panel de Control General Euro Soccer</h1>
+                <p class="text-slate-400 text-sm mt-1">Supervisión en tiempo real de canchas sintéticas, préstamo de balones y operaciones del club.</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button (click)="activeTab.set('canchas')" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition flex items-center space-x-2 cursor-pointer">
+                  <i class="fa-regular fa-calendar text-emerald-400"></i>
+                  <span>Ver Agenda Canchas</span>
+                </button>
+                <button (click)="activeTab.set('balones')" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-950 transition flex items-center space-x-2 cursor-pointer">
+                  <i class="fa-solid fa-futbol"></i>
+                  <span>Control de Balones</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI SUMMARY CARDS -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI 1 -->
+            <div class="glass-card p-5 rounded-2xl">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Canchas Habilitadas</span>
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <i class="fa-solid fa-flag"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline space-x-2">
+                <span class="text-3xl font-extrabold text-white mono-font">{{ canchas().length }}</span>
+                <span class="text-xs text-emerald-400 font-semibold">Canchas F7</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 flex items-center space-x-1">
+                <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                <span>Disponibles en el complejo</span>
+              </p>
+            </div>
+
+            <!-- KPI 2 -->
+            <div class="glass-card p-5 rounded-2xl">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Reservas Hoy</span>
+                <div class="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                  <i class="fa-solid fa-calendar-check"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline space-x-2">
+                <span class="text-3xl font-extrabold text-white mono-font">{{ reservaciones().length }}</span>
+                <span class="text-xs text-sky-400 font-semibold">Turnos</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 flex items-center space-x-1">
+                <i class="fa-solid fa-clock text-sky-400"></i>
+                <span>Para la fecha seleccionada</span>
+              </p>
+            </div>
+
+            <!-- KPI 3 -->
+            <div class="glass-card p-5 rounded-2xl">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Balones Disponibles</span>
+                <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <i class="fa-solid fa-futbol"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline space-x-2">
+                <span class="text-3xl font-extrabold text-white mono-font">{{ balonesDisponiblesCount() }}</span>
+                <span class="text-xs text-amber-400 font-semibold">/ {{ balones().length }} Total</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 flex items-center space-x-1">
+                <i class="fa-solid fa-box-archive text-amber-400"></i>
+                <span>Listos en bodega</span>
+              </p>
+            </div>
+
+            <!-- KPI 4 -->
+            <div class="glass-card p-5 rounded-2xl">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Balones En Cancha</span>
+                <div class="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                  <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline space-x-2">
+                <span class="text-3xl font-extrabold text-white mono-font">{{ prestamosActivos().length }}</span>
+                <span class="text-xs text-rose-400 font-semibold">En Juego</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 flex items-center space-x-1">
+                <i class="fa-solid fa-hourglass-half text-rose-400"></i>
+                <span>Pendientes de retorno</span>
+              </p>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- ========================================================
+           TAB 1: ALQUILER DE CANCHAS
+           ======================================================== -->
+      @if (activeTab() === 'canchas') {
+        <section class="space-y-6">
+          <!-- Header & Controls -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-5 rounded-2xl">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">MÓDULO 1</span>
+                <h2 class="text-xl font-bold text-white">Alquiler y Agenda de Canchas Sintéticas</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Control de disponibilidad horaria, reservas y cobro de alquiler para Cancha 1 y Cancha 2</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+              <!-- Date Filter Selector -->
+              <div class="flex items-center bg-slate-800 rounded-xl p-1 border border-slate-700">
+                <button (click)="setFilterDate(0)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white transition cursor-pointer">Hoy</button>
+                <button (click)="setFilterDate(1)" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer">Mañana</button>
+              </div>
+              <input 
+                type="date" 
+                [value]="selectedDate()" 
+                (change)="onDateChange($any($event.target).value)" 
+                class="bg-slate-800 border border-slate-700 text-xs text-white rounded-xl px-3 py-2 outline-none focus:border-emerald-500"
+              />
+
+              <!-- New Reservation Button -->
+              <button (click)="openNuevaReservaModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2 rounded-xl transition flex items-center space-x-2 shadow-lg shadow-emerald-950 cursor-pointer">
+                <i class="fa-solid fa-calendar-plus"></i>
+                <span>Nueva Reserva</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tariff & Legend Banner -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div class="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700/60 flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-3.5 h-3.5 rounded bg-emerald-500/20 border border-emerald-500"></div>
+                <span class="text-xs text-slate-300 font-medium">Libre / Disponible</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-mono">Para agendar</span>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700/60 flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-3.5 h-3.5 rounded bg-blue-500/30 border border-blue-500"></div>
+                <span class="text-xs text-slate-300 font-medium">Pagado / Confirmado</span>
+              </div>
+              <span class="text-[11px] text-blue-400 font-mono">100% Saldo</span>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700/60 flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-3.5 h-3.5 rounded bg-amber-500/30 border border-amber-500"></div>
+                <span class="text-xs text-slate-300 font-medium">Seña / Por Cobrar</span>
+              </div>
+              <span class="text-[11px] text-amber-400 font-mono">Pendiente</span>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700/60 flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-3.5 h-3.5 rounded bg-purple-500/30 border border-purple-500"></div>
+                <span class="text-xs text-slate-300 font-medium">Escuela / Torneo</span>
+              </div>
+              <span class="text-[11px] text-purple-400 font-mono">Institucional</span>
+            </div>
+          </div>
+
+          <!-- Canchas Status Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            @for (cancha of canchas(); track cancha.idCancha) {
+              <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+                <div class="flex items-start justify-between">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold">
+                      <i class="fa-solid fa-flag"></i>
+                    </div>
+                    <div>
+                      <h3 class="font-bold text-base text-white">{{ cancha.nombre }}</h3>
+                      <span class="text-xs text-slate-400">{{ cancha.tipo }}</span>
+                    </div>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-full text-xs font-semibold" [class]="cancha.estado === 'Disponible' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
+                    {{ cancha.estado }}
+                  </span>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <div class="space-y-0.5">
+                    <span class="text-slate-400">Tarifa Diurna:</span>
+                    <p class="font-bold text-white mono-font">${{ cancha.precioDia | number:'1.2-2' }} <span class="text-[10px] text-slate-400">USD/h</span></p>
+                  </div>
+                  <div class="space-y-0.5 text-right">
+                    <span class="text-slate-400">Tarifa Nocturna (LED):</span>
+                    <p class="font-bold text-amber-400 mono-font">${{ cancha.precioNoche | number:'1.2-2' }} <span class="text-[10px] text-slate-400">USD/h</span></p>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Reservaciones del Día Table Panel -->
+          <div class="glass-panel p-6 rounded-2xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-clock text-emerald-400"></i>
+                  <span>Reservaciones Agendadas: <strong>{{ selectedDate() }}</strong></span>
+                </h3>
+                <p class="text-xs text-slate-400">Detalle de turnos programados, pagos y estado operativo</p>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 self-start sm:self-auto">
+                {{ reservaciones().length }} Turno(s)
+              </span>
+            </div>
+
+            @if (loading()) {
+              <div class="py-12 text-center text-slate-400">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400 mb-2"></i>
+                <p class="text-sm">Cargando agenda de canchas...</p>
+              </div>
+            } @else if (reservaciones().length === 0) {
+              <div class="py-12 text-center text-slate-400">
+                <div class="w-16 h-16 rounded-full bg-slate-800/80 border border-slate-700/60 flex items-center justify-center mx-auto mb-3 text-slate-500 text-2xl">
+                  <i class="fa-solid fa-calendar-xmark"></i>
+                </div>
+                <h4 class="text-base font-semibold text-slate-300">No hay reservaciones registradas para esta fecha</h4>
+                <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">Las canchas están disponibles para agendar nuevos turnos.</p>
+                <button (click)="openNuevaReservaModal()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer">
+                  <i class="fa-solid fa-plus mr-1"></i> Agendar Primer Turno
+                </button>
+              </div>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-slate-900/60 uppercase tracking-wider text-[11px] text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th class="py-3 px-4">Horario</th>
+                      <th class="py-3 px-4">Cancha</th>
+                      <th class="py-3 px-4">Cliente / Contacto</th>
+                      <th class="py-3 px-4">Teléfono</th>
+                      <th class="py-3 px-4">Total</th>
+                      <th class="py-3 px-4">Anticipo</th>
+                      <th class="py-3 px-4">Saldo</th>
+                      <th class="py-3 px-4">Estado</th>
+                      <th class="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60">
+                    @for (res of reservaciones(); track res.idReservacion) {
+                      <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3 px-4 font-mono font-semibold text-emerald-400">
+                          <i class="fa-regular fa-clock mr-1 text-slate-500"></i>
+                          {{ res.horaInicio.substring(0, 5) }} - {{ res.horaFin.substring(0, 5) }}
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-white">{{ res.nombreCancha }}</td>
+                        <td class="py-3 px-4">{{ res.clienteNombre }}</td>
+                        <td class="py-3 px-4 font-mono text-slate-400">{{ res.clienteTelefono || '—' }}</td>
+                        <td class="py-3 px-4 font-mono font-bold text-white">${{ res.montoTotal | number:'1.2-2' }}</td>
+                        <td class="py-3 px-4 font-mono text-emerald-400">${{ res.montoAnticipo | number:'1.2-2' }}</td>
+                        <td class="py-3 px-4 font-mono" [class]="res.saldoPendiente > 0 ? 'text-amber-400 font-bold' : 'text-slate-400'">
+                          ${{ res.saldoPendiente | number:'1.2-2' }}
+                        </td>
+                        <td class="py-3 px-4">
+                          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold" [class]="res.estado === 'Reservado' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
+                            {{ res.estado }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                          @if (res.estado === 'Reservado') {
+                            <div class="flex items-center justify-center space-x-2">
+                              @if (res.saldoPendiente > 0) {
+                                <button (click)="abrirModalCobro(res)" title="Registrar Cobro" class="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition cursor-pointer">
+                                  <i class="fa-solid fa-dollar-sign"></i>
+                                </button>
+                              }
+                              <button (click)="cancelarReserva(res.idReservacion)" title="Cancelar Reserva" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition cursor-pointer">
+                                <i class="fa-solid fa-ban"></i>
+                              </button>
+                            </div>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ========================================================
+           TAB 2: CONTROL DE BALONES / PELOTAS
+           ======================================================== -->
+      @if (activeTab() === 'balones') {
+        <section class="space-y-6">
+          <!-- Header & Controls -->
+          <div class="glass-panel p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">MÓDULO 2</span>
+                <h2 class="text-xl font-bold text-white">Control y Alquiler de Pelotas de Fútbol</h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Inventario de balones oficiales, asignación en cancha y control de retornos</p>
+            </div>
+
+            <div class="flex items-center space-x-3">
+              <div class="hidden sm:flex items-center space-x-2 bg-slate-800/80 border border-slate-700/60 px-3 py-1.5 rounded-xl text-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span class="font-semibold text-emerald-400">{{ balonesDisponiblesCount() }} Disponibles</span>
+              </div>
+              <div class="hidden sm:flex items-center space-x-2 bg-slate-800/80 border border-slate-700/60 px-3 py-1.5 rounded-xl text-xs">
+                <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                <span class="font-semibold text-rose-400">{{ prestamosActivos().length }} En Uso</span>
+              </div>
+
+              <button (click)="openNuevoPrestamoModal()" class="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-semibold text-xs px-4 py-2 rounded-xl transition flex items-center space-x-2 shadow-lg shadow-amber-950 cursor-pointer">
+                <i class="fa-solid fa-hand-holding-hand"></i>
+                <span>Entregar Balón (Préstamo)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Balones Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            @for (balon of balones(); track balon.idBalon) {
+              <div class="glass-card p-4 rounded-2xl relative overflow-hidden" [class.border-amber-500/40]="balon.estadoPrestamo === 'En Uso'">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs font-bold text-slate-400">{{ balon.codigo }}</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold" [class]="balon.estadoPrestamo === 'Disponible' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
+                    {{ balon.estadoPrestamo }}
+                  </span>
+                </div>
+
+                <div class="my-3 flex items-center space-x-3">
+                  <div class="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-amber-400 text-xl">
+                    <i class="fa-solid fa-futbol"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-sm text-white">{{ balon.marca }}</h4>
+                    <p class="text-[11px] text-slate-400">Balón N° <strong class="text-slate-300">{{ balon.numero }}</strong></p>
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>Estado físico:</span>
+                  <span class="font-semibold text-slate-200">{{ balon.estadoFisico }}</span>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Préstamos Activos Panel -->
+          <div class="glass-panel p-6 rounded-2xl">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-hourglass-half text-amber-400"></i>
+                  <span>Balones Actualmente Prestados / En Cancha</span>
+                </h3>
+                <p class="text-xs text-slate-400">Control de devolución y estado del material deportivo</p>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                {{ prestamosActivos().length }} Activo(s)
+              </span>
+            </div>
+
+            @if (prestamosActivos().length === 0) {
+              <div class="py-10 text-center text-slate-400">
+                <div class="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-2 text-emerald-400 text-xl">
+                  <i class="fa-solid fa-shield-check"></i>
+                </div>
+                <h4 class="text-sm font-semibold text-slate-300">Todos los balones están en bodega</h4>
+                <p class="text-xs text-slate-500 mt-0.5">No hay préstamos pendientes de devolución en este momento.</p>
+              </div>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-slate-900/60 uppercase tracking-wider text-[11px] text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th class="py-3 px-4">Balón</th>
+                      <th class="py-3 px-4">Responsable</th>
+                      <th class="py-3 px-4">Documento / DUI</th>
+                      <th class="py-3 px-4">Hora Salida</th>
+                      <th class="py-3 px-4">Observaciones</th>
+                      <th class="py-3 px-4">Entregado Por</th>
+                      <th class="py-3 px-4 text-center">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60">
+                    @for (p of prestamosActivos(); track p.idPrestamo) {
+                      <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3 px-4 font-mono font-bold text-white">
+                          <i class="fa-solid fa-futbol mr-1 text-amber-400"></i>
+                          {{ p.codigoBalon }} ({{ p.marcaBalon }} {{ p.numeroBalon }})
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-slate-200">{{ p.responsable }}</td>
+                        <td class="py-3 px-4 font-mono text-slate-400">{{ p.documentoIdentidad || '—' }}</td>
+                        <td class="py-3 px-4 font-mono text-emerald-400">{{ p.fechaHoraSalida | date:'shortTime' }}</td>
+                        <td class="py-3 px-4 text-slate-400">{{ p.observacionesSalida || '—' }}</td>
+                        <td class="py-3 px-4 text-slate-400">{{ p.usuarioEntrega }}</td>
+                        <td class="py-3 px-4 text-center">
+                          <button (click)="openDevolucionModal(p)" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center space-x-1.5 mx-auto cursor-pointer">
+                            <i class="fa-solid fa-inbox"></i>
+                            <span>Recibir Balón</span>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ========================================================
+           TAB 5: CAFETERÍA (POS HÍBRIDO EUROSOCCER)
+           ======================================================== -->
+      @if (activeTab() === 'cafeteria') {
+        <section class="space-y-4">
+          <div class="glass-panel p-4 rounded-2xl flex items-center justify-between border border-rose-500/30">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-lg">
+                <i class="fa-solid fa-utensils"></i>
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h2 class="text-lg font-bold text-white">Cafetería & Barra EuroSoccer</h2>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                    BODEGA BODEURO
+                  </span>
+                </div>
+                <p class="text-xs text-slate-400">Punto de venta directo para bebidas, snacks y consumo en el complejo</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button (click)="activeTab.set('inventario')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition flex items-center space-x-1.5 cursor-pointer">
+                <i class="fa-solid fa-boxes-stacked text-teal-400"></i>
+                <span>Ver Inventario</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="h-[calc(100vh-12rem)] min-h-[580px] rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl">
+            <app-pos-hibrido [bodega]="'BODEURO'" [embedded]="true"></app-pos-hibrido>
+          </div>
+        </section>
+      }
+
+      <!-- ========================================================
+           TABS EN FASE 2
+           ======================================================== -->
+      @if (activeTab() === 'torneos' || activeTab() === 'escuela' || activeTab() === 'tienda') {
+        <section class="space-y-6">
+          <div class="glass-panel p-8 rounded-2xl text-center max-w-xl mx-auto my-12">
+            <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-2xl mx-auto mb-4">
+              <i class="fa-solid fa-lock"></i>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">Módulo en Desarrollo • Fase 2</span>
+            <h2 class="text-2xl font-bold text-white mt-3">Unidad en Construcción</h2>
+            <p class="text-sm text-slate-400 mt-2 mb-6">
+              Esta sección estará disponible próximamente en la siguiente fase de integración de Euro Soccer.
+            </p>
+            <button (click)="activeTab.set('canchas')" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer">
+              <i class="fa-solid fa-arrow-left mr-1.5"></i> Volver a Alquiler de Canchas
+            </button>
+          </div>
+        </section>
+      }
+
+    </main>
+  </div>
+
+  <!-- ========================================================
+       MODALES PRIMENG CON ESTILO INTEGRADO EUROSOCCER
+       ======================================================== -->
+
+  <!-- MODAL: CREAR / EDITAR CANCHA (ADMIN CRUD) -->
+  <p-dialog [(visible)]="displayCanchaModal" [modal]="true" [style]="{ width: '500px', maxWidth: '95vw' }" [header]="canchaEnEdicion.idCancha === 0 ? 'Crear Nueva Cancha' : 'Editar Cancha'" [draggable]="false" [resizable]="false">
+    <div class="space-y-4 pt-2">
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Nombre de la Cancha</label>
+        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="canchaEnEdicion.nombre" placeholder="Ej: Cancha 4 (Techada)" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Tipo / Formato</label>
+        <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="canchaEnEdicion.tipo">
+          <option value="Futbol 5">Fútbol 5</option>
+          <option value="Futbol 7">Fútbol 7</option>
+          <option value="Futbol 11">Fútbol 11</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Tarifa Diurna ($/h)</label>
+          <input type="number" step="0.5" class="w-full bg-slate-900 border border-slate-700 text-emerald-400 font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="canchaEnEdicion.precioDia" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Tarifa Nocturna ($/h)</label>
+          <input type="number" step="0.5" class="w-full bg-slate-900 border border-slate-700 text-amber-400 font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="canchaEnEdicion.precioNoche" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Inicio Horario Noche</label>
+          <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white font-mono rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="canchaEnEdicion.horaInicioNoche" placeholder="18:00:00" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Estado Operativo</label>
+          <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="canchaEnEdicion.estado">
+            <option value="Disponible">Disponible</option>
+            <option value="Mantenimiento">Mantenimiento</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+        <button (click)="displayCanchaModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+          Cancelar
+        </button>
+        <button (click)="guardarCancha()" [disabled]="saving()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-950 transition flex items-center space-x-2 cursor-pointer">
+          @if (saving()) {
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Guardando...</span>
+          } @else {
+            <i class="fa-solid fa-save"></i>
+            <span>Guardar Cancha</span>
+          }
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+
+  <!-- MODAL: CREAR / EDITAR BALÓN (ADMIN CRUD) -->
+  <p-dialog [(visible)]="displayBalonModal" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [header]="balonEnEdicion.idBalon === 0 ? 'Registrar Nuevo Balón' : 'Editar Balón'" [draggable]="false" [resizable]="false">
+    <div class="space-y-4 pt-2">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Código Único</label>
+          <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-amber-500" [(ngModel)]="balonEnEdicion.codigo" placeholder="Ej: BAL-010" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Número de Pelota</label>
+          <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-amber-500" [(ngModel)]="balonEnEdicion.numero">
+            <option value="#5">#5 (Adulto / Oficial)</option>
+            <option value="#4">#4 (Juvenil / Rápido)</option>
+            <option value="#3">#3 (Infantil)</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Marca / Modelo</label>
+        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-amber-500" [(ngModel)]="balonEnEdicion.marca" placeholder="Ej: Nike Strike Pro, Adidas Tiro League" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Estado Físico</label>
+          <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-amber-500" [(ngModel)]="balonEnEdicion.estadoFisico">
+            <option value="Excelente">Excelente</option>
+            <option value="Bueno">Bueno</option>
+            <option value="Desgastado">Desgastado</option>
+            <option value="Dañado">Dañado / Pinchado</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Estado Préstamo</label>
+          <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-amber-500" [(ngModel)]="balonEnEdicion.estadoPrestamo">
+            <option value="Disponible">Disponible</option>
+            <option value="En Uso">En Uso</option>
+            <option value="Mantenimiento">Mantenimiento</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+        <button (click)="displayBalonModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+          Cancelar
+        </button>
+        <button (click)="guardarBalon()" [disabled]="saving()" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-lg shadow-amber-950 transition flex items-center space-x-2 cursor-pointer">
+          @if (saving()) {
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Guardando...</span>
+          } @else {
+            <i class="fa-solid fa-save"></i>
+            <span>Guardar Balón</span>
+          }
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+
+  <!-- MODAL: NUEVA RESERVACIÓN -->
+  <p-dialog [(visible)]="displayNuevaReservaModal" [modal]="true" [style]="{ width: '520px', maxWidth: '95vw' }" header="Agendar Turno de Cancha" [draggable]="false" [resizable]="false">
+    <div class="space-y-4 pt-2">
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Cancha Seleccionada</label>
+        <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" [value]="nuevaReserva.idCancha" (change)="nuevaReserva.idCancha = +$any($event.target).value; recalcularMontoReserva()">
+          @for (c of canchas(); track c.idCancha) {
+            <option [value]="c.idCancha">{{ c.nombre }} ({{ c.tipo }})</option>
+          }
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Hora Inicio</label>
+          <input type="time" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.horaInicio" (change)="recalcularMontoReserva()" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Hora Fin</label>
+          <input type="time" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.horaFin" (change)="recalcularMontoReserva()" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Nombre del Cliente / Responsable</label>
+        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.clienteNombre" placeholder="Ej: Carlos Mendoza" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Teléfono (WhatsApp)</label>
+        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.clienteTelefono" placeholder="Ej: 7788-9900" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Monto Total ($ USD)</label>
+          <input type="number" step="0.5" class="w-full bg-slate-900 border border-emerald-500/60 text-emerald-400 font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.montoTotal" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Anticipo / Seña ($ USD)</label>
+          <input type="number" step="0.5" class="w-full bg-slate-900 border border-slate-700 text-white font-mono rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.montoAnticipo" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Notas / Requerimientos</label>
+        <textarea class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.notas" rows="2" placeholder="Opcional: Chalecos, arbitraje, etc."></textarea>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+        <button (click)="displayNuevaReservaModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+          Cancelar
+        </button>
+        <button (click)="guardarReserva()" [disabled]="saving()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-950 transition flex items-center space-x-2 cursor-pointer">
+          @if (saving()) {
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Guardando...</span>
+          } @else {
+            <i class="fa-solid fa-check"></i>
+            <span>Confirmar Reservación</span>
+          }
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+
+  <!-- MODAL: REGISTRAR PRÉSTAMO DE BALÓN -->
+  <p-dialog [(visible)]="displayNuevoPrestamoModal" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" header="Entregar Balón en Préstamo" [draggable]="false" [resizable]="false">
+    <div class="space-y-4 pt-2">
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Seleccionar Balón Disponible</label>
+        <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevoPrestamo.idBalon">
+          <option [value]="0" disabled>-- Seleccione un balón --</option>
+          @for (b of balonesDisponibles(); track b.idBalon) {
+            <option [value]="b.idBalon">{{ b.codigo }} - {{ b.marca }} (N° {{ b.numero }})</option>
+          }
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Nombre del Responsable</label>
+        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevoPrestamo.responsable" placeholder="Persona que recibe el balón" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Documento de Identidad (DUI / Licencia)</label>
+        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevoPrestamo.documentoIdentidad" placeholder="Ej: 05123456-7" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Observaciones de Salida</label>
+        <textarea class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevoPrestamo.observacionesSalida" rows="2" placeholder="Ej: Presión correcta, red incluida"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+        <button (click)="displayNuevoPrestamoModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+          Cancelar
+        </button>
+        <button (click)="guardarPrestamo()" [disabled]="saving() || nuevoPrestamo.idBalon === 0" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-lg shadow-amber-950 transition flex items-center space-x-2 cursor-pointer">
+          @if (saving()) {
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Procesando...</span>
+          } @else {
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            <span>Registrar Entrega</span>
+          }
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+
+  <!-- MODAL: REGISTRAR COBRO DE RESERVA -->
+  <p-dialog [(visible)]="displayCobroModal" [modal]="true" [style]="{ width: '440px', maxWidth: '95vw' }" header="Registrar Cobro de Reserva" [draggable]="false" [resizable]="false">
+    @if (reservaEnCobro) {
+      <div class="space-y-4 pt-2">
+        <div class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs">
+          <p class="text-slate-400">Cliente: <strong class="text-slate-200">{{ reservaEnCobro.clienteNombre }}</strong></p>
+          <p class="text-slate-400 mt-1">Total: <strong class="text-white font-mono">${{ reservaEnCobro.montoTotal | number:'1.2-2' }}</strong>
+            &nbsp;·&nbsp; Saldo pendiente: <strong class="text-amber-400 font-mono">${{ reservaEnCobro.saldoPendiente | number:'1.2-2' }}</strong></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Monto a Cobrar ($ USD)</label>
+          <input type="number" step="0.5" min="0.01" [max]="reservaEnCobro.saldoPendiente" class="w-full bg-slate-900 border border-emerald-500/60 text-emerald-400 font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="cobroData.montoPago" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Forma de Pago</label>
+          <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="cobroData.formaPago">
+            <option value="Efectivo">Efectivo</option>
+            <option value="Transferencia">Transferencia</option>
+            <option value="Tarjeta">Tarjeta</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Referencia (Opcional)</label>
+          <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="cobroData.referenciaPago" placeholder="Ej: N° de transferencia o voucher" />
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+          <button (click)="displayCobroModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            Cancelar
+          </button>
+          <button (click)="guardarCobro()" [disabled]="saving()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-950 transition flex items-center space-x-2 cursor-pointer">
+            @if (saving()) {
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              <span>Procesando...</span>
+            } @else {
+              <i class="fa-solid fa-dollar-sign"></i>
+              <span>Registrar Cobro</span>
+            }
+          </button>
+        </div>
+      </div>
+    }
+  </p-dialog>
+
+  <!-- MODAL: RECIBIR BALÓN (DEVOLUCIÓN) -->
+  <p-dialog [(visible)]="displayDevolucionModal" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" header="Recepción y Devolución de Balón" [draggable]="false" [resizable]="false">
+    @if (prestamoSeleccionado) {
+      <div class="space-y-4 pt-2">
+        <div class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs">
+          <p class="text-slate-400">Balón a retornar:</p>
+          <p class="text-sm font-bold text-white font-mono mt-0.5">{{ prestamoSeleccionado.codigoBalon }}</p>
+          <p class="text-slate-400 mt-1">Responsable: <strong class="text-slate-200">{{ prestamoSeleccionado.responsable }}</strong></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Estado Físico al Retornar</label>
+          <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="devolucionData.estadoFisicoRetorno">
+            <option value="Excelente">Excelente</option>
+            <option value="Bueno">Bueno</option>
+            <option value="Desgastado">Desgastado</option>
+            <option value="Dañado">Dañado / Pinchado</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Observaciones de Entrega</label>
+          <textarea class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="devolucionData.observacionesEntrega" rows="2" placeholder="Detalles de entrega, rasguños, presión..."></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+          <button (click)="displayDevolucionModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            Cancelar
+          </button>
+          <button (click)="confirmarDevolucion()" [disabled]="saving()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-950 transition flex items-center space-x-2 cursor-pointer">
+            @if (saving()) {
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              <span>Recibiendo...</span>
+            } @else {
+              <i class="fa-solid fa-check-double"></i>
+              <span>Marcar como Devuelto</span>
+            }
+          </button>
+        </div>
+      </div>
+    }
+  </p-dialog>
+
+  <!-- MODAL: REGISTRAR MOVIMIENTO DE INVENTARIO (INGRESO / SALIDA / TRASLADO) -->
+  <p-dialog [(visible)]="displayMovimientoModal" [modal]="true" [style]="{ width: '520px', maxWidth: '95vw' }" [header]="tipoMovimiento() === 'INGRESO' ? 'Registrar Ingreso de Inventario (BODEURO)' : (tipoMovimiento() === 'SALIDA' ? 'Registrar Salida / Descargo (BODEURO)' : 'Transferencia de Mercadería: EuroSoccer -> Bodega General')" [draggable]="false" [resizable]="false">
+    <div class="space-y-4 pt-2">
+      <!-- Indicador de Bodegas -->
+      <div class="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-900 border border-slate-700/80">
+        <div>
+          <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Bodega Origen</label>
+          <div class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white font-mono text-xs flex items-center justify-between">
+            <span>BODEURO (EuroSoccer)</span>
+            <i class="fa-solid fa-lock text-slate-500 text-[10px]" title="Bloqueado"></i>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Bodega Destino</label>
+          <div class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 font-mono text-xs flex items-center justify-between" [class.text-teal-300]="tipoMovimiento() === 'TRASLADO'" [class.text-white]="tipoMovimiento() !== 'TRASLADO'">
+            <span>{{ tipoMovimiento() === 'TRASLADO' ? 'BOD01 (BOD GENERAL)' : 'BODEURO (EuroSoccer)' }}</span>
+            <i class="fa-solid fa-lock text-slate-500 text-[10px]" title="Bloqueado por regla"></i>
+          </div>
+        </div>
+      </div>
+
+      @if (tipoMovimiento() === 'TRASLADO') {
+        <p class="text-[11px] text-teal-300 bg-teal-500/10 border border-teal-500/20 rounded-lg p-2 flex items-center space-x-2">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Destino fijo: Bodega Central (BOD01). EuroSoccer no puede remitir a otras bodegas.</span>
+        </p>
+      }
+
+      <!-- Selector de Artículo -->
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Producto / Artículo</label>
+        <select
+          class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-teal-500"
+          [(ngModel)]="movimientoData.articulo"
+          (ngModelChange)="onArticuloMovimientoChange($event)">
+          <option [value]="''" disabled>-- Seleccione un artículo --</option>
+          @for (a of articulosDisponiblesParaOperacion(); track a.articulo) {
+            <option [value]="a.articulo">
+              {{ a.articulo }} - {{ a.descripcion }} (Stock: {{ a.saldo | number:'1.0-2' }})
+            </option>
+          }
+        </select>
+      </div>
+
+      <!-- Cantidad y Precio/Costo -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Cantidad</label>
+          <input
+            type="number"
+            min="0.01"
+            step="1"
+            class="w-full bg-slate-900 border border-slate-700 text-white font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-teal-500"
+            [(ngModel)]="movimientoData.cantidad" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Precio / Costo ($)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            class="w-full bg-slate-900 border border-slate-700 text-slate-300 font-mono rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-teal-500"
+            [(ngModel)]="movimientoData.precioUnitario" />
+        </div>
+      </div>
+
+      <!-- Observación / Comentario -->
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Comentario / Motivo</label>
+        <textarea
+          class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-teal-500"
+          [(ngModel)]="movimientoData.comentario"
+          rows="2"
+          [placeholder]="tipoMovimiento() === 'INGRESO' ? 'Ej: Compra de bebidas, reposición...' : (tipoMovimiento() === 'SALIDA' ? 'Ej: Merma, consumo interno, ajuste...' : 'Ej: Devolución o remisión de existencias a bodega central...')"></textarea>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+        <button (click)="displayMovimientoModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+          Cancelar
+        </button>
+        <button
+          (click)="ejecutarMovimientoInventario()"
+          [disabled]="saving() || !movimientoData.articulo || movimientoData.cantidad <= 0"
+          [class]="tipoMovimiento() === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950' : (tipoMovimiento() === 'SALIDA' ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-950' : 'bg-teal-600 hover:bg-teal-500 shadow-teal-950')"
+          class="px-5 py-2.5 rounded-xl text-white text-xs font-semibold shadow-lg transition flex items-center space-x-2 cursor-pointer">
+          @if (saving()) {
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Procesando...</span>
+          } @else {
+            <i class="fa-solid fa-check"></i>
+            <span>Confirmar {{ tipoMovimiento() === 'INGRESO' ? 'Ingreso' : (tipoMovimiento() === 'SALIDA' ? 'Salida' : 'Transferencia') }}</span>
+          }
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+
+</div>

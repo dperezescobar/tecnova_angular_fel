@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../out-tsc/eurosoccer",
+    "types": [],
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "../../src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "../../src/**/*.spec.ts"
+  ]
+}
