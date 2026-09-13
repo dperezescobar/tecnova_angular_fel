@@ -31,10 +31,12 @@ ng generate --help
 To build the project run:
 
 ```bash
-ng build
+npm run build
 ```
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+
+**Versión de la app:** la versión mostrada en la UI y usada para detectar actualizaciones (`/version.json`) se genera automáticamente desde el campo `version` de `package.json` (hook `prebuild`, ver `scripts/sync-version.js`). Para publicar una nueva versión, edita solo ese campo en `package.json` y corre `npm run build` — no edites `src/environments/version.ts` ni `public/version.json` a mano, se sobrescriben en cada build. Usar `ng build` directo se salta este paso.
 
 ## Running unit tests
 
