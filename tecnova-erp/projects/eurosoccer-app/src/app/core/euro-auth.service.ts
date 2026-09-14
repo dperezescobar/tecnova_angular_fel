@@ -198,7 +198,12 @@ export class EuroAuthService {
   isAdmin(): boolean {
     const user = this.currentUser();
     if (!user) return false;
-    return user.esRoot === true || user.tipoUsuario === 'A' || user.tipoUsuario === 'ADMIN' || user.username?.toLowerCase() === 'dperezescobar@gmail.com';
+    const tipo = (user.tipoUsuario || '').toUpperCase();
+    return user.esRoot === true ||
+      tipo === 'A' ||
+      tipo === 'ADMIN' ||
+      tipo === 'ADMINISTRADOR' ||
+      user.username?.toLowerCase() === 'dperezescobar@gmail.com';
   }
 
   private syncContaskSession(user: EuroUser): void {

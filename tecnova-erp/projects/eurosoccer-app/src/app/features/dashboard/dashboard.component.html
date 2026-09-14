@@ -638,6 +638,266 @@
               </p>
             </div>
           </div>
+
+          <!-- ========================================================
+               SECCIÓN EXCLUSIVA ADMINISTRADORES: INDICADORES DE INGRESOS
+               ======================================================== -->
+          @if (authService.isAdmin()) {
+            <div class="space-y-6 pt-2 border-t border-slate-800/80">
+              <!-- Banner / Header de la Sección Administrativa -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-amber-950/30 p-4 rounded-2xl border border-emerald-500/20">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
+                    <i class="fa-solid fa-shield-halved text-base"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center space-x-2">
+                      <h2 class="text-lg font-bold text-white tracking-tight">Métricas Financieras & Rendimiento de Caja</h2>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Solo Admin
+                      </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Control de ingresos efectivos, reservas por cobrar y balance financiero de turnos para {{ selectedDate() }}.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2 self-start sm:self-auto">
+                  <span class="text-xs text-slate-400 font-medium">Fecha evaluada:</span>
+                  <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-emerald-400 font-mono text-xs font-semibold border border-slate-700">
+                    <i class="fa-regular fa-calendar mr-1"></i>{{ selectedDate() }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 4 TARJETAS DE INGRESOS Y FLUJO -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- TARJETA 1: Ingresos Cobrados Hoy -->
+                <div class="glass-card p-5 rounded-2xl relative overflow-hidden border-emerald-500/30 hover:border-emerald-500/50 transition">
+                  <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none"></div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Ingresos Cobrados (Caja)</span>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-sm">
+                      <i class="fa-solid fa-circle-dollar-to-slot text-lg"></i>
+                    </div>
+                  </div>
+                  <div class="mt-3">
+                    <span class="text-3xl font-extrabold text-white mono-font tracking-tight">{{ ingresosCobradosHoy() | currency:'USD':'symbol':'1.2-2' }}</span>
+                  </div>
+                  <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Canchas: <strong class="text-emerald-300 font-mono">{{ ingresosCanchasCobrado() | currency:'USD':'symbol':'1.2-2' }}</strong></span>
+                    <span>Balones: <strong class="text-emerald-300 font-mono">{{ ingresosBalonesCobrado() | currency:'USD':'symbol':'1.2-2' }}</strong></span>
+                  </div>
+                </div>
+
+                <!-- TARJETA 2: Ingresos Proyectados / Total Agendado -->
+                <div class="glass-card p-5 rounded-2xl relative overflow-hidden border-sky-500/30 hover:border-sky-500/50 transition">
+                  <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-sky-500/5 rounded-full blur-xl pointer-events-none"></div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Total Agendado / Proyectado</span>
+                    <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-sm">
+                      <i class="fa-solid fa-chart-line text-lg"></i>
+                    </div>
+                  </div>
+                  <div class="mt-3">
+                    <span class="text-3xl font-extrabold text-white mono-font tracking-tight">{{ ingresosProyectadosHoy() | currency:'USD':'symbol':'1.2-2' }}</span>
+                  </div>
+                  <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>{{ reservasValidas().length }} turnos agendados</span>
+                    <span class="text-sky-300 font-semibold">{{ canchas().length }} canchas activas</span>
+                  </div>
+                </div>
+
+                <!-- TARJETA 3: Saldos Pendientes por Cobrar -->
+                <div class="glass-card p-5 rounded-2xl relative overflow-hidden border-amber-500/30 hover:border-amber-500/50 transition">
+                  <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none"></div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Saldos por Cobrar</span>
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-sm">
+                      <i class="fa-solid fa-hand-holding-dollar text-lg"></i>
+                    </div>
+                  </div>
+                  <div class="mt-3">
+                    <span class="text-3xl font-extrabold text-amber-400 mono-font tracking-tight">{{ saldosPendientesHoy() | currency:'USD':'symbol':'1.2-2' }}</span>
+                  </div>
+                  <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Por liquidar en cancha</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">
+                      {{ reservasConAnticipo().length + reservasSinPago().length }} pendientes
+                    </span>
+                  </div>
+                </div>
+
+                <!-- TARJETA 4: Eficiencia de Cobro -->
+                <div class="glass-card p-5 rounded-2xl relative overflow-hidden border-purple-500/30 hover:border-purple-500/50 transition">
+                  <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-purple-500/5 rounded-full blur-xl pointer-events-none"></div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-purple-400 uppercase tracking-wider">Tasa de Recaudación</span>
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-sm">
+                      <i class="fa-solid fa-gauge-high text-lg"></i>
+                    </div>
+                  </div>
+                  <div class="mt-3 flex items-baseline space-x-2">
+                    <span class="text-3xl font-extrabold text-white mono-font tracking-tight">{{ eficienciaCobro() }}%</span>
+                    <span class="text-xs text-purple-300 font-semibold">recaudado</span>
+                  </div>
+                  <!-- Barra de progreso -->
+                  <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+                    <div class="bg-gradient-to-r from-purple-500 to-emerald-400 h-1.5 rounded-full transition-all duration-500" [style.width.%]="eficienciaCobro()"></div>
+                  </div>
+                  <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Ticket prom: <strong class="text-white font-mono">{{ ticketPromedioHoy() | currency:'USD':'symbol':'1.2-2' }}</strong></span>
+                    <span class="text-emerald-400 font-semibold">{{ reservasCompletamentePagadas().length }} pagadas 100%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- DETALLES: DESGLOSE POR CANCHA Y ESTADO DE LIQUIDACIÓN -->
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Columna 1: Rendimiento por Cancha (7 cols) -->
+                <div class="lg:col-span-7 glass-panel p-5 rounded-2xl">
+                  <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                      <i class="fa-solid fa-futbol text-emerald-400"></i>
+                      <h3 class="text-sm font-bold text-white tracking-wide">Rendimiento e Ingresos por Cancha</h3>
+                    </div>
+                    <span class="text-xs text-slate-400">Desglose de recaudación</span>
+                  </div>
+
+                  <div class="space-y-4">
+                    @for (c of ingresosPorCancha(); track c.idCancha) {
+                      <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 hover:border-slate-600 transition">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center font-bold text-emerald-400 text-sm">
+                              #{{ c.idCancha }}
+                            </div>
+                            <div>
+                              <div class="flex items-center space-x-2">
+                                <span class="text-sm font-bold text-white">{{ c.nombre }}</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">{{ c.tipo }}</span>
+                              </div>
+                              <span class="text-xs text-slate-400">{{ c.turnos }} turno(s) agendados</span>
+                            </div>
+                          </div>
+
+                          <div class="flex items-baseline sm:items-end flex-col">
+                            <div class="flex items-baseline space-x-1.5">
+                              <span class="text-xs text-slate-400">Cobrado:</span>
+                              <span class="text-sm font-bold text-emerald-400 font-mono">{{ c.cobrado | currency:'USD':'symbol':'1.2-2' }}</span>
+                              <span class="text-xs text-slate-400">/ Total: {{ c.total | currency:'USD':'symbol':'1.2-2' }}</span>
+                            </div>
+                            @if (c.pendiente > 0) {
+                              <span class="text-[11px] text-amber-400 font-medium flex items-center space-x-1">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                <span>Resta por cobrar: {{ c.pendiente | currency:'USD':'symbol':'1.2-2' }}</span>
+                              </span>
+                            } @else {
+                              <span class="text-[11px] text-emerald-400/80 font-medium flex items-center space-x-1">
+                                <i class="fa-solid fa-check-double"></i>
+                                <span>Sin saldo pendiente</span>
+                              </span>
+                            }
+                          </div>
+                        </div>
+
+                        <!-- Barra de porcentaje recaudado de la cancha -->
+                        <div class="mt-3">
+                          <div class="flex items-center justify-between text-[11px] mb-1">
+                            <span class="text-slate-400">Avance de recaudo</span>
+                            <span class="font-mono font-bold text-slate-300">{{ c.porcentaje }}%</span>
+                          </div>
+                          <div class="w-full bg-slate-900/80 rounded-full h-2 overflow-hidden border border-slate-700/50">
+                            <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" [style.width.%]="c.porcentaje"></div>
+                          </div>
+                        </div>
+                      </div>
+                    } @empty {
+                      <div class="text-center py-6 text-slate-400 text-xs">
+                        No hay canchas configuradas en el complejo.
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Columna 2: Estado de Liquidación & Balones (5 cols) -->
+                <div class="lg:col-span-5 glass-panel p-5 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between mb-4">
+                      <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-receipt text-amber-400"></i>
+                        <h3 class="text-sm font-bold text-white tracking-wide">Estado de Liquidación</h3>
+                      </div>
+                      <span class="text-xs text-slate-400">Turnos de hoy</span>
+                    </div>
+
+                    <div class="space-y-2.5">
+                      <!-- Pagadas al 100% -->
+                      <div class="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                        <div class="flex items-center space-x-2.5">
+                          <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-check"></i>
+                          </div>
+                          <div>
+                            <span class="text-xs font-semibold text-white block">Pagadas al 100%</span>
+                            <span class="text-[10px] text-emerald-300">Turnos liquidados</span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <span class="text-sm font-bold text-emerald-400 font-mono block">{{ reservasCompletamentePagadas().length }}</span>
+                          <span class="text-[10px] text-slate-400">reservas</span>
+                        </div>
+                      </div>
+
+                      <!-- Con anticipo parcial -->
+                      <div class="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                        <div class="flex items-center space-x-2.5">
+                          <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-hourglass-half"></i>
+                          </div>
+                          <div>
+                            <span class="text-xs font-semibold text-white block">Con Anticipo Parcial</span>
+                            <span class="text-[10px] text-amber-300">Cobro pendiente antes de jugar</span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <span class="text-sm font-bold text-amber-400 font-mono block">{{ reservasConAnticipo().length }}</span>
+                          <span class="text-[10px] text-slate-400">reservas</span>
+                        </div>
+                      </div>
+
+                      <!-- Sin anticipo registrado -->
+                      <div class="flex items-center justify-between p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                        <div class="flex items-center space-x-2.5">
+                          <div class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                          </div>
+                          <div>
+                            <span class="text-xs font-semibold text-white block">Sin Anticipo / Total Pendiente</span>
+                            <span class="text-[10px] text-rose-300">Requiere cobro completo</span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <span class="text-sm font-bold text-rose-400 font-mono block">{{ reservasSinPago().length }}</span>
+                          <span class="text-[10px] text-slate-400">reservas</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Resumen rápido de Préstamo de Balones -->
+                  <div class="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between bg-slate-800/40 p-3 rounded-xl">
+                    <div class="flex items-center space-x-2">
+                      <i class="fa-solid fa-futbol text-amber-400 text-xs"></i>
+                      <span class="text-xs text-slate-300">Cobro de Alquiler de Balones:</span>
+                    </div>
+                    <span class="font-mono font-bold text-emerald-400 text-xs">
+                      {{ ingresosBalonesCobrado() | currency:'USD':'symbol':'1.2-2' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
         </section>
       }
 

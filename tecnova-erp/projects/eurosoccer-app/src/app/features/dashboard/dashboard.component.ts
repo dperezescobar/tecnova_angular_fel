@@ -135,6 +135,75 @@ export class DashboardComponent implements OnInit {
   balonesDisponibles = computed(() => this.balones().filter(b => b.estadoPrestamo === 'Disponible'));
   balonesDisponiblesCount = computed(() => this.balonesDisponibles().length);
 
+  // ==========================================
+  // INDICADORES DE INGRESOS (SOLO ADMINISTRADOR)
+  // ==========================================
+  reservasValidas = computed(() => this.reservaciones().filter(r => r.estado !== 'Cancelado'));
+
+  ingresosCanchasCobrado = computed(() => {
+    return this.reservasValidas().reduce((sum, r) => sum + Math.max(0, (r.montoTotal || 0) - (r.saldoPendiente || 0)), 0);
+  });
+
+  ingresosBalonesCobrado = computed(() => {
+    return this.prestamosActivos().reduce((sum, p) => sum + (p.montoCobrado || 0), 0);
+  });
+
+  ingresosCobradosHoy = computed(() => {
+    return this.ingresosCanchasCobrado() + this.ingresosBalonesCobrado();
+  });
+
+  ingresosProyectadosHoy = computed(() => {
+    return this.reservasValidas().reduce((sum, r) => sum + (r.montoTotal || 0), 0) + this.ingresosBalonesCobrado();
+  });
+
+  saldosPendientesHoy = computed(() => {
+    return this.reservasValidas().reduce((sum, r) => sum + (r.saldoPendiente || 0), 0);
+  });
+
+  eficienciaCobro = computed(() => {
+    const total = this.ingresosProyectadosHoy();
+    if (total <= 0) return 0;
+    return Math.min(100, Math.round((this.ingresosCobradosHoy() / total) * 100));
+  });
+
+  ticketPromedioHoy = computed(() => {
+    const count = this.reservasValidas().length;
+    if (count <= 0) return 0;
+    return Math.round((this.ingresosProyectadosHoy() / count) * 100) / 100;
+  });
+
+  reservasCompletamentePagadas = computed(() => {
+    return this.reservasValidas().filter(r => (r.saldoPendiente || 0) <= 0);
+  });
+
+  reservasConAnticipo = computed(() => {
+    return this.reservasValidas().filter(r => (r.saldoPendiente || 0) > 0 && ((r.montoTotal || 0) - (r.saldoPendiente || 0)) > 0);
+  });
+
+  reservasSinPago = computed(() => {
+    return this.reservasValidas().filter(r => ((r.montoTotal || 0) - (r.saldoPendiente || 0)) <= 0);
+  });
+
+  ingresosPorCancha = computed(() => {
+    return this.canchas().map(cancha => {
+      const reservasCancha = this.reservasValidas().filter(r => r.idCancha === cancha.idCancha);
+      const total = reservasCancha.reduce((sum, r) => sum + (r.montoTotal || 0), 0);
+      const cobrado = reservasCancha.reduce((sum, r) => sum + Math.max(0, (r.montoTotal || 0) - (r.saldoPendiente || 0)), 0);
+      const pendiente = reservasCancha.reduce((sum, r) => sum + (r.saldoPendiente || 0), 0);
+      const porcentaje = total > 0 ? Math.min(100, Math.round((cobrado / total) * 100)) : 0;
+      return {
+        idCancha: cancha.idCancha,
+        nombre: cancha.nombre,
+        tipo: cancha.tipo,
+        turnos: reservasCancha.length,
+        total,
+        cobrado,
+        pendiente,
+        porcentaje
+      };
+    });
+  });
+
   // Precio del balón elegido en el modal de préstamo (fuente de verdad: catálogo, no un input libre).
   // Método normal, no computed(): nuevoPrestamo.idBalon es una propiedad plana atada con ngModel, no
   // una signal, así que un computed() no reaccionaría a sus cambios.
