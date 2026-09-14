@@ -1,83 +1,395 @@
-<div class="cierre-recibos">
-  <h2>Cierre de Recibos</h2>
-  <p class="hint">Agrupe recibos pendientes (aplicados, sin emitir) en una sola factura consolidada.</p>
+<p-toast position="top-right" />
+<p-confirmDialog [style]="{ maxWidth: '30rem' }" />
 
-  <div class="cr-msg" *ngIf="mensaje() as m" [class.error]="m.tipo === 'error'" [class.ok]="m.tipo === 'ok'">{{ m.texto }}</div>
-  <div *ngIf="sinPermiso()" class="cr-msg error">Acceso restringido: solo un administrador puede consolidar recibos.</div>
-
-  <ng-container *ngIf="!sinPermiso()">
-    <!-- Vista de borrador consolidado -->
-    <section class="card" *ngIf="consolidado() as c">
-      <h3>Consolidación en borrador</h3>
-      <div class="cr-resumen">
-        <div><span>Documento</span><b>{{ c.prefijo }} / {{ c.factura }}</b></div>
-        <div><span>Sucursal / Punto</span><b>{{ c.sucursal }} / {{ c.puntoVenta }}</b></div>
-        <div><span>Total</span><b>{{ c.total | currency }}</b></div>
+<div class="cr-wrapper animate-fadein">
+  <!-- Encabezado Principal -->
+  <header class="cr-header">
+    <div class="cr-header-left">
+      <div class="cr-header-icon-box">
+        <i class="pi pi-receipt cr-header-icon"></i>
       </div>
-
-      <table class="cr-table">
-        <thead><tr><th>Factura origen</th><th>Vendedor</th><th></th></tr></thead>
-        <tbody>
-          <tr *ngFor="let o of c.origenes">
-            <td>{{ o.prefijo }} / {{ o.factura }}</td>
-            <td>{{ o.vendedor }}</td>
-            <td class="c">
-              <button type="button" class="btn-link" [disabled]="procesando()" (click)="quitarOrigen(o.idFactura)">Quitar</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="cr-actions">
-        <button type="button" class="btn-secondary" [disabled]="procesando()" (click)="cancelarConsolidacion()">Cancelar consolidación</button>
-        <button type="button" class="btn-primary" [disabled]="procesando()" (click)="aplicarConsolidacion()">
-          {{ procesando() ? 'Procesando…' : 'Aplicar factura consolidada' }}
-        </button>
+      <div>
+        <h1 class="cr-title">Cierre de Recibos</h1>
+        <p class="cr-subtitle">Consolidación de recibos pendientes por punto de venta en una sola factura electrónica (DTE)</p>
       </div>
-      <p class="hint">
-        Una vez aplicada, búsquela en Facturación (FAC) por el prefijo/número anterior para emitir el DTE.
-        Antes de emitir aún puede volver aquí y quitar recibos si se equivocó al armarla.
-      </p>
-    </section>
+    </div>
+    <div class="cr-header-badge" *ngIf="puntoVentaActivo() as pva">
+      <span class="pva-label">Punto de venta activo:</span>
+      <p-tag severity="info" [value]="'[' + pva.sucursal + '] ' + pva.puntoVenta" icon="pi pi-map-marker"></p-tag>
+    </div>
+  </header>
 
-    <!-- Búsqueda de pendientes -->
-    <section class="card" *ngIf="!consolidado()">
-      <h3>Recibos pendientes</h3>
-      <div class="cr-filtros">
-        <label>Desde <input type="date" [ngModel]="fechaDesde()" (ngModelChange)="fechaDesde.set($event)" /></label>
-        <label>Hasta <input type="date" [ngModel]="fechaHasta()" (ngModelChange)="fechaHasta.set($event)" /></label>
-        <button type="button" class="btn-secondary" [disabled]="cargando()" (click)="buscar()">
-          {{ cargando() ? 'Buscando…' : 'Buscar' }}
-        </button>
-      </div>
-
-      <ng-container *ngIf="pendientes().length; else sinPendientes">
-        <div class="cr-todos">
-          <label><input type="checkbox" [checked]="seleccionados().size === pendientes().length" (change)="marcarTodos(seleccionados().size !== pendientes().length)" /> Marcar todos</label>
-          <span class="cr-total-sel">Seleccionado: {{ totalSeleccionado() | currency }}</span>
+  <!-- Mensaje de Acceso Restringido -->
+  @if (sinPermiso()) {
+    <div class="cr-restricted-box">
+      <i class="pi pi-lock cr-restricted-icon"></i>
+      <h3>Acceso Restringido</h3>
+      <p>Solo los administradores autorizados pueden gestionar y consolidar recibos de venta.</p>
+    </div>
+  } @else {
+    <!-- Vista de Borrador Consolidado -->
+    @if (consolidado(); as c) {
+      <div class="cr-draft-card animate-fadein">
+        <div class="draft-header">
+          <div class="draft-title-group">
+            <i class="pi pi-file-edit draft-icon"></i>
+            <div>
+              <h2>Consolidación en Borrador</h2>
+              <p>Revise el detalle de los recibos agrupados antes de emitir la factura definitiva.</p>
+            </div>
+          </div>
+          <p-tag severity="warn" value="Borrador" icon="pi pi-clock"></p-tag>
         </div>
 
-        <table class="cr-table">
-          <thead><tr><th></th><th>Fecha</th><th>Cliente</th><th>Rubros</th><th>Vendedor</th><th class="r">Total</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let r of pendientes()">
-              <td class="c"><input type="checkbox" [checked]="seleccionados().has(r.idFactura)" (change)="toggleSeleccion(r.idFactura)" /></td>
-              <td>{{ r.fecha | date:'yyyy-MM-dd' }}</td>
-              <td>{{ r.facturarA || r.cliente }}</td>
-              <td>{{ r.rubros.join(', ') }}</td>
-              <td>{{ r.vendedor }}</td>
-              <td class="r">{{ r.total | currency }}</td>
+        <div class="draft-summary-grid">
+          <div class="draft-stat">
+            <span class="stat-label">Documento borrador</span>
+            <span class="stat-val font-mono">{{ c.prefijo }} / {{ c.factura }}</span>
+          </div>
+          <div class="draft-stat">
+            <span class="stat-label">Sucursal y Punto de Venta</span>
+            <span class="stat-val">
+              <p-tag severity="info" [value]="'[' + c.sucursal + '] ' + c.puntoVenta" icon="pi pi-shop"></p-tag>
+            </span>
+          </div>
+          <div class="draft-stat">
+            <span class="stat-label">Recibos agrupados</span>
+            <span class="stat-val font-bold">{{ c.origenes.length }}</span>
+          </div>
+          <div class="draft-stat">
+            <span class="stat-label">Monto total consolidado</span>
+            <span class="stat-val stat-val--total">${{ c.total | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="draft-table-container">
+          <h3 class="section-subtitle">Recibos de origen agrupados</h3>
+          <p-table
+            [value]="c.origenes"
+            [responsiveLayout]="'scroll'"
+            styleClass="p-datatable-sm p-datatable-striped"
+          >
+            <ng-template #header>
+              <tr>
+                <th>Recibo origen</th>
+                <th>Vendedor</th>
+                <th class="text-right">Acción</th>
+              </tr>
+            </ng-template>
+            <ng-template #body let-o>
+              <tr>
+                <td class="font-mono font-bold">{{ o.prefijo }} / {{ o.factura }}</td>
+                <td>{{ o.vendedor || 'Sin vendedor' }}</td>
+                <td class="text-right">
+                  <p-button
+                    label="Quitar"
+                    icon="pi pi-trash"
+                    severity="danger"
+                    [text]="true"
+                    size="small"
+                    [disabled]="procesando()"
+                    (onClick)="quitarOrigen(o.idFactura)"
+                  />
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <div class="draft-alert-hint">
+          <i class="pi pi-info-circle"></i>
+          <span>
+            Una vez aplicada, la factura consolidada se creará formalmente con el prefijo y número indicados. Búsquela en <b>Facturación (FAC)</b> para emitir el DTE correspondiente.
+          </span>
+        </div>
+
+        <div class="draft-actions-bar">
+          <p-button
+            label="Cancelar consolidación"
+            icon="pi pi-times"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="procesando()"
+            (onClick)="cancelarConsolidacion()"
+          />
+          <p-button
+            label="Aplicar factura consolidada"
+            icon="pi pi-check"
+            severity="success"
+            [loading]="procesando()"
+            (onClick)="aplicarConsolidacion()"
+          />
+        </div>
+      </div>
+    } @else {
+      <!-- Panel de Filtros -->
+      <div class="filter-card">
+        <div class="filter-grid">
+          <div class="filter-field">
+            <label class="filter-label" for="fecha-desde">
+              <i class="pi pi-calendar"></i> Desde
+            </label>
+            <input
+              id="fecha-desde"
+              type="date"
+              class="date-input"
+              [ngModel]="fechaDesde()"
+              (ngModelChange)="fechaDesde.set($event)"
+            />
+          </div>
+
+          <div class="filter-field">
+            <label class="filter-label" for="fecha-hasta">
+              <i class="pi pi-calendar"></i> Hasta
+            </label>
+            <input
+              id="fecha-hasta"
+              type="date"
+              class="date-input"
+              [ngModel]="fechaHasta()"
+              (ngModelChange)="fechaHasta.set($event)"
+            />
+          </div>
+
+          <div class="filter-field filter-field--pv">
+            <label class="filter-label">
+              <i class="pi pi-map-marker"></i> Punto de venta
+            </label>
+            <p-select
+              [options]="opcionesPuntosVenta()"
+              [ngModel]="puntoVentaFiltro()"
+              (ngModelChange)="puntoVentaFiltro.set($event); buscar()"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Todos los puntos de venta"
+              [filter]="true"
+              filterBy="label"
+              styleClass="filter-select w-full"
+            />
+          </div>
+
+          <div class="filter-actions">
+            <p-button
+              label="Buscar"
+              icon="pi pi-search"
+              (onClick)="buscar()"
+              [loading]="cargando()"
+            />
+            <p-button
+              icon="pi pi-refresh"
+              severity="secondary"
+              [outlined]="true"
+              title="Limpiar filtros"
+              (onClick)="limpiarFiltros()"
+              [disabled]="cargando()"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Resumen KPI -->
+      <div class="summary-grid animate-fadein">
+        <div class="stat-card">
+          <div class="stat-icon-box stat-icon-box--blue">
+            <i class="pi pi-receipt"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ totalPendientesCount() }}</span>
+            <span class="stat-label">Recibos pendientes</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon-box stat-icon-box--emerald">
+            <i class="pi pi-dollar"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">${{ totalPendientesMonto() | number:'1.2-2' }}</span>
+            <span class="stat-label">Monto total disponible</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon-box stat-icon-box--purple">
+            <i class="pi pi-shop"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ puntosVentaEnPendientes().size }}</span>
+            <span class="stat-label">Puntos de venta con ventas</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card--highlight">
+          <div class="stat-icon-box stat-icon-box--amber">
+            <i class="pi pi-check-square"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">${{ totalSeleccionadoMonto() | number:'1.2-2' }}</span>
+            <span class="stat-label">{{ totalSeleccionadosCount() }} seleccionados</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banner Informativo de Restricción de Punto de Venta -->
+      @if (hayMultiplesPuntosVenta()) {
+        <div class="pv-alert-banner">
+          <i class="pi pi-exclamation-triangle pv-alert-icon"></i>
+          <div class="pv-alert-content">
+            <span class="pv-alert-title">Regla de punto de venta único:</span>
+            <span class="pv-alert-desc">
+              No es posible mezclar puntos de venta en una misma consolidación.
+              @if (puntoVentaActivo(); as pva) {
+                La selección está activa para <b>[{{ pva.sucursal }}] {{ pva.puntoVenta }}</b>; los recibos de otros puntos de venta permanecen bloqueados.
+              } @else {
+                Al marcar un recibo, se bloquearán los demás puntos de venta para garantizar una sola factura por punto de venta.
+              }
+            </span>
+          </div>
+        </div>
+      }
+
+      <!-- Tabla de Recibos Pendientes -->
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <p-button
+              label="Marcar punto activo"
+              icon="pi pi-check"
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              (onClick)="marcarTodos()"
+              [disabled]="pendientes().length === 0"
+            />
+            <p-button
+              label="Desmarcar todos"
+              icon="pi pi-times"
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              (onClick)="desmarcarTodos()"
+              [disabled]="!haySeleccion()"
+            />
+          </div>
+          <div class="toolbar-right">
+            <span class="toolbar-indicator">
+              Mostrando <b>{{ pendientes().length }}</b> recibos pendientes
+            </span>
+          </div>
+        </div>
+
+        <p-table
+          [value]="pendientes()"
+          [paginator]="true"
+          [rows]="10"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          [loading]="cargando()"
+          styleClass="p-datatable-sm p-datatable-striped cr-table"
+          [rowHover]="true"
+        >
+          <ng-template #header>
+            <tr>
+              <th style="width: 3rem;" class="text-center"></th>
+              <th pSortableColumn="puntoVenta" style="width: 130px;">
+                Punto Venta <p-sortIcon field="puntoVenta" />
+              </th>
+              <th pSortableColumn="fecha" style="width: 105px;">
+                Fecha <p-sortIcon field="fecha" />
+              </th>
+              <th pSortableColumn="factura" style="width: 140px;">
+                Recibo <p-sortIcon field="factura" />
+              </th>
+              <th pSortableColumn="cliente">
+                Cliente / Facturar a <p-sortIcon field="cliente" />
+              </th>
+              <th>Rubros</th>
+              <th pSortableColumn="vendedor" style="width: 130px;">
+                Vendedor <p-sortIcon field="vendedor" />
+              </th>
+              <th pSortableColumn="total" class="text-right" style="width: 120px;">
+                Total <p-sortIcon field="total" />
+              </th>
             </tr>
-          </tbody>
-        </table>
+          </ng-template>
 
-        <div class="cr-actions">
-          <button type="button" class="btn-primary" [disabled]="!haySeleccion() || procesando()" (click)="armarConsolidacion()">
-            {{ procesando() ? 'Armando…' : 'Armar consolidación' }}
-          </button>
+          <ng-template #body let-r>
+            <tr [class.row-selected]="seleccionados().has(r.idFactura)" [class.row-disabled]="!esFilaSeleccionable(r)">
+              <td class="text-center">
+                <input
+                  type="checkbox"
+                  class="cr-checkbox"
+                  [checked]="seleccionados().has(r.idFactura)"
+                  [disabled]="!esFilaSeleccionable(r)"
+                  (change)="toggleSeleccion(r)"
+                  [pTooltip]="getMotivoBloqueo(r)"
+                  tooltipPosition="top"
+                />
+              </td>
+              <td>
+                <p-tag
+                  [severity]="esFilaSeleccionable(r) ? 'info' : 'secondary'"
+                  [value]="'[' + r.sucursal + '] ' + r.puntoVenta"
+                  styleClass="pv-tag"
+                />
+              </td>
+              <td>{{ r.fecha | date:'dd/MM/yyyy' }}</td>
+              <td class="font-mono font-semibold">{{ r.prefijo }} / {{ r.factura }}</td>
+              <td>
+                <div class="cliente-cell">
+                  <span class="cliente-nombre">{{ r.facturarA || r.cliente }}</span>
+                  <span *ngIf="r.facturarA && r.cliente && r.facturarA !== r.cliente" class="cliente-sub">
+                    Cod: {{ r.cliente }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <div class="rubros-container">
+                  <span *ngFor="let rubro of r.rubros" class="rubro-chip">{{ rubro }}</span>
+                </div>
+              </td>
+              <td>{{ r.vendedor || '—' }}</td>
+              <td class="text-right font-bold text-emerald font-mono">${{ r.total | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+
+          <ng-template #emptymessage>
+            <tr>
+              <td colspan="8">
+                <div class="state-center">
+                  <i class="pi pi-inbox state-icon"></i>
+                  <p class="state-text">No se encontraron recibos pendientes en el rango o punto de venta seleccionado.</p>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <!-- Barra de Acción Inferior -->
+      <div class="cr-bottom-bar" *ngIf="pendientes().length > 0">
+        <div class="cr-bottom-info">
+          <span class="info-badge">{{ totalSeleccionadosCount() }}</span>
+          <span class="info-label">recibos seleccionados</span>
+          <span class="info-sep">•</span>
+          <span class="info-total">${{ totalSeleccionadoMonto() | number:'1.2-2' }}</span>
+          @if (puntoVentaActivo(); as pva) {
+            <span class="info-pv">Punto: [{{ pva.sucursal }}] {{ pva.puntoVenta }}</span>
+          }
         </div>
-      </ng-container>
-      <ng-template #sinPendientes><p class="hint">No hay recibos pendientes en ese rango de fechas.</p></ng-template>
-    </section>
-  </ng-container>
+
+        <div class="cr-bottom-actions">
+          <p-button
+            label="Armar Consolidación"
+            icon="pi pi-file-check"
+            severity="primary"
+            size="large"
+            [disabled]="!canArmarConsolidacion()"
+            [loading]="procesando()"
+            (onClick)="armarConsolidacion()"
+          />
+        </div>
+      </div>
+    }
+  }
 </div>
+

@@ -85,6 +85,14 @@ export class PosHibridoConfigService {
   }
 
   // ── Cierre de recibos (solo admin; el backend rechaza con 403 si no lo es) ──────────────────
+  getPuntosVenta(): Observable<Array<{ sucursal: string; sucursalDescripcion: string; puntoVenta: string; puntoVentaDescripcion: string }>> {
+    return this.http
+      .get<Array<{ sucursal: string; sucursalDescripcion: string; puntoVenta: string; puntoVentaDescripcion: string }>>(
+        `${this.baseUrl}/PuntosVenta`
+      )
+      .pipe(catchError(() => of([])));
+  }
+
   getRecibosPendientes(fechaDesde?: string, fechaHasta?: string, sucursal?: string, puntoVenta?: string): Observable<ReciboPendienteDto[]> {
     const params: Record<string, string> = {};
     if (fechaDesde) params['fechaDesde'] = fechaDesde;
