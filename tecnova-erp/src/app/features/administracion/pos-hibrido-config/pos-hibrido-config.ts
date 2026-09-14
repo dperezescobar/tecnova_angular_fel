@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
-import { forkJoin } from 'rxjs';
+import { catchError, finalize } from 'rxjs/operators';
+import { forkJoin, of } from 'rxjs';
 import { PosHibridoConfigService } from '../../facturacion/pos-hibrido/pos-hibrido-config.service';
 import { FacturacionService } from '../../facturacion/services/facturacion';
 import { PosHibridoConfigDto, PosModoDocumento, PosRubroConfigDto, PosUsuarioRubroDto } from '../../../core/models/facturacion.models';
@@ -57,19 +57,26 @@ export class PosHibridoConfigComponent {
     forkJoin({
       config: this.svc.getConfig(),
       rubroConfig: this.svc.getRubroConfig(),
-      articulos: this.facturacionService.getArticulosPorBodega('BOD01'),
+      articulosBod01: this.facturacionService.getArticulosPorBodega('BOD01').pipe(catchError(() => of([]))),
+      articulosBodEuro: this.facturacionService.getArticulosPorBodega('BODEURO').pipe(catchError(() => of([]))),
       usuarios: this.svc.getUsuariosEmpresa()
     })
       .pipe(finalize(() => this.cargando.set(false)))
       .subscribe({
-        next: ({ config, rubroConfig, articulos, usuarios }) => {
+        next: ({ config, rubroConfig, articulosBod01, articulosBodEuro, usuarios }) => {
           this.activo.set(!!config?.activo);
           this.usuarios.set(usuarios ?? []);
 
           const porGrupo = new Map<string, string>();
-          for (const a of articulos ?? []) {
+          const todos = [...(articulosBod01 ?? []), ...(articulosBodEuro ?? [])];
+          for (const a of todos) {
             const cod = (a.GRUPO_COD ?? '').trim();
             if (cod && !porGrupo.has(cod)) porGrupo.set(cod, (a.GRUPO_DESC ?? '').trim() || cod);
+          }
+          // Asegurar que rubros ya configurados en la DB aparezcan siempre
+          for (const r of rubroConfig ?? []) {
+            const cod = (r.grupoInventario1 ?? '').trim();
+            if (cod && !porGrupo.has(cod)) porGrupo.set(cod, cod);
           }
           const existentes = new Map((rubroConfig ?? []).map((r) => [r.grupoInventario1, r]));
           const filas: RubroRow[] = Array.from(porGrupo.entries()).map(([cod, desc]) => {

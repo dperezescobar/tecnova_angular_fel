@@ -363,6 +363,18 @@ export class PosHibridoComponent implements OnDestroy {
     const usuarioActual = String(this.auth.currentUser()?.username ?? '').trim();
     if (usuarioActual) {
       this.posHibridoConfig.getUsuarioRubro(usuarioActual).subscribe({ next: (r) => this.posHibUsuarioRubros.set(r ?? []) });
+      if (!this.embedded) {
+        this.facturacionService.getSucursalPuntoVendedor(usuarioActual).subscribe({
+          next: (rows) => {
+            const sp = (rows ?? [])[0];
+            const pv = (sp?.PUNTO_VENTA ?? '').trim().toUpperCase();
+            const pvDesc = (sp?.NombrePV ?? '').trim().toUpperCase();
+            if (pv === 'P002' || pvDesc.includes('EUROSOCCER')) {
+              this.bodega = 'BODEURO';
+            }
+          }
+        });
+      }
     }
     effect(() => { for (const a of this.visibles()) this.cargarImagen(a); });
 
