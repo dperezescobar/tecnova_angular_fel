@@ -630,8 +630,29 @@
   }
 }
 @media (max-width: 900px) {
-  .pos { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .pos { grid-template-columns: 1fr; grid-template-rows: 1fr auto; gap: 10px; padding: 10px; }
   .pos-carrito { max-height: 42vh; }
+
+  /* Catálogo: fichas más chicas para que quepan más por fila -- menos filas, menos scroll para
+     ver el mismo catálogo -- y menos aire alrededor (topbar/tabs/grid) para dejarle más alto
+     real a la cuadrícula de artículos, que es lo que más se cortaba. */
+  .pos-catalogo { gap: 8px; }
+  .pos-topbar h1 { display: none; } /* el título ya está repetido en el encabezado de la pestaña */
+  .pos-tabs { gap: 6px; }
+  .pos-tab { padding: 7px 12px; font-size: 13px; }
+  .pos-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .pos-tile { padding: 7px; gap: 2px; }
+  .pos-tile-desc { font-size: 12px; }
+  .pos-tile-precio { font-size: 13.5px; }
+
+  /* Carrito: mismo contenido, menos relleno -- prioriza mostrar líneas del pedido en vez de
+     espacio en blanco alrededor de cada sección fija (encabezado, cliente, totales). */
+  .pos-carrito-head { padding: 10px 12px; }
+  .pos-cliente-bar { padding: 8px 10px; }
+  .pos-carrito-items { padding: 4px 8px; }
+  .pos-item { padding: 6px 4px; }
+  .pos-carrito-foot { padding: 10px 12px; }
+  .pos-cobrar, .pos-nueva-venta { padding: 12px; margin-top: 8px; font-size: 16px; }
 }
 
 /* ── Modal Cantidad / Pesos Fraccionados (PrimeNG p-dialog) ──────────────── */
