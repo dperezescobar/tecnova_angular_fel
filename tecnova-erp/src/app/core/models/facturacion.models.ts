@@ -22,6 +22,16 @@ export interface FacturaGeneralDto {
   pago: string;
 }
 
+export interface FacturaKeysDto {
+  Prefijo: string;
+  Factura: string;
+  Sucursal: string;
+  PuntoVenta: string;
+  TipoFactura: string;
+  Fecha: string;
+  FacturarA: string;
+}
+
 export interface UpdatePagoRecibidoDto {
   IdFactura: number;
   Monto: number;

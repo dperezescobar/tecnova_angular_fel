@@ -14,6 +14,7 @@ import {
   FacturaEncabezadoDto,
   FacturaFormaPagoDto,
   FacturaGeneralDto,
+  FacturaKeysDto,
   FacturaRetencionDto,
   FacturaTotalesDto,
   FormaPagoDto,
@@ -426,6 +427,26 @@ export class FacturacionService {
     return this.http
       .get<Record<string, unknown>>(`${this.facturaApiUrl}/GetFacturaTotales`, { params })
       .pipe(map((row) => this.mapFacturaTotales(row ?? {})));
+  }
+
+  private mapFacturaKeys(raw: Record<string, unknown>): FacturaKeysDto {
+    return {
+      Prefijo: this.toString(this.pickValue(raw, 'Prefijo', 'PREFIJO', 'prefijo')),
+      Factura: this.toString(this.pickValue(raw, 'Factura', 'FACTURA', 'factura')),
+      Sucursal: this.toString(this.pickValue(raw, 'Sucursal', 'SUCURSAL', 'sucursal')),
+      PuntoVenta: this.toString(this.pickValue(raw, 'PuntoVenta', 'PUNTO_VENTA', 'puntoVenta')),
+      TipoFactura: this.toString(this.pickValue(raw, 'TipoFactura', 'TIPO_FACTURA', 'tipoFactura')),
+      Fecha: this.toString(this.pickValue(raw, 'Fecha', 'FECHA', 'fecha')),
+      FacturarA: this.toString(this.pickValue(raw, 'FacturarA', 'FACTURAR_A', 'facturarA'))
+    };
+  }
+
+  /** Prefijo/Factura a partir del idFactura numérico — para callers que solo persisten ese id (ej. EuroSoccer). */
+  getFacturaKeysById(idFactura: number): Observable<FacturaKeysDto> {
+    const params = new HttpParams().set('idFactura', idFactura);
+    return this.http
+      .get<Record<string, unknown>>(`${this.facturaApiUrl}/GetFacturaKeysById`, { params })
+      .pipe(map((row) => this.mapFacturaKeys(row ?? {})));
   }
 
   getSucursalPuntoVendedor(usuario: string): Observable<SucursalPuntoVendedorDto[]> {

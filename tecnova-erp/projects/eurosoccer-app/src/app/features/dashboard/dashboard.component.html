@@ -8,7 +8,7 @@
     <!-- Brand Info & Mobile Menu Toggle -->
     <div class="flex items-center space-x-2.5 sm:space-x-3">
       <!-- Mobile Menu Toggle Button -->
-      <button (click)="toggleMobileSidebar()" type="button" aria-label="Abrir Menú de Navegación" class="lg:hidden p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition">
+      <button (click)="toggleMobileSidebar()" type="button" aria-label="Abrir Menú de Navegación" class="xl:hidden p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition">
         <i class="fa-solid fa-bars text-base"></i>
       </button>
 
@@ -88,14 +88,16 @@
 
     <!-- Backdrop Overlay for Mobile Sidebar -->
     @if (mobileSidebarOpen()) {
-      <div (click)="toggleMobileSidebar()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-30 lg:hidden transition-opacity"></div>
+      <div (click)="toggleMobileSidebar()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-30 xl:hidden transition-opacity"></div>
     }
 
     <!-- SIDEBAR NAVIGATION -->
-    <aside id="mainSidebar" [class.mobile-open]="mobileSidebarOpen()" class="fixed inset-y-0 left-0 top-16 z-40 w-72 lg:w-64 bg-pitch-card/95 lg:bg-pitch-card/60 border-r border-pitch-border/80 flex flex-col justify-between shrink-0 select-none transform -translate-x-full lg:translate-x-0 lg:static lg:top-0 transition-transform duration-300 ease-in-out">
+    <aside id="mainSidebar"
+      [ngClass]="mobileSidebarOpen() ? 'translate-x-0' : '-translate-x-full'"
+      class="fixed inset-y-0 left-0 top-16 z-40 w-72 xl:w-64 bg-pitch-card/95 xl:bg-pitch-card/60 border-r border-pitch-border/80 flex flex-col justify-between shrink-0 select-none transform xl:translate-x-0 xl:static xl:top-0 transition-transform duration-300 ease-in-out">
       <div class="p-4 space-y-6 overflow-y-auto">
         <!-- Close button for mobile -->
-        <div class="lg:hidden flex items-center justify-between pb-2 border-b border-slate-800">
+        <div class="xl:hidden flex items-center justify-between pb-2 border-b border-slate-800">
           <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Menú Euro Soccer</span>
           <button (click)="toggleMobileSidebar()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <i class="fa-solid fa-xmark text-sm"></i>
@@ -897,59 +899,75 @@
                 </button>
               </div>
             } @else {
-              <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs text-slate-300">
-                  <thead class="bg-slate-900/60 uppercase tracking-wider text-[11px] text-slate-400 border-b border-slate-800">
-                    <tr>
-                      <th class="py-3 px-4">Horario</th>
-                      <th class="py-3 px-4">Cancha</th>
-                      <th class="py-3 px-4">Cliente / Contacto</th>
-                      <th class="py-3 px-4">Teléfono</th>
-                      <th class="py-3 px-4">Total</th>
-                      <th class="py-3 px-4">Anticipo</th>
-                      <th class="py-3 px-4">Saldo</th>
-                      <th class="py-3 px-4">Estado</th>
-                      <th class="py-3 px-4 text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-800/60">
-                    @for (res of reservaciones(); track res.idReservacion) {
-                      <tr class="hover:bg-slate-800/40 transition">
-                        <td class="py-3 px-4 font-mono font-semibold text-emerald-400">
-                          <i class="fa-regular fa-clock mr-1 text-slate-500"></i>
-                          {{ res.horaInicio.substring(0, 5) }} - {{ res.horaFin.substring(0, 5) }}
-                        </td>
-                        <td class="py-3 px-4 font-semibold text-white">{{ res.nombreCancha }}</td>
-                        <td class="py-3 px-4">{{ res.clienteNombre }}</td>
-                        <td class="py-3 px-4 font-mono text-slate-400">{{ res.clienteTelefono || '—' }}</td>
-                        <td class="py-3 px-4 font-mono font-bold text-white">${{ res.montoTotal | number:'1.2-2' }}</td>
-                        <td class="py-3 px-4 font-mono text-emerald-400">${{ res.montoAnticipo | number:'1.2-2' }}</td>
-                        <td class="py-3 px-4 font-mono" [class]="res.saldoPendiente > 0 ? 'text-amber-400 font-bold' : 'text-slate-400'">
+              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                @for (res of reservaciones(); track res.idReservacion) {
+                  <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                      <span class="font-mono font-semibold text-emerald-400 text-sm">
+                        <i class="fa-regular fa-clock mr-1 text-slate-500"></i>
+                        {{ res.horaInicio.substring(0, 5) }} - {{ res.horaFin.substring(0, 5) }}
+                      </span>
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold" [class]="res.estado === 'Reservado' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
+                        {{ res.estado }}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p class="font-bold text-white text-sm truncate">{{ res.clienteNombre }}</p>
+                      <p class="text-[11px] text-slate-400">
+                        {{ res.nombreCancha }}
+                        @if (res.clienteTelefono) {
+                          <span class="font-mono"> · {{ res.clienteTelefono }}</span>
+                        }
+                      </p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-1.5 text-center bg-slate-950/40 rounded-lg p-2">
+                      <div>
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Total</p>
+                        <p class="font-mono font-bold text-white text-xs">${{ res.montoTotal | number:'1.2-2' }}</p>
+                      </div>
+                      <div>
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Anticipo</p>
+                        <p class="font-mono text-emerald-400 text-xs">${{ res.montoAnticipo | number:'1.2-2' }}</p>
+                      </div>
+                      <div>
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Saldo</p>
+                        <p class="font-mono text-xs" [class]="res.saldoPendiente > 0 ? 'text-amber-400 font-bold' : 'text-slate-400'">
                           ${{ res.saldoPendiente | number:'1.2-2' }}
-                        </td>
-                        <td class="py-3 px-4">
-                          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold" [class]="res.estado === 'Reservado' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
-                            {{ res.estado }}
+                        </p>
+                      </div>
+                    </div>
+
+                    @if (res.estado === 'Reservado') {
+                      <div class="flex items-center space-x-2 pt-1 border-t border-slate-800">
+                        @if (res.saldoPendiente > 0) {
+                          <button (click)="abrirModalCobro(res)" title="Registrar Cobro" class="flex-1 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition cursor-pointer text-xs font-semibold flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-dollar-sign"></i><span>Cobrar</span>
+                          </button>
+                        }
+                        @if (res.idFacturaLiquidacion || res.idFacturaAnticipo) {
+                          <button (click)="reimprimirRecibo(res)" [disabled]="reimprimiendoId() === (res.idFacturaLiquidacion || res.idFacturaAnticipo)" title="Reimprimir Recibo" class="p-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 transition cursor-pointer disabled:opacity-50">
+                            @if (reimprimiendoId() === (res.idFacturaLiquidacion || res.idFacturaAnticipo)) {
+                              <i class="fa-solid fa-circle-notch fa-spin"></i>
+                            } @else {
+                              <i class="fa-solid fa-print"></i>
+                            }
+                          </button>
+                        }
+                        @if (tienePagoAplicado(res)) {
+                          <span title="No se puede cancelar: ya tiene un pago aplicado" class="p-1.5 rounded-lg bg-slate-800/60 text-slate-600 border border-slate-700/60">
+                            <i class="fa-solid fa-ban"></i>
                           </span>
-                        </td>
-                        <td class="py-3 px-4 text-center">
-                          @if (res.estado === 'Reservado') {
-                            <div class="flex items-center justify-center space-x-2">
-                              @if (res.saldoPendiente > 0) {
-                                <button (click)="abrirModalCobro(res)" title="Registrar Cobro" class="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition cursor-pointer">
-                                  <i class="fa-solid fa-dollar-sign"></i>
-                                </button>
-                              }
-                              <button (click)="cancelarReserva(res.idReservacion)" title="Cancelar Reserva" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition cursor-pointer">
-                                <i class="fa-solid fa-ban"></i>
-                              </button>
-                            </div>
-                          }
-                        </td>
-                      </tr>
+                        } @else {
+                          <button (click)="cancelarReserva(res)" title="Cancelar Reserva" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition cursor-pointer">
+                            <i class="fa-solid fa-ban"></i>
+                          </button>
+                        }
+                      </div>
                     }
-                  </tbody>
-                </table>
+                  </div>
+                }
               </div>
             }
           </div>
@@ -1331,14 +1349,21 @@
           <!-- Grid de Slots Táctiles -->
           <div class="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-44 overflow-y-auto pr-1">
             @for (t of turnosRapidos; track t.inicio) {
-              <button type="button" (click)="seleccionarTurnoSlot(t.inicio, t.fin)"
-                class="touch-slot-btn px-2 py-2 rounded-xl border text-xs font-mono font-semibold transition flex flex-col items-center justify-center cursor-pointer"
-                [class]="nuevaReserva.horaInicio === t.inicio ? 'bg-emerald-600 text-white border-emerald-400 shadow-md ring-1 ring-white/50' : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700'">
+              <button type="button" [disabled]="esSlotOcupado(t.inicio)" (click)="seleccionarTurnoSlot(t.inicio, t.fin)"
+                [title]="esSlotOcupado(t.inicio) ? 'Horario ya reservado para esta cancha' : ''"
+                class="touch-slot-btn px-2 py-2 rounded-xl border text-xs font-mono font-semibold transition flex flex-col items-center justify-center"
+                [class]="esSlotOcupado(t.inicio) ? 'bg-slate-900/60 text-slate-600 border-slate-800 cursor-not-allowed line-through' : (nuevaReserva.horaInicio === t.inicio ? 'bg-emerald-600 text-white border-emerald-400 shadow-md ring-1 ring-white/50 cursor-pointer' : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700 cursor-pointer')">
                 <span>{{ t.inicio }}</span>
-                <span class="text-[9px] opacity-75">{{ t.tipo === 'noche' ? 'LED Noche' : 'Diurno' }}</span>
+                <span class="text-[9px] opacity-75">{{ esSlotOcupado(t.inicio) ? 'Ocupado' : (t.tipo === 'noche' ? 'LED Noche' : 'Diurno') }}</span>
               </button>
             }
           </div>
+          @if (horarioSeleccionadoOcupado()) {
+            <p class="text-[11px] text-rose-400 font-semibold mt-1.5 flex items-center space-x-1">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>Este horario ya no está disponible con la duración seleccionada.</span>
+            </p>
+          }
         </div>
       </div>
 
@@ -1461,8 +1486,8 @@
             class="touch-slot-btn px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
             Cancelar
           </button>
-          <button type="button" (click)="guardarReserva()" [disabled]="saving()"
-            class="touch-slot-btn flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 cursor-pointer">
+          <button type="button" (click)="guardarReserva()" [disabled]="saving() || horarioSeleccionadoOcupado()"
+            class="touch-slot-btn flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-xs font-bold shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 cursor-pointer">
             @if (saving()) {
               <i class="fa-solid fa-circle-notch fa-spin"></i>
               <span>{{ pagarAhora ? 'Cobrando...' : 'Guardando...' }}</span>

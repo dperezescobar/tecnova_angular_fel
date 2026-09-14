@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { switchMap, map } from 'rxjs';
 import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
@@ -25,6 +26,7 @@ import {
 } from './eurosoccer.service';
 import { PosHibridoComponent } from '@app/features/facturacion/pos-hibrido/pos-hibrido';
 import { PosTicketService } from '@app/features/facturacion/pos-hibrido/pos-ticket.service';
+import { FacturacionService } from '@app/features/facturacion/services/facturacion';
 
 @Component({
   selector: 'app-dashboard',
@@ -41,6 +43,7 @@ export class DashboardComponent implements OnInit {
   private messageService = inject(MessageService);
   private facturacionBridge = inject(FacturacionBridgeService);
   private ticketService = inject(PosTicketService);
+  private facturacionService = inject(FacturacionService);
 
   activeTab = signal<'dashboard' | 'canchas' | 'balones' | 'torneos' | 'escuela' | 'cafeteria' | 'tienda' | 'admin' | 'inventario'>('canchas');
   adminSubTab = signal<'canchas' | 'balones'>('canchas');
@@ -166,6 +169,8 @@ export class DashboardComponent implements OnInit {
     estadoFisicoRetorno: 'Excelente',
     observacionesEntrega: ''
   };
+
+  reimprimiendoId = signal<number | null>(null);
 
   reservaEnCobro: ReservacionCancha | null = null;
   cobroData: CobroReservacionReq = {
@@ -434,6 +439,29 @@ export class DashboardComponent implements OnInit {
     this.displayNuevaReservaModal = true;
   }
 
+  private horaAMinutos(hora: string): number {
+    const [h, m] = (hora || '00:00').split(':').map(Number);
+    return h * 60 + (m || 0);
+  }
+
+  /** Un turno pill queda marcado como ocupado si, con la duración elegida, su rango choca con
+   * alguna reserva 'Reservado' existente para la misma cancha y fecha (ya cargadas en reservaciones()). */
+  esSlotOcupado(horaInicioSlot: string): boolean {
+    const idCancha = this.nuevaReserva.idCancha;
+    const inicioMin = this.horaAMinutos(horaInicioSlot);
+    const finMin = inicioMin + this.duracionSeleccionada() * 60;
+    return this.reservaciones().some(r => {
+      if (r.idCancha !== idCancha || r.estado !== 'Reservado') return false;
+      const rIni = this.horaAMinutos(r.horaInicio);
+      const rFin = this.horaAMinutos(r.horaFin);
+      return inicioMin < rFin && rIni < finMin;
+    });
+  }
+
+  horarioSeleccionadoOcupado(): boolean {
+    return this.esSlotOcupado(this.nuevaReserva.horaInicio);
+  }
+
   seleccionarTurnoSlot(inicio: string, fin: string): void {
     this.nuevaReserva.horaInicio = inicio;
     const startH = parseInt(inicio.split(':')[0], 10);
@@ -533,7 +561,17 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  cancelarReserva(id: number): void {
+  /** Una reserva con cualquier pago aplicado (parcial o total) ya generó un recibo contable real en
+   * Facturacion.FACTURA; cancelarla dejaría ese recibo huérfano. Nunca reversible desde esta pantalla. */
+  tienePagoAplicado(res: ReservacionCancha): boolean {
+    return (res.montoTotal - res.saldoPendiente) > 0.009 || !!res.idFacturaAnticipo || !!res.idFacturaLiquidacion;
+  }
+
+  cancelarReserva(res: ReservacionCancha): void {
+    if (this.tienePagoAplicado(res)) {
+      this.messageService.add({ severity: 'warn', summary: 'No se puede cancelar', detail: 'Esta reservación ya tiene un pago aplicado y su recibo generado. Contacte a administración si necesita reversarla.', life: 7000 });
+      return;
+    }
     this.confirmationService.confirm({
       message: '¿Está seguro de cancelar esta reservación?',
       header: 'Confirmar cancelación',
@@ -541,13 +579,67 @@ export class DashboardComponent implements OnInit {
       acceptLabel: 'Sí, cancelar',
       rejectLabel: 'Volver',
       accept: () => {
-        this.euroService.cancelarReservacion(id).subscribe({
+        this.euroService.cancelarReservacion(res.idReservacion).subscribe({
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Reserva cancelada', detail: 'La reservación fue cancelada.' });
             this.cargarReservaciones();
           },
           error: (err) => this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al cancelar la reservación.' })
         });
+      }
+    });
+  }
+
+  /** Reimpresión exacta del recibo ya emitido: recupera Prefijo/Factura desde el idFactura persistido
+   * en la reserva (GetFacturaKeysById) y reconstruye el ticket con las líneas reales (GetFacturaDetalle),
+   * igual que el "reimprimir" de POS Híbrido — nunca desde datos locales que puedan haber quedado desfasados. */
+  reimprimirRecibo(res: ReservacionCancha): void {
+    const idFactura = res.idFacturaLiquidacion || res.idFacturaAnticipo;
+    if (!idFactura) {
+      this.messageService.add({ severity: 'warn', summary: 'Sin recibo', detail: 'Esta reservación aún no tiene un recibo generado.' });
+      return;
+    }
+    if (this.reimprimiendoId() !== null) return;
+    this.reimprimiendoId.set(idFactura);
+
+    this.facturacionService.getFacturaKeysById(idFactura).pipe(
+      switchMap((keys) => this.facturacionService
+        .getFacturaDetalle(keys.Prefijo, keys.Factura, keys.Sucursal, keys.PuntoVenta, keys.TipoFactura || 'FAC')
+        .pipe(map((detalle) => ({ keys, detalle }))))
+    ).subscribe({
+      next: ({ keys, detalle }) => {
+        this.reimprimiendoId.set(null);
+        const lineas = (detalle ?? []).map((dl) => {
+          const cantidad = Number(dl.CANTIDAD) || 0;
+          const precio = Number(dl.PRECIO_UNITARIO) || 0;
+          return {
+            cantidad,
+            unidad: String(dl.UNIDAD_MEDIDA ?? '').trim(),
+            descripcion: String(dl.DESCRIPCION ?? '').trim(),
+            precio,
+            total: Math.round(cantidad * precio * 100) / 100
+          };
+        });
+        const total = lineas.reduce((a, l) => a + l.total, 0);
+        this.ticketService.imprimir({
+          nombreEmpresa: 'EuroSoccer Club',
+          logoSrc: '',
+          clienteNombre: keys.FacturarA || res.clienteNombre,
+          fecha: keys.Fecha || res.fecha,
+          lineas,
+          subtotalBruto: total,
+          descuentoTotal: 0,
+          total,
+          esRecibo: true
+        }).then((impreso) => {
+          if (!impreso) {
+            this.messageService.add({ severity: 'warn', summary: 'Impresión bloqueada', detail: 'El navegador bloqueó la ventana del ticket. Habilite las ventanas emergentes para este sitio e intente de nuevo.', life: 9000 });
+          }
+        });
+      },
+      error: () => {
+        this.reimprimiendoId.set(null);
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo recuperar el recibo para reimprimir.' });
       }
     });
   }
