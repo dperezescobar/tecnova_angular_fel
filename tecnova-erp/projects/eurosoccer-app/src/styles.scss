@@ -203,6 +203,18 @@ html:not(.dark) {
     .text-yellow-300, .text-yellow-400 { color: #a16207 !important; }
     .text-blue-200, .text-blue-300, .text-blue-400 { color: #1d4ed8 !important; }
 
+    /* Banner "Métricas Financieras": gradiente con opacidad (from-emerald-950/40 via-slate-900/60
+       to-amber-950/30) pensado para fondo oscuro. En claro deja una franja gris ambigua -- el tramo
+       central del degradado queda más oscuro que los extremos -- donde el texto secundario
+       (.text-slate-400, #64748b) se funde con el fondo en vez de resaltar. Se fuerza un fondo claro
+       uniforme (conservando el tinte verde/ámbar de marca) y se oscurece el texto secundario aquí. */
+    .from-emerald-950\/40.via-slate-900\/60.to-amber-950\/30 {
+      background-image: linear-gradient(to right, rgba(16, 185, 129, 0.1), rgba(248, 250, 252, 0.95), rgba(245, 158, 11, 0.1)) !important;
+      .text-slate-400 {
+        color: #334155 !important;
+      }
+    }
+
     /* Bloques y fondos interiores */
     .bg-slate-900,
     .bg-slate-900\/60,
