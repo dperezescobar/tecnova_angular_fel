@@ -24,6 +24,7 @@ import {
   DetalleMovimientoReq
 } from './eurosoccer.service';
 import { PosHibridoComponent } from '@app/features/facturacion/pos-hibrido/pos-hibrido';
+import { PosTicketService } from '@app/features/facturacion/pos-hibrido/pos-ticket.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -39,6 +40,7 @@ export class DashboardComponent implements OnInit {
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
   private facturacionBridge = inject(FacturacionBridgeService);
+  private ticketService = inject(PosTicketService);
 
   activeTab = signal<'dashboard' | 'canchas' | 'balones' | 'torneos' | 'escuela' | 'cafeteria' | 'tienda' | 'admin' | 'inventario'>('canchas');
   adminSubTab = signal<'canchas' | 'balones'>('canchas');
@@ -145,6 +147,11 @@ export class DashboardComponent implements OnInit {
     montoAnticipo: 0.00,
     notas: ''
   };
+
+  // Reserva + cobro en un solo paso (cliente paga de contado al reservar)
+  pagarAhora = false;
+  formaPagoInmediato = 'Efectivo';
+  referenciaPagoInmediato = '';
 
   nuevoPrestamo: RegistrarPrestamoReq = {
     idBalon: 0,
@@ -402,6 +409,9 @@ export class DashboardComponent implements OnInit {
     this.nuevaReserva.clienteTelefono = '';
     this.nuevaReserva.montoAnticipo = 0;
     this.nuevaReserva.notas = '';
+    this.pagarAhora = false;
+    this.formaPagoInmediato = 'Efectivo';
+    this.referenciaPagoInmediato = '';
     this.recalcularMontoReserva();
     this.displayNuevaReservaModal = true;
   }
@@ -417,6 +427,9 @@ export class DashboardComponent implements OnInit {
     this.nuevaReserva.clienteTelefono = '';
     this.nuevaReserva.montoAnticipo = 0;
     this.nuevaReserva.notas = '';
+    this.pagarAhora = false;
+    this.formaPagoInmediato = 'Efectivo';
+    this.referenciaPagoInmediato = '';
     this.recalcularMontoReserva();
     this.displayNuevaReservaModal = true;
   }
@@ -484,12 +497,34 @@ export class DashboardComponent implements OnInit {
 
     this.saving.set(true);
     this.nuevaReserva.fecha = this.selectedDate();
+    const pagarAhora = this.pagarAhora;
+    const cancha = this.canchas().find(c => c.idCancha === this.nuevaReserva.idCancha);
+    const clienteNombre = this.nuevaReserva.clienteNombre;
+    const { fecha, horaInicio, horaFin } = this.nuevaReserva;
+
     this.euroService.crearReservacion(this.nuevaReserva).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.displayNuevaReservaModal = false;
-        this.messageService.add({ severity: 'success', summary: 'Reserva creada', detail: 'La reservación se registró correctamente.' });
-        this.cargarReservaciones();
+      next: (resp) => {
+        if (!pagarAhora) {
+          this.saving.set(false);
+          this.displayNuevaReservaModal = false;
+          this.messageService.add({ severity: 'success', summary: 'Reserva creada', detail: 'La reservación se registró correctamente.' });
+          this.cargarReservaciones();
+          return;
+        }
+
+        const descripcion = `Reserva ${cancha?.nombre || ''} ${fecha} ${horaInicio}-${horaFin}`;
+        this.crearReciboYCobrar({
+          idReservacion: resp.idReservacion,
+          clienteNombre,
+          descripcion,
+          montoPago: resp.montoTotal,
+          formaPago: this.formaPagoInmediato,
+          referenciaPago: this.referenciaPagoInmediato,
+          toastExito: 'La reserva se registró y el cobro se aplicó completo.'
+        }, () => {
+          this.displayNuevaReservaModal = false;
+          this.cargarReservaciones();
+        });
       },
       error: (err) => {
         this.saving.set(false);
@@ -539,23 +574,64 @@ export class DashboardComponent implements OnInit {
     const descripcion = `Reserva ${reserva.nombreCancha} ${reserva.fecha.substring(0, 10)} ${reserva.horaInicio.substring(0, 5)}-${reserva.horaFin.substring(0, 5)}`;
 
     this.saving.set(true);
-    // 1) Recibo contable primero (Facturacion.FACTURA, EsRecibo=1). Si falla, no se toca la reserva:
-    // así nunca queda un cobro "aplicado" en Deportes sin su respaldo en factura diaria.
-    this.facturacionBridge.crearRecibo({
+    this.crearReciboYCobrar({
+      idReservacion: this.cobroData.idReservacion,
       clienteNombre: reserva.clienteNombre,
       descripcion,
-      monto: this.cobroData.montoPago,
+      montoPago: this.cobroData.montoPago,
       formaPago: this.cobroData.formaPago,
-      referenciaPago: this.cobroData.referenciaPago
+      referenciaPago: this.cobroData.referenciaPago,
+      toastExito: 'El pago se aplicó a la reservación y se generó el recibo.'
+    }, () => {
+      this.displayCobroModal = false;
+      this.reservaEnCobro = null;
+      this.cargarReservaciones();
+    });
+  }
+
+  /**
+   * Recibo contable primero (Facturacion.FACTURA, EsRecibo=1) y solo si tiene éxito aplica el cobro
+   * a la reserva: así nunca queda un cobro "aplicado" en Deportes sin su respaldo en factura diaria.
+   * Compartido por el cobro manual (guardarCobro) y por "Cliente paga ahora" al crear la reserva.
+   */
+  private crearReciboYCobrar(
+    datos: { idReservacion: number; clienteNombre: string; descripcion: string; montoPago: number; formaPago: string; referenciaPago?: string; toastExito: string },
+    onSuccess: () => void
+  ): void {
+    this.facturacionBridge.crearRecibo({
+      clienteNombre: datos.clienteNombre,
+      descripcion: datos.descripcion,
+      monto: datos.montoPago,
+      formaPago: datos.formaPago,
+      referenciaPago: datos.referenciaPago
     }).subscribe({
       next: ({ idFactura }) => {
-        this.euroService.cobrarReservacion({ ...this.cobroData, idFactura }).subscribe({
+        this.euroService.cobrarReservacion({
+          idReservacion: datos.idReservacion,
+          montoPago: datos.montoPago,
+          formaPago: datos.formaPago,
+          referenciaPago: datos.referenciaPago,
+          idFactura
+        }).subscribe({
           next: () => {
             this.saving.set(false);
-            this.displayCobroModal = false;
-            this.reservaEnCobro = null;
-            this.messageService.add({ severity: 'success', summary: 'Cobro registrado', detail: 'El pago se aplicó a la reservación y se generó el recibo.' });
-            this.cargarReservaciones();
+            this.messageService.add({ severity: 'success', summary: 'Cobro registrado', detail: datos.toastExito });
+            onSuccess();
+            this.ticketService.imprimir({
+              nombreEmpresa: 'EuroSoccer Club',
+              logoSrc: '',
+              clienteNombre: datos.clienteNombre,
+              fecha: new Date().toLocaleString('es-ES'),
+              lineas: [{ cantidad: 1, unidad: 'UND', descripcion: datos.descripcion, precio: datos.montoPago, total: datos.montoPago }],
+              subtotalBruto: datos.montoPago,
+              descuentoTotal: 0,
+              total: datos.montoPago,
+              esRecibo: true
+            }).then((impreso) => {
+              if (!impreso) {
+                this.messageService.add({ severity: 'warn', summary: 'Impresión bloqueada', detail: 'El navegador bloqueó la ventana del ticket. Habilite las ventanas emergentes para este sitio e intente reimprimir.', life: 9000 });
+              }
+            });
           },
           error: (err) => {
             this.saving.set(false);

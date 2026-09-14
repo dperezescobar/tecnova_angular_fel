@@ -1422,6 +1422,37 @@
               </span>
             </div>
           </div>
+
+          <!-- Cliente paga ahora: reserva + cobro en un solo paso -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+            <label class="flex items-center space-x-2 cursor-pointer select-none">
+              <input type="checkbox" [(ngModel)]="pagarAhora"
+                class="w-4 h-4 rounded accent-emerald-500 cursor-pointer" />
+              <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-money-bill-wave text-emerald-400"></i>
+                <span>Cliente paga ahora (total)</span>
+              </span>
+            </label>
+            @if (pagarAhora) {
+              <div class="pt-1.5 border-t border-slate-800 space-y-2">
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Forma de Pago</label>
+                  <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                    [(ngModel)]="formaPagoInmediato">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Referencia (opcional)</label>
+                  <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                    [(ngModel)]="referenciaPagoInmediato" placeholder="N° de transferencia o voucher" />
+                </div>
+                <p class="text-[10px] text-emerald-400/90">Se creará el recibo y se cobrará el total (${{ nuevaReserva.montoTotal | number:'1.2-2' }}) al confirmar.</p>
+              </div>
+            }
+          </div>
         </div>
 
         <!-- Botones de Acción Fijos -->
@@ -1434,10 +1465,10 @@
             class="touch-slot-btn flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 cursor-pointer">
             @if (saving()) {
               <i class="fa-solid fa-circle-notch fa-spin"></i>
-              <span>Guardando...</span>
+              <span>{{ pagarAhora ? 'Cobrando...' : 'Guardando...' }}</span>
             } @else {
               <i class="fa-solid fa-check"></i>
-              <span>Confirmar Reservación</span>
+              <span>{{ pagarAhora ? 'Reservar y Cobrar' : 'Confirmar Reservación' }}</span>
             }
           </button>
         </div>
