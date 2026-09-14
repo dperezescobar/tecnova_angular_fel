@@ -11,6 +11,7 @@ export interface EuroUser {
   idEmpresa?: number;
   nombreEmpresa?: string;
   tipoUsuario?: string;
+  roles?: string[];
   esRoot?: boolean;
   nombreUsuario?: string;
 }
@@ -72,23 +73,34 @@ export class EuroAuthService {
               { idEmpresa: resolvedIdEmpresa },
               authHeaders
             ).pipe(
-              map(() => {
-                const user: EuroUser = {
-                  username,
-                  token,
-                  refreshToken,
-                  tenant: matchedEmpresa.dbName || matchedEmpresa.dbname || environment.defaultTenant,
-                  idEmpresa: resolvedIdEmpresa,
-                  nombreEmpresa,
-                  tipoUsuario: res?.tipoUsuario || res?.TipoUsuario || 'U',
-                  esRoot: res?.esRoot === true || res?.EsRoot === true,
-                  nombreUsuario: res?.nombreUsuario || res?.NombreUsuario || username
-                };
+              switchMap(() => {
+                // 4. Cargar roles RBAC asignados al usuario
+                return this.http.get<string[]>(
+                  `${this.baseUrl}/Roles/usuario/${encodeURIComponent(username)}`,
+                  authHeaders
+                ).pipe(
+                  catchError(() => of([] as string[])),
+                  map((roles: string[]) => {
+                    const user: EuroUser = {
+                      username,
+                      token,
+                      refreshToken,
+                      tenant: matchedEmpresa.dbName || matchedEmpresa.dbname || environment.defaultTenant,
+                      idEmpresa: resolvedIdEmpresa,
+                      nombreEmpresa,
+                      tipoUsuario: res?.tipoUsuario || res?.TipoUsuario || 'U',
+                      roles: Array.isArray(roles) ? roles : [],
+                      esRoot: res?.esRoot === true || res?.EsRoot === true,
+                      nombreUsuario: res?.nombreUsuario || res?.NombreUsuario || username
+                    };
 
-                localStorage.setItem(this.TOKEN_KEY, token);
-                localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-                this.currentUser.set(user);
-                return user;
+                    localStorage.setItem(this.TOKEN_KEY, token);
+                    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+                    this.syncContaskSession(user);
+                    this.currentUser.set(user);
+                    return user;
+                  })
+                );
               })
             );
           })
@@ -103,6 +115,21 @@ export class EuroAuthService {
     if (!token || !user) return of(null);
 
     const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+
+    // Sincronizar roles si la sesión no los tenía cargados
+    if (!user.roles || !Array.isArray(user.roles)) {
+      this.http.get<string[]>(
+        `${this.baseUrl}/Roles/usuario/${encodeURIComponent(user.username)}`,
+        authHeaders
+      ).pipe(catchError(() => of([] as string[]))).subscribe(roles => {
+        if (roles && Array.isArray(roles)) {
+          user.roles = roles;
+          localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+          this.syncContaskSession(user);
+          this.currentUser.set({ ...user });
+        }
+      });
+    }
 
     // Si ya se tiene el idEmpresa en la sesión activa, vincular la sesión directamente
     if (user.idEmpresa) {
@@ -198,12 +225,57 @@ export class EuroAuthService {
   isAdmin(): boolean {
     const user = this.currentUser();
     if (!user) return false;
-    const tipo = (user.tipoUsuario || '').toUpperCase();
-    return user.esRoot === true ||
-      tipo === 'A' ||
-      tipo === 'ADMIN' ||
-      tipo === 'ADMINISTRADOR' ||
-      user.username?.toLowerCase() === 'dperezescobar@gmail.com';
+
+    // 1. Superusuario / Root
+    if (user.esRoot === true) return true;
+
+    // 2. Correo de contingencia / administrador principal
+    if (user.username?.toLowerCase() === 'dperezescobar@gmail.com') return true;
+
+    // 3. Tipo de usuario clásico ('A', 'ADMIN', 'ADMINISTRADOR')
+    const tipo = (user.tipoUsuario || '').trim().toUpperCase();
+    if (tipo === 'A' || tipo === 'ADMIN' || tipo === 'ADMINISTRADOR') return true;
+
+    // 4. Soporte extendido para roles RBAC (Configuracion.Permiso_Rol_Usuario)
+    const roles = (user.roles || []).map(r => (r || '').trim().toUpperCase());
+    return roles.some(r =>
+      r === 'ADMIN' ||
+      r === 'ADMINISTRADOR' ||
+      r === 'ADMIN_EURO' ||
+      r === 'ADMIN_CANCHAS' ||
+      r.includes('ADMIN')
+    );
+  }
+
+  isManagerOrAdmin(): boolean {
+    if (this.isAdmin()) return true;
+    const user = this.currentUser();
+    if (!user) return false;
+    const roles = (user.roles || []).map(r => (r || '').trim().toUpperCase());
+    return roles.some(r =>
+      r === 'MANAGER_POS' ||
+      r === 'MANAGER' ||
+      r === 'SUPERVISOR' ||
+      r.includes('MANAGER')
+    );
+  }
+
+  getRoles(): string[] {
+    return this.currentUser()?.roles ?? [];
+  }
+
+  hasRole(role: string): boolean {
+    const user = this.currentUser();
+    if (!user || !user.roles) return false;
+    const target = (role || '').trim().toUpperCase();
+    return user.roles.some(r => (r || '').trim().toUpperCase() === target);
+  }
+
+  hasAnyRole(roles: string[]): boolean {
+    const user = this.currentUser();
+    if (!user || !user.roles) return false;
+    const targetSet = new Set(roles.map(r => (r || '').trim().toUpperCase()));
+    return user.roles.some(r => targetSet.has((r || '').trim().toUpperCase()));
   }
 
   private syncContaskSession(user: EuroUser): void {
@@ -214,6 +286,7 @@ export class EuroAuthService {
         username: user.username,
         nombreUsuario: user.nombreUsuario,
         tipoUsuario: user.tipoUsuario,
+        roles: user.roles ?? [],
         esRoot: user.esRoot,
         selectedEmpresa: {
           idEmpresa: user.idEmpresa ?? 0,
