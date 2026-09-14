@@ -118,6 +118,12 @@ articuloCreado = output<string>();
       : 'Mantenimiento de SubGrupo'
   );
 
+  /** Catálogo de bodegas sin las que ya están asignadas al artículo, para no ofrecer duplicados en el selector. */
+  bodegaOptionsDisponibles = computed(() => {
+    const asignadas = new Set(this.bodegasDetalle().map((row) => row.Bodega));
+    return this.bodegaOptions().filter((opt) => !asignadas.has(opt.value));
+  });
+
   private isModoEdicionValue(): boolean {
     const rawValue = this.articuloForm.controls.Modificar.value;
     const parsed = Number(rawValue);

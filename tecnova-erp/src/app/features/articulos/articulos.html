@@ -266,6 +266,61 @@
                   </div>
                 </div>
               </section>
+              <section class="section-card">
+                <h3>Bodegas disponibles</h3>
+                <div class="field-grid">
+                  <div class="field-item">
+                    <label for="bodega-select">Bodega</label>
+                    <p-select
+                      inputId="bodega-select"
+                      [options]="bodegaOptionsDisponibles()"
+                      optionLabel="label"
+                      optionValue="value"
+                      formControlName="BodegaSelected"
+                      placeholder="Seleccione bodega"
+                    ></p-select>
+                  </div>
+                  <div class="field-item inline-action">
+                    <label>&nbsp;</label>
+                    <div>
+                      <p-button
+                        type="button"
+                        icon="pi pi-plus"
+                        label="Agregar bodega"
+                        severity="secondary"
+                        (onClick)="addBodega()"
+                        [disabled]="!articuloForm.controls.BodegaSelected.value"
+                      ></p-button>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <label for="existencia-minima">Existencia mínima</label>
+                    <p-inputNumber inputId="existencia-minima" formControlName="ExistenciaMinima" [min]="0"></p-inputNumber>
+                  </div>
+                  <div class="field-item">
+                    <label for="existencia-maxima">Existencia máxima</label>
+                    <p-inputNumber inputId="existencia-maxima" formControlName="ExistenciaMaxima" [min]="0"></p-inputNumber>
+                  </div>
+                </div>
+
+                <div class="impuesto-token-list" aria-label="Bodegas asignadas al artículo">
+                  @for (row of bodegasDetalle(); track row.Bodega) {
+                    <span class="impuesto-token">
+                      <span class="impuesto-token-code">{{ row.Descripcion || row.Bodega }} · Mín {{ row.ExistenciaMinima }} / Máx {{ row.ExistenciaMaxima }}</span>
+                      <button
+                        type="button"
+                        class="impuesto-token-remove"
+                        aria-label="Eliminar bodega {{ row.Bodega }}"
+                        (click)="removeBodega(row.Bodega)"
+                      >
+                        <i class="pi pi-times"></i>
+                      </button>
+                    </span>
+                  } @empty {
+                    <span class="impuesto-token-empty">Sin bodegas asignadas.</span>
+                  }
+                </div>
+              </section>
               <section class="section-card imagen-card">
                 <div class="imagen-card-header">
                   <h3>Fotografía del producto</h3>
