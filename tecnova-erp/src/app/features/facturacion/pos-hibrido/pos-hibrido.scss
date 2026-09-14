@@ -22,6 +22,11 @@
   height: 100%;
   padding: 14px;
   background: var(--pos-bg);
+  /* El POS siempre usa tarjetas claras (--pos-surface: #fff), sin importar el modo oscuro/claro
+     del resto de la app. Sin un color base propio, el texto sin color explícito (p.ej.
+     .pos-item-total, "Venta actual") heredaba el dark:text-slate-100 (#f1f5f9) del shell cuando
+     la app estaba en modo oscuro -- casi invisible sobre el fondo blanco fijo del carrito. */
+  color: #0f172a;
   box-sizing: border-box;
   overflow: hidden; /* el scroll vive dentro del grid y del carrito, no en la página */
 }
