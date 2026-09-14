@@ -541,6 +541,8 @@ export class DashboardComponent implements OnInit {
         }
 
         const descripcion = `Reserva ${cancha?.nombre || ''} ${fecha} ${horaInicio}-${horaFin}`;
+        const startH = parseInt(horaInicio.split(':')[0], 10);
+        const horaNocheH = parseInt((cancha?.horaInicioNoche || '18:00:00').split(':')[0], 10);
         this.crearReciboYCobrar({
           idReservacion: resp.idReservacion,
           clienteNombre,
@@ -548,7 +550,13 @@ export class DashboardComponent implements OnInit {
           montoPago: resp.montoTotal,
           formaPago: this.formaPagoInmediato,
           referenciaPago: this.referenciaPagoInmediato,
-          toastExito: 'La reserva se registró y el cobro se aplicó completo.'
+          toastExito: 'La reserva se registró y el cobro se aplicó completo.',
+          canchaNombre: cancha?.nombre,
+          canchaTipo: cancha?.tipo,
+          canchaTurno: `${horaInicio.substring(0, 5)} a ${horaFin.substring(0, 5)}`,
+          esNoche: startH >= horaNocheH,
+          montoTotalTurno: resp.montoTotal,
+          saldoPendienteTras: 0
         }, () => {
           this.displayNuevaReservaModal = false;
           this.cargarReservaciones();
@@ -621,6 +629,9 @@ export class DashboardComponent implements OnInit {
           };
         });
         const total = lineas.reduce((a, l) => a + l.total, 0);
+        const cancha = this.canchas().find(c => c.idCancha === res.idCancha);
+        const startH = parseInt(res.horaInicio.split(':')[0], 10);
+        const horaNocheH = parseInt((cancha?.horaInicioNoche || '18:00:00').split(':')[0], 10);
         this.ticketService.imprimir({
           nombreEmpresa: 'EuroSoccer Club',
           logoSrc: '',
@@ -630,7 +641,15 @@ export class DashboardComponent implements OnInit {
           subtotalBruto: total,
           descuentoTotal: 0,
           total,
-          esRecibo: true
+          esRecibo: true,
+          canchaNombre: cancha?.nombre || res.nombreCancha,
+          canchaTipo: cancha?.tipo,
+          canchaTurno: `${res.horaInicio.substring(0, 5)} a ${res.horaFin.substring(0, 5)}`,
+          canchaTarifaTipo: startH >= horaNocheH ? 'Tarifa Nocturna Iluminación LED' : 'Tarifa Diurna',
+          montoTotalTurno: res.montoTotal,
+          saldoPendiente: res.saldoPendiente,
+          cajeroNombre: this.authService.currentUser()?.username || 'EuroEmpleado',
+          puntoVenta: 'P002'
         }).then((impreso) => {
           if (!impreso) {
             this.messageService.add({ severity: 'warn', summary: 'Impresión bloqueada', detail: 'El navegador bloqueó la ventana del ticket. Habilite las ventanas emergentes para este sitio e intente de nuevo.', life: 9000 });
@@ -664,6 +683,9 @@ export class DashboardComponent implements OnInit {
 
     const reserva = this.reservaEnCobro;
     const descripcion = `Reserva ${reserva.nombreCancha} ${reserva.fecha.substring(0, 10)} ${reserva.horaInicio.substring(0, 5)}-${reserva.horaFin.substring(0, 5)}`;
+    const cancha = this.canchas().find(c => c.idCancha === reserva.idCancha);
+    const startH = parseInt(reserva.horaInicio.split(':')[0], 10);
+    const horaNocheH = parseInt((cancha?.horaInicioNoche || '18:00:00').split(':')[0], 10);
 
     this.saving.set(true);
     this.crearReciboYCobrar({
@@ -673,7 +695,13 @@ export class DashboardComponent implements OnInit {
       montoPago: this.cobroData.montoPago,
       formaPago: this.cobroData.formaPago,
       referenciaPago: this.cobroData.referenciaPago,
-      toastExito: 'El pago se aplicó a la reservación y se generó el recibo.'
+      toastExito: 'El pago se aplicó a la reservación y se generó el recibo.',
+      canchaNombre: cancha?.nombre || reserva.nombreCancha,
+      canchaTipo: cancha?.tipo,
+      canchaTurno: `${reserva.horaInicio.substring(0, 5)} a ${reserva.horaFin.substring(0, 5)}`,
+      esNoche: startH >= horaNocheH,
+      montoTotalTurno: reserva.montoTotal,
+      saldoPendienteTras: Math.max(0, reserva.saldoPendiente - this.cobroData.montoPago)
     }, () => {
       this.displayCobroModal = false;
       this.reservaEnCobro = null;
@@ -687,7 +715,16 @@ export class DashboardComponent implements OnInit {
    * Compartido por el cobro manual (guardarCobro) y por "Cliente paga ahora" al crear la reserva.
    */
   private crearReciboYCobrar(
-    datos: { idReservacion: number; clienteNombre: string; descripcion: string; montoPago: number; formaPago: string; referenciaPago?: string; toastExito: string },
+    datos: {
+      idReservacion: number; clienteNombre: string; descripcion: string; montoPago: number; formaPago: string;
+      referenciaPago?: string; toastExito: string;
+      // Datos para el ticket especializado de cancha: se piden al llamador (que ya los tiene a mano en el
+      // momento del click) en vez de releerlos de reservaciones()/reservaEnCobro aquí dentro, porque para
+      // cuando este callback corre, onSuccess() ya disparó cargarReservaciones() (aún no resuelto) y ya
+      // limpió reservaEnCobro -- ambas fuentes están obsoletas/vacías en este punto.
+      canchaNombre?: string; canchaTipo?: string; canchaTurno?: string; esNoche?: boolean;
+      montoTotalTurno?: number; saldoPendienteTras?: number;
+    },
     onSuccess: () => void
   ): void {
     this.facturacionBridge.crearRecibo({
@@ -710,14 +747,6 @@ export class DashboardComponent implements OnInit {
             this.messageService.add({ severity: 'success', summary: 'Cobro registrado', detail: datos.toastExito });
             onSuccess();
 
-            const reserva = this.reservaciones().find(r => r.idReservacion === datos.idReservacion) || this.reservaEnCobro;
-            const cancha = reserva ? this.canchas().find(c => c.idCancha === reserva.idCancha) : undefined;
-            const totalTurno = reserva?.montoTotal || datos.montoPago;
-            const saldoRest = Math.max(0, totalTurno - (reserva ? ((reserva.montoAnticipo || 0) + datos.montoPago) : datos.montoPago));
-            const startH = parseInt((reserva?.horaInicio || '18:00').split(':')[0], 10);
-            const horaNocheH = parseInt((cancha?.horaInicioNoche || '18:00:00').split(':')[0], 10);
-            const esNoche = startH >= horaNocheH;
-
             this.ticketService.imprimir({
               nombreEmpresa: 'EuroSoccer Club',
               logoSrc: '',
@@ -728,12 +757,12 @@ export class DashboardComponent implements OnInit {
               descuentoTotal: 0,
               total: datos.montoPago,
               esRecibo: true,
-              canchaNombre: cancha?.nombre || (reserva ? reserva.nombreCancha : 'Cancha Sintética'),
-              canchaTipo: cancha?.tipo || 'Fútbol 5',
-              canchaTurno: reserva ? `${reserva.horaInicio.substring(0, 5)} a ${reserva.horaFin.substring(0, 5)}` : undefined,
-              canchaTarifaTipo: esNoche ? 'Tarifa Nocturna Iluminación LED' : 'Tarifa Diurna',
-              montoTotalTurno: totalTurno,
-              saldoPendiente: saldoRest,
+              canchaNombre: datos.canchaNombre || 'Cancha Sintética',
+              canchaTipo: datos.canchaTipo || 'Fútbol 5',
+              canchaTurno: datos.canchaTurno,
+              canchaTarifaTipo: datos.esNoche ? 'Tarifa Nocturna Iluminación LED' : 'Tarifa Diurna',
+              montoTotalTurno: datos.montoTotalTurno ?? datos.montoPago,
+              saldoPendiente: datos.saldoPendienteTras,
               formaPago: datos.formaPago,
               cajeroNombre: this.authService.currentUser()?.username || 'EuroEmpleado',
               puntoVenta: 'P002'
