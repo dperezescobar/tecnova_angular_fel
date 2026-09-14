@@ -19,6 +19,14 @@
       <button class="pos-refresh" type="button" (click)="cargar()" title="Recargar catálogo">
         <i class="bi bi-arrow-clockwise"></i>
       </button>
+
+      <!-- Copia solo-tablet del aviso de recibo interno (ver footer del carrito): en ese ancho el
+           topbar queda con espacio vacío a la derecha del buscador/íconos -- se aprovecha ahí en
+           vez del pie del carrito, que ya compite por espacio con las líneas del pedido. -->
+      <div class="pos-msg-inline ok" *ngIf="esVentaRecibo() && cart().length">
+        <i class="bi bi-receipt"></i>
+        <span>Se registrará como recibo interno, pendiente de facturar.</span>
+      </div>
     </header>
 
     <nav class="pos-tabs" *ngIf="grupos().length">
@@ -146,7 +154,11 @@
           >{{ item.cantidad }}</button>
         </div>
         <span class="pos-item-total">{{ formatMoney(subtotalLinea(item)) }}</span>
-        <button type="button" class="pos-item-ajuste" (click)="solicitarAjuste(item)" [disabled]="item.enAprobacion" title="Solicitar precio especial al manager">
+        <!-- "Solicitar ajuste al manager" depende del hub de autorizaciones, que no se conecta
+             embebido (ver pos-signalr.service.ts) -- ahí no serviría de nada. El botón "Quitar"
+             toma su lugar en la fila en vez de caer a su propia línea (el grid de abajo espera
+             4 columnas; con el shield presente siempre fueron 5 hijos). -->
+        <button type="button" class="pos-item-ajuste" *ngIf="!embedded" (click)="solicitarAjuste(item)" [disabled]="item.enAprobacion" title="Solicitar precio especial al manager">
           <i class="bi bi-shield-lock"></i>
         </button>
         <button type="button" class="pos-item-del" (click)="quitar(item)" title="Quitar">
@@ -156,24 +168,35 @@
     </div>
 
     <footer class="pos-carrito-foot">
-      <div class="pos-total-row">
-        <span>Artículos</span>
-        <span>{{ totalUnidades() }}</span>
-      </div>
-      <div class="pos-total-row" *ngIf="descuentoOfertaTotal() > 0">
-        <span>Subtotal Bruto</span>
-        <span>{{ formatMoney(subtotalBrutoTotal()) }}</span>
-      </div>
-      <div class="pos-total-row text-danger" *ngIf="descuentoOfertaTotal() > 0">
-        <span>Descuento Oferta</span>
-        <span>-{{ formatMoney(descuentoOfertaTotal()) }}</span>
-      </div>
-      <div class="pos-total-row grand">
-        <span>Total (IVA incl.)</span>
-        <span>{{ formatMoney(totalFactura()) }}</span>
+      <!-- Prueba: Cobrar a la izquierda de Artículos/Total en vez de debajo -- menos alto de pie
+           de carrito, el botón principal queda igual de visible/grande. -->
+      <div class="pos-totales-row">
+        <button type="button" class="pos-cobrar" *ngIf="!ventaCompletada()" [disabled]="!cart().length || procesando() || guardando()" (click)="cobrar()">
+          <i class="bi" [class.bi-cash-coin]="!procesando() && !guardando()" [class.bi-hourglass-split]="procesando() || guardando()"></i>
+          {{ procesando() ? 'Procesando…' : (guardando() ? 'Guardando…' : 'Cobrar') }}
+        </button>
+
+        <div class="pos-totales-stack">
+          <div class="pos-total-row">
+            <span>Artículos</span>
+            <span>{{ totalUnidades() }}</span>
+          </div>
+          <div class="pos-total-row" *ngIf="descuentoOfertaTotal() > 0">
+            <span>Subtotal Bruto</span>
+            <span>{{ formatMoney(subtotalBrutoTotal()) }}</span>
+          </div>
+          <div class="pos-total-row text-danger" *ngIf="descuentoOfertaTotal() > 0">
+            <span>Descuento Oferta</span>
+            <span>-{{ formatMoney(descuentoOfertaTotal()) }}</span>
+          </div>
+          <div class="pos-total-row grand">
+            <span>Total (IVA incl.)</span>
+            <span>{{ formatMoney(totalFactura()) }}</span>
+          </div>
+        </div>
       </div>
 
-      <div class="pos-msg ok" *ngIf="esVentaRecibo() && cart().length">
+      <div class="pos-msg pos-msg-recibo ok" *ngIf="esVentaRecibo() && cart().length">
         <i class="bi bi-receipt"></i>
         Se registrará como recibo interno, pendiente de facturar.
       </div>
@@ -191,11 +214,6 @@
 
       <button type="button" class="pos-nueva-venta" *ngIf="ventaCompletada()" (click)="nuevaVenta()">
         <i class="bi bi-plus-circle-fill"></i> Nueva Venta
-      </button>
-
-      <button type="button" class="pos-cobrar" *ngIf="!ventaCompletada()" [disabled]="!cart().length || procesando() || guardando()" (click)="cobrar()">
-        <i class="bi" [class.bi-cash-coin]="!procesando() && !guardando()" [class.bi-hourglass-split]="procesando() || guardando()"></i>
-        {{ procesando() ? 'Procesando…' : (guardando() ? 'Guardando…' : 'Cobrar') }}
       </button>
     </footer>
   </aside>

@@ -80,6 +80,20 @@
   font-size: 18px;
 }
 
+/* Copia del aviso "recibo interno" para el topbar -- oculta salvo en tablet (ver media query
+   abajo), donde ocupa el espacio que el buscador angosto deja libre en su fila. */
+.pos-msg-inline {
+  display: none;
+  align-items: center; gap: 6px;
+  min-width: 0; /* si no, el flex item no encoge por debajo de su ancho intrínseco */
+  font-size: 11.5px; font-weight: 600;
+  i { flex-shrink: 0; }
+  /* El texto necesita su propio overflow/ellipsis -- puesto en el contenedor flex no aplica al
+     nodo de texto (queda como flex item anónimo, la trunca el navegador de forma inconsistente). */
+  span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &.ok { color: #15803d; }
+}
+
 .pos-tabs {
   display: flex;
   gap: 8px;
@@ -288,6 +302,13 @@
 }
 
 .pos-carrito-foot { flex-shrink: 0; border-top: 1px solid var(--pos-border); padding: 14px 16px; }
+
+/* Cobrar a la izquierda de Artículos/Total en vez de debajo: mismo contenido, menos alto de pie
+   de carrito -- el botón principal comparte fila con los totales en lugar de apilarse. */
+.pos-totales-row { display: flex; align-items: center; gap: 10px; }
+.pos-totales-stack { flex: 1 1 50%; min-width: 0; }
+.pos-totales-row .pos-cobrar { flex: 1 1 50%; width: auto; margin-top: 0; }
+
 .pos-total-row {
   display: flex; justify-content: space-between; font-size: 14px; color: var(--pos-muted); padding: 3px 0;
   &.grand { font-size: 20px; font-weight: 700; color: #0f1b2d; margin-top: 4px; }
@@ -642,8 +663,11 @@
   .pos-catalogo { gap: 8px; }
   .pos-topbar h1 { display: none; } /* el título ya está repetido en el encabezado de la pestaña */
   /* Sin el h1 (arriba), el buscador (flex:1) se estira solo y queda desproporcionado -- se le
-     pone un tope y el resto de la fila queda vacío a propósito, en vez de un input gigante. */
+     pone un tope; el resto de la fila lo ocupa el aviso de recibo interno (ver abajo) en vez de
+     quedar vacío. */
   .pos-search { flex: 0 1 320px; }
+  .pos-msg-inline { display: flex; flex: 1; min-width: 0; }
+  .pos-msg-recibo { display: none; } /* misma info que .pos-msg-inline de arriba, no se duplica */
   .pos-tabs { gap: 6px; }
   .pos-tab { padding: 7px 12px; font-size: 13px; }
   .pos-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
