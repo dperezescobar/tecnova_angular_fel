@@ -174,8 +174,8 @@ export class PosTicketService {
     border-top: 1px dashed #000000;
   }
   .cancha-box .turno-badge {
-    background: #000000;
-    color: #ffffff !important;
+    border: 1.5px solid #000000;
+    color: #000000;
     padding: 1px 6px;
     border-radius: 3px;
     font-weight: 900;
