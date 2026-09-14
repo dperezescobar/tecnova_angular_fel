@@ -631,13 +631,19 @@
 }
 @media (max-width: 900px) {
   .pos { grid-template-columns: 1fr; grid-template-rows: 1fr auto; gap: 10px; padding: 10px; }
-  .pos-carrito { max-height: 42vh; }
+  /* El carrito es lo que más se leía mal (dependía de scroll para ver 1 sola línea del pedido):
+     se le da más alto real (antes 42vh) a costa del catálogo, que ya gana filas con fichas
+     más chicas más abajo. */
+  .pos-carrito { max-height: 54vh; }
 
   /* Catálogo: fichas más chicas para que quepan más por fila -- menos filas, menos scroll para
      ver el mismo catálogo -- y menos aire alrededor (topbar/tabs/grid) para dejarle más alto
      real a la cuadrícula de artículos, que es lo que más se cortaba. */
   .pos-catalogo { gap: 8px; }
   .pos-topbar h1 { display: none; } /* el título ya está repetido en el encabezado de la pestaña */
+  /* Sin el h1 (arriba), el buscador (flex:1) se estira solo y queda desproporcionado -- se le
+     pone un tope y el resto de la fila queda vacío a propósito, en vez de un input gigante. */
+  .pos-search { flex: 0 1 320px; }
   .pos-tabs { gap: 6px; }
   .pos-tab { padding: 7px 12px; font-size: 13px; }
   .pos-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
@@ -645,12 +651,14 @@
   .pos-tile-desc { font-size: 12px; }
   .pos-tile-precio { font-size: 13.5px; }
 
-  /* Carrito: mismo contenido, menos relleno -- prioriza mostrar líneas del pedido en vez de
-     espacio en blanco alrededor de cada sección fija (encabezado, cliente, totales). */
+  /* Carrito: relleno más ajustado que el original pero sin exagerar -- prioriza que cada línea
+     del pedido se lea cómoda (no microscópica) y que quepan varias antes de necesitar scroll. */
   .pos-carrito-head { padding: 10px 12px; }
   .pos-cliente-bar { padding: 8px 10px; }
   .pos-carrito-items { padding: 4px 8px; }
-  .pos-item { padding: 6px 4px; }
+  .pos-item { padding: 9px 4px; }
+  .pos-item-desc { font-size: 14px; }
+  .pos-item-precio { font-size: 11.5px; }
   .pos-carrito-foot { padding: 10px 12px; }
   .pos-cobrar, .pos-nueva-venta { padding: 12px; margin-top: 8px; font-size: 16px; }
 }

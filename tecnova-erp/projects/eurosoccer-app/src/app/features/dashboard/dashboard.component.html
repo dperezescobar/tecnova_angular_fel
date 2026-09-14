@@ -1400,9 +1400,10 @@
            ======================================================== -->
       @if (activeTab() === 'cafeteria') {
         <section class="space-y-2 lg:space-y-4">
-          <!-- Compacta en tablet/móvil (menos alto para el banner, subtítulo oculto) -- el POS
-               necesita cada pixel vertical disponible ahí, no lo repite lo que ya dice la pestaña. -->
-          <div class="glass-panel p-2.5 lg:p-4 rounded-2xl flex items-center justify-between border border-rose-500/30">
+          <!-- Oculto en tablet/móvil: repite lo que ya dice la pestaña activa ("3. Cafetería (POS)"
+               en el menú) y "Ver Inventario" ya es alcanzable por su propio ítem de menú ("4. Control
+               de Inventario") -- el POS necesita cada pixel vertical disponible ahí. -->
+          <div class="hidden lg:flex glass-panel p-2.5 lg:p-4 rounded-2xl items-center justify-between border border-rose-500/30">
             <div class="flex items-center space-x-2.5 lg:space-x-3">
               <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-base lg:text-lg shrink-0">
                 <i class="fa-solid fa-utensils"></i>
@@ -1425,7 +1426,7 @@
             </div>
           </div>
 
-          <div class="h-[calc(100vh-9rem)] lg:h-[calc(100vh-12rem)] min-h-[580px] rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl">
+          <div class="h-[calc(100vh-7rem)] lg:h-[calc(100vh-12rem)] min-h-[580px] rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl">
             <app-pos-hibrido [bodega]="'BODEURO'" [embedded]="true"></app-pos-hibrido>
           </div>
         </section>

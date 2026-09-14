@@ -8,6 +8,13 @@
 /* .glass-card/.glass-panel se usan en todo el dashboard (canchas, balones, etc.) pero nunca tuvieron
    una definición base — solo existe el override de modo claro más abajo. Sin esto, en modo oscuro
    (el default) quedan sin fondo/borde/sombra: se ven "planas", pegadas al fondo, sin verse como card. */
+/* Los <button> del menú lateral heredan text-align:center del user-agent; con una sola línea no se
+   nota, pero las etiquetas largas (p.ej. "Control de Inventario") que envuelven a 2 líneas quedaban
+   centradas en vez de alineadas con el ícono. */
+.nav-item {
+  text-align: left;
+}
+
 .glass-panel,
 .glass-card {
   background: rgba(15, 23, 42, 0.6);
