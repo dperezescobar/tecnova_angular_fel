@@ -131,6 +131,10 @@
                 {
                   "replace": "projects/eurosoccer-app/src/environments/environment.ts",
                   "with": "projects/eurosoccer-app/src/environments/environment.development.ts"
+                },
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.development.ts"
                 }
               ]
             }

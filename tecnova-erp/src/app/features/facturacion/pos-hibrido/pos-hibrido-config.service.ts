@@ -85,12 +85,22 @@ export class PosHibridoConfigService {
   }
 
   // ── Cierre de recibos (solo admin; el backend rechaza con 403 si no lo es) ──────────────────
+  // El endpoint devuelve PascalCase (Sucursal/PuntoVenta/...); se normaliza aquí en vez de tipar
+  // el http.get directo con nombres camelCase, que dejaba todos los campos en undefined.
   getPuntosVenta(): Observable<Array<{ sucursal: string; sucursalDescripcion: string; puntoVenta: string; puntoVentaDescripcion: string }>> {
     return this.http
-      .get<Array<{ sucursal: string; sucursalDescripcion: string; puntoVenta: string; puntoVentaDescripcion: string }>>(
-        `${this.baseUrl}/PuntosVenta`
-      )
-      .pipe(catchError(() => of([])));
+      .get<Array<Record<string, unknown>>>(`${this.baseUrl}/PuntosVenta`)
+      .pipe(
+        map((rows) =>
+          (rows ?? []).map((r) => ({
+            sucursal: String(r['sucursal'] ?? r['Sucursal'] ?? '').trim(),
+            sucursalDescripcion: String(r['sucursalDescripcion'] ?? r['SucursalDescripcion'] ?? '').trim(),
+            puntoVenta: String(r['puntoVenta'] ?? r['PuntoVenta'] ?? '').trim(),
+            puntoVentaDescripcion: String(r['puntoVentaDescripcion'] ?? r['PuntoVentaDescripcion'] ?? '').trim()
+          }))
+        ),
+        catchError(() => of([]))
+      );
   }
 
   getRecibosPendientes(fechaDesde?: string, fechaHasta?: string, sucursal?: string, puntoVenta?: string): Observable<ReciboPendienteDto[]> {
