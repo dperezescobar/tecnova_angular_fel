@@ -617,16 +617,34 @@ export class DashboardComponent implements OnInit {
             this.saving.set(false);
             this.messageService.add({ severity: 'success', summary: 'Cobro registrado', detail: datos.toastExito });
             onSuccess();
+
+            const reserva = this.reservaciones().find(r => r.idReservacion === datos.idReservacion) || this.reservaEnCobro;
+            const cancha = reserva ? this.canchas().find(c => c.idCancha === reserva.idCancha) : undefined;
+            const totalTurno = reserva?.montoTotal || datos.montoPago;
+            const saldoRest = Math.max(0, totalTurno - (reserva ? ((reserva.montoAnticipo || 0) + datos.montoPago) : datos.montoPago));
+            const startH = parseInt((reserva?.horaInicio || '18:00').split(':')[0], 10);
+            const horaNocheH = parseInt((cancha?.horaInicioNoche || '18:00:00').split(':')[0], 10);
+            const esNoche = startH >= horaNocheH;
+
             this.ticketService.imprimir({
               nombreEmpresa: 'EuroSoccer Club',
               logoSrc: '',
               clienteNombre: datos.clienteNombre,
-              fecha: new Date().toLocaleString('es-ES'),
+              fecha: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
               lineas: [{ cantidad: 1, unidad: 'UND', descripcion: datos.descripcion, precio: datos.montoPago, total: datos.montoPago }],
               subtotalBruto: datos.montoPago,
               descuentoTotal: 0,
               total: datos.montoPago,
-              esRecibo: true
+              esRecibo: true,
+              canchaNombre: cancha?.nombre || (reserva ? reserva.nombreCancha : 'Cancha Sintética'),
+              canchaTipo: cancha?.tipo || 'Fútbol 5',
+              canchaTurno: reserva ? `${reserva.horaInicio.substring(0, 5)} a ${reserva.horaFin.substring(0, 5)}` : undefined,
+              canchaTarifaTipo: esNoche ? 'Tarifa Nocturna Iluminación LED' : 'Tarifa Diurna',
+              montoTotalTurno: totalTurno,
+              saldoPendiente: saldoRest,
+              formaPago: datos.formaPago,
+              cajeroNombre: this.authService.currentUser()?.username || 'EuroEmpleado',
+              puntoVenta: 'P002'
             }).then((impreso) => {
               if (!impreso) {
                 this.messageService.add({ severity: 'warn', summary: 'Impresión bloqueada', detail: 'El navegador bloqueó la ventana del ticket. Habilite las ventanas emergentes para este sitio e intente reimprimir.', life: 9000 });
