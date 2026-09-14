@@ -21,6 +21,7 @@ export interface EuroUser {
 export class EuroAuthService {
   private http = inject(HttpClient);
   private baseUrl = environment.apiUrl;
+  private readonly systemId = 5; // Sistema EUROSOCCER
   private readonly TOKEN_KEY = 'euro_token';
   private readonly USER_KEY = 'euro_user';
 
@@ -32,7 +33,7 @@ export class EuroAuthService {
     return this.http.post<any>(`${this.baseUrl}/Auth/PostToken`, {
       user: credenciales.usuario,
       pass: credenciales.clave,
-      idsistema: 2 // Sistema estándar Tecnova
+      idsistema: this.systemId
     }).pipe(
       switchMap((res: any) => {
         const token = res?.token || res?.Token;
@@ -44,7 +45,7 @@ export class EuroAuthService {
 
         // 2. Resolver dinámicamente las empresas del usuario desde la API (sin quemar ID numérico)
         return this.http.get<any[]>(
-          `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(username)}&idsistema=2`,
+          `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(username)}&idsistema=${this.systemId}`,
           authHeaders
         ).pipe(
           switchMap((empresas: any[]) => {
@@ -114,7 +115,7 @@ export class EuroAuthService {
 
     // Si la sesión local guardada no tenía idEmpresa, consultarlo dinámicamente
     return this.http.get<any[]>(
-      `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(user.username)}&idsistema=2`,
+      `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(user.username)}&idsistema=${this.systemId}`,
       authHeaders
     ).pipe(
       switchMap((empresas: any[]) => {
