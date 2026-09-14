@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostBinding, HostListener, OnDestroy, computed, effect, inject, signal, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, HostListener, OnDestroy, OnInit, computed, effect, inject, signal, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, Subject, forkJoin, of } from 'rxjs';
@@ -64,7 +64,7 @@ interface PagoLinea {
   templateUrl: './pos-hibrido.html',
   styleUrls: ['./pos-hibrido.scss']
 })
-export class PosHibridoComponent implements OnDestroy {
+export class PosHibridoComponent implements OnInit, OnDestroy {
   private facturacionService = inject(FacturacionService);
   private articulosService = inject(ArticulosService);
   private auth = inject(AuthService);
@@ -350,7 +350,6 @@ export class PosHibridoComponent implements OnDestroy {
     this.posVenta.setBodega(this.bodega);
     this.cargar();
     this.cargarClientes();
-    this.signalRService.iniciarConexion(CAJA_ID, false);
 
     this.posVenta.getFormasPago().subscribe({
       next: (rows) => this.formasPago.set(rows ?? []),
@@ -428,11 +427,24 @@ export class PosHibridoComponent implements OnDestroy {
       .subscribe();
   }
 
+  ngOnInit(): void {
+    // El hub de autorizaciones (aprobación de ajuste de precio en vivo) es exclusivo del flujo de
+    // caja de tecnova-erp. Embebido (EuroSoccer, [embedded]=true) no se necesita y además autentica
+    // con el AuthService equivocado para esa sesión -- se omite para no generar el intento de
+    // negociación/CORS fallido en consola. `embedded` recién está resuelto aquí, no en el constructor
+    // (los @Input() se asignan después de construir la instancia).
+    if (!this.embedded) {
+      this.signalRService.iniciarConexion(CAJA_ID, false);
+    }
+  }
+
   ngOnDestroy(): void {
     this._limpiarCantFocusListener();
     this.objectUrls.forEach((u) => URL.revokeObjectURL(u));
     this.cola$.complete();
-    this.signalRService.detenerConexion();
+    if (!this.embedded) {
+      this.signalRService.detenerConexion();
+    }
   }
 
   // ── Autorizaciones de Precio en Vivo ─────────────────────────
