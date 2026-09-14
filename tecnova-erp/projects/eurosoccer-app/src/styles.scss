@@ -42,12 +42,13 @@ html.dark {
 }
 
 html:not(.dark) {
+  /* Diálogos PrimeNG en Modo Claro */
   .p-dialog {
     background: #ffffff !important;
     color: #0f172a !important;
     border: 1px solid #e2e8f0 !important;
     border-radius: 1rem !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2) !important;
   }
   .p-dialog-header {
     background: #f8fafc !important;
@@ -64,6 +65,192 @@ html:not(.dark) {
     background: #ffffff !important;
     color: #1e293b !important;
     padding: 1.25rem 1.5rem !important;
+  }
+  .p-dialog-footer {
+    background: #f8fafc !important;
+    border-top: 1px solid #e2e8f0 !important;
+    padding: 1rem 1.5rem !important;
+  }
+  .p-dialog-close-button {
+    color: #64748b !important;
+    &:hover {
+      color: #0f172a !important;
+      background: #e2e8f0 !important;
+    }
+  }
+
+  /* Fondo principal y cuerpo en Modo Claro */
+  body,
+  .bg-pitch-dark {
+    background-color: #f1f5f9 !important; /* slate-100 */
+    color: #0f172a !important;
+  }
+
+  /* Header Superior en Modo Claro */
+  header,
+  header.bg-pitch-card\/90 {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+
+    .text-white {
+      color: #0f172a !important;
+    }
+    .text-slate-300, .text-slate-400 {
+      color: #475569 !important;
+    }
+    .bg-slate-800, .bg-slate-800\/80 {
+      background-color: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+      color: #334155 !important;
+      &:hover {
+        background-color: #f1f5f9 !important;
+      }
+    }
+  }
+
+  /* Barra Lateral de Navegación (Sidebar) en Modo Claro */
+  aside#mainSidebar {
+    background-color: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    box-shadow: 1px 0 4px rgba(0, 0, 0, 0.03) !important;
+
+    .text-slate-300, .text-slate-400 {
+      color: #475569 !important;
+    }
+    .text-white {
+      color: #0f172a !important;
+    }
+    .hover\:bg-slate-800\/60:hover {
+      background-color: #f1f5f9 !important;
+      color: #0f172a !important;
+    }
+    .border-slate-800, .border-pitch-border\/60, .border-pitch-border\/80 {
+      border-color: #e2e8f0 !important;
+    }
+    .bg-pitch-card\/80 {
+      background-color: #f8fafc !important;
+    }
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.22) 100%) !important;
+      color: #065f46 !important;
+      font-weight: 700 !important;
+      border: 1px solid #6ee7b7 !important;
+    }
+  }
+
+  /* Área Principal y Paneles */
+  main {
+    background-color: #f8fafc !important;
+    background-image: none !important;
+
+    .glass-panel,
+    .glass-card {
+      background: #ffffff !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05) !important;
+      color: #0f172a !important;
+    }
+
+    /* Jerarquía de Textos */
+    .text-white:not(.btn-text):not(.pitch-text) {
+      color: #0f172a !important;
+    }
+    .text-slate-100 {
+      color: #0f172a !important;
+    }
+    .text-slate-200, .text-slate-300 {
+      color: #334155 !important;
+    }
+    .text-slate-400 {
+      color: #64748b !important;
+    }
+    .text-slate-500 {
+      color: #94a3b8 !important;
+    }
+
+    /* Bloques y fondos interiores */
+    .bg-slate-900,
+    .bg-slate-900\/60,
+    .bg-slate-900\/70,
+    .bg-slate-900\/80,
+    .bg-slate-900\/85,
+    .bg-slate-900\/90 {
+      background-color: #ffffff !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+
+    .bg-slate-800,
+    .bg-slate-800\/60,
+    .bg-slate-800\/70,
+    .bg-slate-800\/80,
+    .bg-slate-800\/90 {
+      background-color: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+      color: #1e293b !important;
+    }
+
+    /* Bordes */
+    .border-slate-800,
+    .border-slate-800\/60,
+    .border-slate-800\/80,
+    .border-slate-700,
+    .border-slate-700\/60,
+    .border-slate-700\/80,
+    .border-pitch-border\/60,
+    .border-pitch-border\/80 {
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Tablas */
+    table {
+      thead {
+        background-color: #f1f5f9 !important;
+        color: #475569 !important;
+        border-color: #e2e8f0 !important;
+      }
+      tbody tr {
+        border-color: #f1f5f9 !important;
+        &:hover {
+          background-color: #f8fafc !important;
+        }
+      }
+    }
+
+    /* Formularios e inputs */
+    input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid #cbd5e1 !important;
+      &:focus {
+        border-color: #10b981 !important;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+      }
+    }
+  }
+
+  /* Excepciones que deben conservar su contraste deportivo en cancha */
+  .pitch-grass {
+    .text-white { color: #ffffff !important; }
+    .text-slate-200 { color: #e2e8f0 !important; }
+    .text-slate-300 { color: #cbd5e1 !important; }
+    .bg-slate-950\/80, .bg-slate-950\/85 {
+      background-color: rgba(15, 23, 42, 0.85) !important;
+      .text-white { color: #ffffff !important; }
+      .text-amber-400 { color: #fbbf24 !important; }
+      .text-emerald-300 { color: #6ee7b7 !important; }
+    }
+  }
+
+  /* Botones primarios (verde, ámbar, rojo, azul) mantienen texto blanco */
+  .bg-emerald-600, .bg-amber-600, .bg-rose-600, .bg-blue-600, .bg-indigo-600,
+  button.bg-emerald-600, button.bg-amber-600, button.bg-rose-600 {
+    color: #ffffff !important;
+    * {
+      color: #ffffff !important;
+    }
   }
 }
 
