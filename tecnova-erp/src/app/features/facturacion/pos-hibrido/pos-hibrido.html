@@ -137,16 +137,13 @@
           <button type="button" class="pos-item-menos" (click)="disminuirCantidad(item)" [disabled]="item.enAprobacion" title="Disminuir cantidad">
             <i class="bi bi-dash-lg"></i>
           </button>
-          <input
+          <button
+            type="button"
             class="pos-item-cant"
-            type="number"
-            min="0"
-            step="any"
-            [ngModel]="item.cantidad"
-            (change)="cambiarCantidad(item, $any($event.target).value)"
-            (keyup.enter)="cambiarCantidad(item, $any($event.target).value)"
-            [attr.aria-label]="'Cantidad de ' + item.descripcion"
-          />
+            (click)="abrirModalPesoParaEditar(item)"
+            [disabled]="item.enAprobacion"
+            [attr.aria-label]="'Editar cantidad de ' + item.descripcion"
+          >{{ item.cantidad }}</button>
         </div>
         <span class="pos-item-total">{{ formatMoney(subtotalLinea(item)) }}</span>
         <button type="button" class="pos-item-ajuste" (click)="solicitarAjuste(item)" [disabled]="item.enAprobacion" title="Solicitar precio especial al manager">

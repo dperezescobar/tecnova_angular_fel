@@ -259,8 +259,14 @@
 .pos-item-promo-sub { font-size: 11px; font-weight: 600; color: #16a34a; display: block; }
 .pos-item-cant-group { display: flex; align-items: center; gap: 4px; }
 .pos-item-cant {
-  width: 100%; padding: 7px 6px; border: 1px solid var(--pos-border); border-radius: 8px;
-  font-size: 14px; text-align: center; font-variant-numeric: tabular-nums; box-sizing: border-box;
+  width: 100%; min-width: 34px; padding: 7px 6px; border: 1px solid var(--pos-border); border-radius: 8px;
+  font-size: 14px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; box-sizing: border-box;
+  /* Botón, no <input>: evita el teclado del sistema en táctil/móvil -- toca para abrir el modal
+     numérico (mismo que "Ingresar Cantidad" del catálogo) en vez de escribir a mano. */
+  appearance: none; -webkit-appearance: none; font-family: inherit;
+  background: var(--pos-surface); color: inherit; cursor: pointer;
+  &:active { transform: scale(.94); background: #eef2f8; }
+  &:disabled { opacity: .5; cursor: default; }
 }
 .pos-item-menos {
   flex-shrink: 0; width: 26px; height: 26px; border: 1px solid var(--pos-border); border-radius: 7px;
