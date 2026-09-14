@@ -93,6 +93,7 @@ export interface CobroReservacionReq {
   montoPago: number;
   formaPago: string;
   referenciaPago?: string;
+  idFactura?: number;
 }
 
 @Injectable({

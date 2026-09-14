@@ -120,7 +120,8 @@
           },
           "configurations": {
             "production": {
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "serviceWorker": "projects/eurosoccer-app/ngsw-config.json"
             },
             "development": {
               "optimization": false,

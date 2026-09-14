@@ -8,6 +8,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { EuroAuthService } from '../../core/euro-auth.service';
+import { FacturacionBridgeService } from '../../core/facturacion-bridge.service';
 import {
   EuroSoccerService,
   Cancha,
@@ -37,6 +38,7 @@ export class DashboardComponent implements OnInit {
   private router = inject(Router);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
+  private facturacionBridge = inject(FacturacionBridgeService);
 
   activeTab = signal<'dashboard' | 'canchas' | 'balones' | 'torneos' | 'escuela' | 'cafeteria' | 'tienda' | 'admin' | 'inventario'>('canchas');
   adminSubTab = signal<'canchas' | 'balones'>('canchas');
@@ -301,19 +303,39 @@ export class DashboardComponent implements OnInit {
       this.messageService.add({ severity: 'warn', summary: 'Falta información', detail: 'El monto del pago debe ser mayor a cero.' });
       return;
     }
+    if (!this.reservaEnCobro) return;
+
+    const reserva = this.reservaEnCobro;
+    const descripcion = `Reserva ${reserva.nombreCancha} ${reserva.fecha.substring(0, 10)} ${reserva.horaInicio.substring(0, 5)}-${reserva.horaFin.substring(0, 5)}`;
 
     this.saving.set(true);
-    this.euroService.cobrarReservacion(this.cobroData).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.displayCobroModal = false;
-        this.reservaEnCobro = null;
-        this.messageService.add({ severity: 'success', summary: 'Cobro registrado', detail: 'El pago se aplicó a la reservación.' });
-        this.cargarReservaciones();
+    // 1) Recibo contable primero (Facturacion.FACTURA, EsRecibo=1). Si falla, no se toca la reserva:
+    // así nunca queda un cobro "aplicado" en Deportes sin su respaldo en factura diaria.
+    this.facturacionBridge.crearRecibo({
+      clienteNombre: reserva.clienteNombre,
+      descripcion,
+      monto: this.cobroData.montoPago,
+      formaPago: this.cobroData.formaPago,
+      referenciaPago: this.cobroData.referenciaPago
+    }).subscribe({
+      next: ({ idFactura }) => {
+        this.euroService.cobrarReservacion({ ...this.cobroData, idFactura }).subscribe({
+          next: () => {
+            this.saving.set(false);
+            this.displayCobroModal = false;
+            this.reservaEnCobro = null;
+            this.messageService.add({ severity: 'success', summary: 'Cobro registrado', detail: 'El pago se aplicó a la reservación y se generó el recibo.' });
+            this.cargarReservaciones();
+          },
+          error: (err) => {
+            this.saving.set(false);
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'El recibo se creó pero no se pudo aplicar el cobro a la reserva. Contacte a administración.' });
+          }
+        });
       },
       error: (err) => {
         this.saving.set(false);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al registrar el cobro.' });
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || err.message || 'Error al generar el recibo contable.' });
       }
     });
   }

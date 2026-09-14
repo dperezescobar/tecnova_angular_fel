@@ -1,14 +1,17 @@
 {
   "name": "tecnova-erp",
   "version": "1.4.2",
+  "eurosoccerVersion": "1.0.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "eurosoccer:start": "ng serve eurosoccer-app --port 4300",
     "eurosoccer:build": "ng build eurosoccer-app",
+    "preeurosoccer:build": "node scripts/sync-version-eurosoccer.js",
     "prebuild": "node scripts/sync-version.js",
     "build": "ng build",
     "version:sync": "node scripts/sync-version.js",
+    "eurosoccer:version:sync": "node scripts/sync-version-eurosoccer.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
