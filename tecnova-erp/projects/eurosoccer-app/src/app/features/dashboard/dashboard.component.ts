@@ -42,14 +42,59 @@ export class DashboardComponent implements OnInit {
 
   activeTab = signal<'dashboard' | 'canchas' | 'balones' | 'torneos' | 'escuela' | 'cafeteria' | 'tienda' | 'admin' | 'inventario'>('canchas');
   adminSubTab = signal<'canchas' | 'balones'>('canchas');
-  selectedDate = signal<string>(new Date().toISOString().substring(0, 10));
+
+  private static getTodayIso(d: Date = new Date()): string {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  getLocalIsoDate(d: Date = new Date()): string {
+    return DashboardComponent.getTodayIso(d);
+  }
+
+  selectedDate = signal<string>(DashboardComponent.getTodayIso());
   mobileSidebarOpen = signal<boolean>(false);
   currentDateDisplay = signal<string>('');
   currentTimeDisplay = signal<string>('');
   private clockTimer: any;
+  private syncTimer: any;
+
+  // Modo Oscuro / Claro
+  isDarkMode = signal<boolean>(true);
+
+  // Kiosk & Multi-Device Sync
+  isRefreshing = signal<boolean>(false);
+  ultimaSincronizacion = signal<string>('');
 
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+
+  // Horas del timeline deportivo
+  horasDia = [
+    '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+    '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+    '18:00', '19:00', '20:00', '21:00', '22:00'
+  ];
+
+  // Slots táctiles para reservar sin teclado
+  duracionSeleccionada = signal<number>(1);
+  turnosRapidos = [
+    { label: '06:00 - 07:00', inicio: '06:00', fin: '07:00', tipo: 'dia' },
+    { label: '07:00 - 08:00', inicio: '07:00', fin: '08:00', tipo: 'dia' },
+    { label: '08:00 - 09:00', inicio: '08:00', fin: '09:00', tipo: 'dia' },
+    { label: '09:00 - 10:00', inicio: '09:00', fin: '10:00', tipo: 'dia' },
+    { label: '14:00 - 15:00', inicio: '14:00', fin: '15:00', tipo: 'dia' },
+    { label: '15:00 - 16:00', inicio: '15:00', fin: '16:00', tipo: 'dia' },
+    { label: '16:00 - 17:00', inicio: '16:00', fin: '17:00', tipo: 'dia' },
+    { label: '17:00 - 18:00', inicio: '17:00', fin: '18:00', tipo: 'dia' },
+    { label: '18:00 - 19:00', inicio: '18:00', fin: '19:00', tipo: 'noche' },
+    { label: '19:00 - 20:00', inicio: '19:00', fin: '20:00', tipo: 'noche' },
+    { label: '20:00 - 21:00', inicio: '20:00', fin: '21:00', tipo: 'noche' },
+    { label: '21:00 - 22:00', inicio: '21:00', fin: '22:00', tipo: 'noche' },
+    { label: '22:00 - 23:00', inicio: '22:00', fin: '23:00', tipo: 'noche' },
+  ];
 
   // Estados de Administración (CRUD)
   displayCanchaModal = false;
@@ -124,22 +169,24 @@ export class DashboardComponent implements OnInit {
   };
 
   ngOnInit(): void {
+    this.initTheme();
     this.updateClock();
     this.clockTimer = setInterval(() => this.updateClock(), 1000);
 
+    // Auto-sync polling silencioso cada 12s para sincronizar reservas multi-dispositivo sin F5
+    this.syncTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !this.loading() && !this.displayNuevaReservaModal && !this.displayCobroModal && !this.displayMovimientoModal) {
+        this.cargarReservacionesSilencioso();
+      }
+    }, 12000);
+
     this.authService.ensureEmpresaSession().subscribe({
       next: () => {
-        this.cargarCanchas();
-        this.cargarReservaciones();
-        this.cargarBalones();
-        this.cargarPrestamos();
+        this.refrescarTodoSilencioso();
         this.cargarInventarioEuro();
       },
       error: () => {
-        this.cargarCanchas();
-        this.cargarReservaciones();
-        this.cargarBalones();
-        this.cargarPrestamos();
+        this.refrescarTodoSilencioso();
         this.cargarInventarioEuro();
       }
     });
@@ -149,6 +196,64 @@ export class DashboardComponent implements OnInit {
     if (this.clockTimer) {
       clearInterval(this.clockTimer);
     }
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+    }
+  }
+
+  initTheme(): void {
+    const savedTheme = localStorage.getItem('euro_theme');
+    const isDark = savedTheme !== 'light';
+    this.isDarkMode.set(isDark);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }
+
+  toggleTheme(): void {
+    const newDark = !this.isDarkMode();
+    this.isDarkMode.set(newDark);
+    if (newDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('euro_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('euro_theme', 'light');
+    }
+  }
+
+  refrescarAgenda(): void {
+    this.isRefreshing.set(true);
+    this.cargarReservaciones();
+    this.cargarCanchas();
+    this.cargarBalones();
+    this.cargarPrestamos();
+    setTimeout(() => {
+      this.isRefreshing.set(false);
+      const now = new Date();
+      this.ultimaSincronizacion.set(now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      this.messageService.add({ severity: 'info', summary: 'Sincronizado', detail: 'Agenda y canchas actualizadas.', life: 2000 });
+    }, 500);
+  }
+
+  refrescarTodoSilencioso(): void {
+    this.cargarCanchas();
+    this.cargarReservacionesSilencioso();
+    this.cargarBalones();
+    this.cargarPrestamos();
+  }
+
+  cargarReservacionesSilencioso(): void {
+    this.euroService.getReservaciones(this.selectedDate()).subscribe({
+      next: (data) => {
+        this.reservaciones.set(data);
+        const now = new Date();
+        this.ultimaSincronizacion.set(now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      },
+      error: (err) => console.error('Error en sync silencioso de reservas', err)
+    });
   }
 
   toggleMobileSidebar(): void {
@@ -158,7 +263,7 @@ export class DashboardComponent implements OnInit {
   setFilterDate(offsetDays: number): void {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
-    const dateStr = d.toISOString().substring(0, 10);
+    const dateStr = this.getLocalIsoDate(d);
     this.selectedDate.set(dateStr);
     this.cargarReservaciones();
   }
@@ -222,14 +327,139 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  getCanchaEstadoVivo(cancha: Cancha): {
+    estado: 'DISPONIBLE' | 'EN_JUEGO' | 'MANTENIMIENTO';
+    badgeLabel: string;
+    badgeClass: string;
+    reservaActual?: ReservacionCancha;
+    tiempoRestanteMin?: number;
+  } {
+    if (cancha.estado === 'Mantenimiento') {
+      return {
+        estado: 'MANTENIMIENTO',
+        badgeLabel: 'MANTENIMIENTO',
+        badgeClass: 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+      };
+    }
+
+    const hoyStr = this.getLocalIsoDate();
+    if (this.selectedDate() !== hoyStr) {
+      return {
+        estado: 'DISPONIBLE',
+        badgeLabel: 'DISPONIBLE',
+        badgeClass: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+      };
+    }
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const activa = this.reservaciones().find(r => {
+      if (r.idCancha !== cancha.idCancha || r.estado !== 'Reservado') return false;
+      const [hIni, mIni] = (r.horaInicio || '00:00').split(':').map(Number);
+      const [hFin, mFin] = (r.horaFin || '00:00').split(':').map(Number);
+      const iniMin = hIni * 60 + (mIni || 0);
+      const finMin = hFin * 60 + (mFin || 0);
+      return currentMinutes >= iniMin && currentMinutes < finMin;
+    });
+
+    if (activa) {
+      const [hFin, mFin] = (activa.horaFin || '00:00').split(':').map(Number);
+      const finMin = hFin * 60 + (mFin || 0);
+      const restante = Math.max(0, finMin - currentMinutes);
+      return {
+        estado: 'EN_JUEGO',
+        badgeLabel: `EN JUEGO (${restante} min)`,
+        badgeClass: 'bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold',
+        reservaActual: activa,
+        tiempoRestanteMin: restante
+      };
+    }
+
+    return {
+      estado: 'DISPONIBLE',
+      badgeLabel: 'DISPONIBLE',
+      badgeClass: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+    };
+  }
+
+  getReservaEnHora(idCancha: number, hora: string): ReservacionCancha | undefined {
+    const slotHour = parseInt(hora.split(':')[0], 10);
+    return this.reservaciones().find(r => {
+      if (r.idCancha !== idCancha || r.estado !== 'Reservado') return false;
+      const startH = parseInt((r.horaInicio || '00:00').split(':')[0], 10);
+      const endH = parseInt((r.horaFin || '00:00').split(':')[0], 10);
+      return slotHour >= startH && slotHour < endH;
+    });
+  }
+
   openNuevaReservaModal(): void {
     this.nuevaReserva.fecha = this.selectedDate();
     this.nuevaReserva.horaInicio = '18:00';
+    this.duracionSeleccionada.set(1);
     this.nuevaReserva.horaFin = '19:00';
     this.nuevaReserva.clienteNombre = '';
     this.nuevaReserva.clienteTelefono = '';
+    this.nuevaReserva.montoAnticipo = 0;
+    this.nuevaReserva.notas = '';
     this.recalcularMontoReserva();
     this.displayNuevaReservaModal = true;
+  }
+
+  openNuevaReservaConSlot(idCancha: number, horaInicio?: string): void {
+    this.nuevaReserva.idCancha = idCancha;
+    this.nuevaReserva.fecha = this.selectedDate();
+    const hIni = horaInicio || '18:00';
+    this.nuevaReserva.horaInicio = hIni;
+    const startH = parseInt(hIni.split(':')[0], 10);
+    this.nuevaReserva.horaFin = `${String(startH + this.duracionSeleccionada()).padStart(2, '0')}:00`;
+    this.nuevaReserva.clienteNombre = '';
+    this.nuevaReserva.clienteTelefono = '';
+    this.nuevaReserva.montoAnticipo = 0;
+    this.nuevaReserva.notas = '';
+    this.recalcularMontoReserva();
+    this.displayNuevaReservaModal = true;
+  }
+
+  seleccionarTurnoSlot(inicio: string, fin: string): void {
+    this.nuevaReserva.horaInicio = inicio;
+    const startH = parseInt(inicio.split(':')[0], 10);
+    const dur = this.duracionSeleccionada();
+    const endH = startH + dur;
+    this.nuevaReserva.horaFin = `${String(endH).padStart(2, '0')}:00`;
+    this.recalcularMontoReserva();
+  }
+
+  setDuracion(dur: number): void {
+    this.duracionSeleccionada.set(dur);
+    const startH = parseInt((this.nuevaReserva.horaInicio || '18:00').split(':')[0], 10);
+    const endH = startH + dur;
+    this.nuevaReserva.horaFin = `${String(endH).padStart(2, '0')}:00`;
+    this.recalcularMontoReserva();
+  }
+
+  setClienteRapido(nombre: string): void {
+    this.nuevaReserva.clienteNombre = nombre;
+  }
+
+  setAnticipoPorcentaje(pct: number): void {
+    this.nuevaReserva.montoAnticipo = Math.round((this.nuevaReserva.montoTotal * pct) * 100) / 100;
+  }
+
+  getTarifaVigenteInfo(): { tarifa: number; esNoche: boolean } {
+    const cancha = this.canchas().find(c => c.idCancha === this.nuevaReserva.idCancha);
+    if (!cancha) return { tarifa: 20, esNoche: false };
+    const startH = parseInt((this.nuevaReserva.horaInicio || '18:00').split(':')[0], 10);
+    const horaNocheH = parseInt((cancha.horaInicioNoche || '18:00:00').split(':')[0], 10);
+    const esNoche = startH >= horaNocheH;
+    return {
+      tarifa: esNoche ? cancha.precioNoche : cancha.precioDia,
+      esNoche
+    };
+  }
+
+  getSaldoCalculado(): number {
+    return Math.max(0, (this.nuevaReserva.montoTotal || 0) - (this.nuevaReserva.montoAnticipo || 0));
   }
 
   recalcularMontoReserva(): void {
@@ -555,13 +785,14 @@ export class DashboardComponent implements OnInit {
       const general = this.catalogoArticulos();
       if (general.length > 0) {
         return general.map(g => {
-          const cod = g.articulo || g.codigo || '';
-          const desc = g.descripcion || g.nombre || '';
+          const cod = g.articulo || g.ARTICULO || g.codigo || '';
+          const desc = g.descripcion || g.DESCRIPCION || g.nombre || '';
           const exist = this.inventarioEuro().find(e => e.articulo === cod);
+          const precio = g.precioUnitario ?? g.ultimoPrecio ?? g.ULTIMO_PRECIO ?? 0;
           return {
             articulo: cod,
             descripcion: desc,
-            precioUnitario: g.precioUnitario || g.ultimoPrecio || 0,
+            precioUnitario: precio,
             saldo: exist?.saldo || 0
           };
         });
@@ -630,10 +861,10 @@ export class DashboardComponent implements OnInit {
       this.movimientoData.precioUnitario = exist.precioUnitario || 0;
       return;
     }
-    const cat = this.catalogoArticulos().find(c => (c.articulo || c.codigo) === codigo);
+    const cat = this.catalogoArticulos().find(c => (c.articulo || c.ARTICULO || c.codigo) === codigo);
     if (cat) {
-      this.movimientoData.descripcion = cat.descripcion || cat.nombre || '';
-      this.movimientoData.precioUnitario = cat.precioUnitario || cat.ultimoPrecio || 0;
+      this.movimientoData.descripcion = cat.descripcion || cat.DESCRIPCION || cat.nombre || '';
+      this.movimientoData.precioUnitario = cat.precioUnitario ?? cat.ultimoPrecio ?? cat.ULTIMO_PRECIO ?? 0;
     }
   }
 
@@ -691,7 +922,7 @@ export class DashboardComponent implements OnInit {
     const reqMaestro: MovimientoInventarioReq = {
       documentoInv: 0,
       correlativoInv: corre,
-      fecha: new Date().toISOString().substring(0, 10),
+      fecha: this.getLocalIsoDate(),
       comentario: comentario,
       bodega: bodOrigen,
       bodegaDestino: bodDestino,

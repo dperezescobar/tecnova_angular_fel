@@ -44,6 +44,21 @@
         <span class="font-semibold text-white truncate max-w-[120px] sm:max-w-[180px]">{{ authService.currentUser()?.username }}</span>
       </div>
 
+      <!-- BOTÓN DE SINCRONIZACIÓN / REFRESH RÁPIDO PARA MONITOR TOUCH / KIOSK -->
+      <button (click)="refrescarAgenda()" [title]="ultimaSincronizacion() ? 'Última sinc: ' + ultimaSincronizacion() : 'Sincronizar agenda'" class="bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-emerald-400 hover:text-emerald-300 text-xs px-2.5 sm:px-3 py-2 rounded-lg transition flex items-center space-x-1.5 cursor-pointer shadow-sm">
+        <i class="fa-solid fa-arrows-rotate" [class.fa-spin]="isRefreshing()"></i>
+        <span class="hidden md:inline font-semibold">Sincronizar</span>
+      </button>
+
+      <!-- BOTÓN TOGGLE MODO OSCURO / CLARO -->
+      <button (click)="toggleTheme()" [title]="isDarkMode() ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'" class="bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-amber-400 hover:text-amber-300 text-xs p-2 sm:px-2.5 sm:py-2 rounded-lg transition flex items-center justify-center cursor-pointer shadow-sm">
+        @if (isDarkMode()) {
+          <i class="fa-solid fa-sun text-amber-400 text-sm"></i>
+        } @else {
+          <i class="fa-solid fa-moon text-indigo-400 text-sm"></i>
+        }
+      </button>
+
       <!-- BOTÓN DE ADMINISTRACIÓN (SOLO VISIBLE PARA ADMINISTRADORES) -->
       @if (authService.isAdmin()) {
         <button (click)="activeTab.set('admin')" [class]="activeTab() === 'admin' ? 'bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-amber-400 text-white' : 'bg-slate-800 hover:bg-slate-700 border border-amber-500/50 text-amber-400 hover:text-white'" class="font-semibold text-xs px-2.5 sm:px-3.5 py-2 rounded-lg transition flex items-center space-x-1.5 cursor-pointer shadow-md">
@@ -691,37 +706,161 @@
             </div>
           </div>
 
-          <!-- Canchas Status Cards -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- ========================================================
+               PROPUESTA HÍBRIDA: SECCIÓN 1 - SILUETAS INTERACTIVAS DE CANCHA EN VIVO
+               ======================================================== -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             @for (cancha of canchas(); track cancha.idCancha) {
-              <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
-                <div class="flex items-start justify-between">
+              <div class="glass-card p-5 rounded-2xl relative overflow-hidden transition-all duration-300 border border-slate-800"
+                [class.glow-emerald]="getCanchaEstadoVivo(cancha).estado === 'DISPONIBLE'"
+                [class.glow-amber]="getCanchaEstadoVivo(cancha).estado === 'EN_JUEGO'">
+                
+                <!-- Encabezado de Cancha y Semáforo -->
+                <div class="flex items-center justify-between mb-3">
                   <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold">
-                      <i class="fa-solid fa-flag"></i>
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md"
+                      [class]="getCanchaEstadoVivo(cancha).estado === 'DISPONIBLE' ? 'bg-emerald-600 shadow-emerald-950' : getCanchaEstadoVivo(cancha).estado === 'EN_JUEGO' ? 'bg-amber-600 shadow-amber-950' : 'bg-rose-600 shadow-rose-950'">
+                      <i class="fa-solid fa-futbol text-lg"></i>
                     </div>
                     <div>
-                      <h3 class="font-bold text-base text-white">{{ cancha.nombre }}</h3>
-                      <span class="text-xs text-slate-400">{{ cancha.tipo }}</span>
+                      <h3 class="font-extrabold text-base text-white flex items-center space-x-2">
+                        <span>{{ cancha.nombre }}</span>
+                        <span class="text-[11px] font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">{{ cancha.tipo }}</span>
+                      </h3>
+                      <p class="text-xs text-slate-400">
+                        Tarifas: <strong class="text-white mono-font">${{ cancha.precioDia | number:'1.2-2' }}</strong> día | <strong class="text-amber-400 mono-font">${{ cancha.precioNoche | number:'1.2-2' }}</strong> noche
+                      </p>
                     </div>
                   </div>
-                  <span class="px-2.5 py-1 rounded-full text-xs font-semibold" [class]="cancha.estado === 'Disponible' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
-                    {{ cancha.estado }}
-                  </span>
+
+                  <!-- Badge de Estado en Vivo -->
+                  <div class="px-3 py-1.5 rounded-xl text-xs font-black tracking-wide uppercase flex items-center space-x-2 shadow-inner"
+                    [class]="getCanchaEstadoVivo(cancha).badgeClass">
+                    <span class="w-2 h-2 rounded-full"
+                      [class]="getCanchaEstadoVivo(cancha).estado === 'DISPONIBLE' ? 'bg-emerald-400 animate-pulse' : getCanchaEstadoVivo(cancha).estado === 'EN_JUEGO' ? 'bg-amber-400 animate-ping' : 'bg-rose-400'"></span>
+                    <span>{{ getCanchaEstadoVivo(cancha).badgeLabel }}</span>
+                  </div>
                 </div>
 
-                <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <div class="space-y-0.5">
-                    <span class="text-slate-400">Tarifa Diurna:</span>
-                    <p class="font-bold text-white mono-font">${{ cancha.precioDia | number:'1.2-2' }} <span class="text-[10px] text-slate-400">USD/h</span></p>
+                <!-- Representación Visual de Césped de Estadio -->
+                <div class="h-44 w-full pitch-grass flex flex-col justify-between p-3 relative cursor-pointer select-none group"
+                  [class.pitch-grass-occupied]="getCanchaEstadoVivo(cancha).estado === 'EN_JUEGO'"
+                  [class.pitch-grass-maint]="getCanchaEstadoVivo(cancha).estado === 'MANTENIMIENTO'"
+                  (click)="openNuevaReservaConSlot(cancha.idCancha)">
+                  <!-- Marcaciones de Campo de Fútbol -->
+                  <div class="pitch-half-line"></div>
+                  <div class="pitch-circle"></div>
+                  <div class="pitch-goal-left pitch-line"></div>
+                  <div class="pitch-goal-right pitch-line"></div>
+
+                  <!-- Overlay superior -->
+                  <div class="relative z-10 flex justify-between items-start">
+                    <span class="bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[11px] font-bold text-white border border-white/20">
+                      <i class="fa-solid fa-location-dot text-emerald-400 mr-1"></i> Césped Sintético
+                    </span>
+                    @if (getCanchaEstadoVivo(cancha).estado === 'EN_JUEGO') {
+                      <span class="bg-amber-500 text-slate-950 font-black px-2.5 py-1 rounded-lg text-xs flex items-center space-x-1 shadow-lg animate-pulse">
+                        <i class="fa-solid fa-stopwatch"></i>
+                        <span>{{ getCanchaEstadoVivo(cancha).tiempoRestanteMin }} MIN RESTANTES</span>
+                      </span>
+                    }
                   </div>
-                  <div class="space-y-0.5 text-right">
-                    <span class="text-slate-400">Tarifa Nocturna (LED):</span>
-                    <p class="font-bold text-amber-400 mono-font">${{ cancha.precioNoche | number:'1.2-2' }} <span class="text-[10px] text-slate-400">USD/h</span></p>
+
+                  <!-- Centro del Campo: Estado o Info de Partido -->
+                  <div class="relative z-10 text-center my-auto">
+                    @if (getCanchaEstadoVivo(cancha).estado === 'EN_JUEGO') {
+                      <div class="bg-slate-950/85 backdrop-blur-md px-4 py-2 rounded-xl inline-block border border-amber-500/40 shadow-xl">
+                        <p class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Partido en Curso</p>
+                        <p class="text-sm font-black text-white truncate max-w-[200px]">{{ getCanchaEstadoVivo(cancha).reservaActual?.clienteNombre }}</p>
+                        <p class="text-xs font-mono text-emerald-300">
+                          {{ getCanchaEstadoVivo(cancha).reservaActual?.horaInicio?.substring(0,5) }} - {{ getCanchaEstadoVivo(cancha).reservaActual?.horaFin?.substring(0,5) }}
+                        </p>
+                      </div>
+                    } @else if (getCanchaEstadoVivo(cancha).estado === 'MANTENIMIENTO') {
+                      <div class="bg-slate-950/85 backdrop-blur-md px-4 py-2 rounded-xl inline-block border border-rose-500/40 shadow-xl">
+                        <p class="text-xs font-bold text-rose-400 flex items-center justify-center space-x-1">
+                          <i class="fa-solid fa-triangle-exclamation"></i>
+                          <span>En Mantenimiento</span>
+                        </p>
+                      </div>
+                    } @else {
+                      <div class="opacity-90 group-hover:opacity-100 transition-all transform group-hover:scale-105">
+                        <span class="bg-emerald-600/95 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-lg inline-flex items-center space-x-2 border border-emerald-400/40">
+                          <i class="fa-solid fa-calendar-plus"></i>
+                          <span>Tocar para Reservar</span>
+                        </span>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Pie de Cancha -->
+                  <div class="relative z-10 flex justify-between items-end">
+                    <span class="text-[10px] text-slate-200 bg-black/50 px-2 py-0.5 rounded font-mono">
+                      Iluminación LED Nocturna
+                    </span>
+                    <button type="button" (click)="$event.stopPropagation(); openNuevaReservaConSlot(cancha.idCancha)"
+                      class="bg-white/20 hover:bg-white/30 active:bg-white/50 text-white text-[11px] font-bold px-3 py-1 rounded-lg backdrop-blur-sm transition flex items-center space-x-1">
+                      <span>+ Turno</span>
+                    </button>
                   </div>
                 </div>
+
               </div>
             }
+          </div>
+
+          <!-- ========================================================
+               PROPUESTA HÍBRIDA: SECCIÓN 2 - TIMELINE DEPORTIVO HORIZONTAL
+               ======================================================== -->
+          <div class="glass-panel p-5 rounded-2xl space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-timeline text-emerald-400 text-base"></i>
+                <h3 class="text-base font-bold text-white">Timeline Horario de Turnos ({{ selectedDate() }})</h3>
+              </div>
+              <span class="text-xs text-slate-400">
+                Toque cualquier celda <span class="text-emerald-400 font-bold">+</span> para reservar esa hora de inmediato
+              </span>
+            </div>
+
+            <div class="space-y-4 overflow-x-auto pb-2">
+              @for (cancha of canchas(); track cancha.idCancha) {
+                <div class="min-w-[820px] bg-slate-900/70 p-3 rounded-xl border border-slate-800/80">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-white flex items-center space-x-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                      <span>{{ cancha.nombre }}</span>
+                      <span class="text-[10px] text-slate-400 font-normal">({{ cancha.tipo }})</span>
+                    </span>
+                    <span class="text-[11px] text-slate-400 mono-font">
+                      Base: ${{ cancha.precioDia | number:'1.0-0' }} / ${{ cancha.precioNoche | number:'1.0-0' }} USD
+                    </span>
+                  </div>
+
+                  <!-- Riel horizontal de horas -->
+                  <div style="display: grid; grid-template-columns: repeat(17, minmax(0, 1fr)); gap: 4px;">
+                    @for (hora of horasDia; track hora) {
+                      <div class="text-center">
+                        <span class="text-[9px] font-mono text-slate-400 block mb-1">{{ hora }}</span>
+                        @if (getReservaEnHora(cancha.idCancha, hora); as res) {
+                          <div (click)="abrirModalCobro(res)" [title]="res.clienteNombre + ' (' + (res.saldoPendiente > 0 ? 'Saldo: $' + res.saldoPendiente : 'Pagado') + ')'"
+                            class="touch-slot-btn h-11 rounded-lg p-1 flex flex-col justify-center items-center cursor-pointer transition shadow text-[9px] font-semibold overflow-hidden border"
+                            [class]="res.saldoPendiente > 0 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30' : 'bg-blue-600/30 text-blue-200 border-blue-500/40 hover:bg-blue-600/40'">
+                            <span class="truncate w-full font-bold">{{ res.clienteNombre }}</span>
+                            <span class="text-[8px] opacity-80">${{ res.montoTotal | number:'1.0-0' }}</span>
+                          </div>
+                        } @else {
+                          <button (click)="openNuevaReservaConSlot(cancha.idCancha, hora)" title="Reservar este turno"
+                            class="touch-slot-btn h-11 w-full rounded-lg bg-slate-800/70 hover:bg-emerald-600/30 active:bg-emerald-600 text-slate-500 hover:text-emerald-300 border border-slate-700/60 hover:border-emerald-500/40 flex items-center justify-center cursor-pointer transition text-xs font-bold">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
           </div>
 
           <!-- Reservaciones del Día Table Panel -->
@@ -1122,69 +1261,187 @@
     </div>
   </p-dialog>
 
-  <!-- MODAL: NUEVA RESERVACIÓN -->
-  <p-dialog [(visible)]="displayNuevaReservaModal" [modal]="true" [style]="{ width: '520px', maxWidth: '95vw' }" header="Agendar Turno de Cancha" [draggable]="false" [resizable]="false">
-    <div class="space-y-4 pt-2">
-      <div>
-        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Cancha Seleccionada</label>
-        <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" [value]="nuevaReserva.idCancha" (change)="nuevaReserva.idCancha = +$any($event.target).value; recalcularMontoReserva()">
-          @for (c of canchas(); track c.idCancha) {
-            <option [value]="c.idCancha">{{ c.nombre }} ({{ c.tipo }})</option>
-          }
-        </select>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
+  <!-- MODAL: NUEVA RESERVACIÓN HORIZONTAL TOUCH (SIN SCROLL NI TECLADO) -->
+  <p-dialog [(visible)]="displayNuevaReservaModal" [modal]="true" [style]="{ width: '880px', maxWidth: '96vw' }" header="Agendar Turno de Cancha" [draggable]="false" [resizable]="false">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-5 pt-1">
+      
+      <!-- COLUMNA IZQUIERDA (7 cols): Cancha + Slots Táctiles + Duración -->
+      <div class="md:col-span-7 space-y-3.5">
+        <!-- 1. Selección de Cancha Táctil -->
         <div>
-          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Hora Inicio</label>
-          <input type="time" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.horaInicio" (change)="recalcularMontoReserva()" />
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+            <i class="fa-solid fa-flag text-emerald-400"></i>
+            <span>Cancha</span>
+          </label>
+          <div class="grid grid-cols-2 gap-2.5">
+            @for (c of canchas(); track c.idCancha) {
+              <button type="button" (click)="nuevaReserva.idCancha = c.idCancha; recalcularMontoReserva()"
+                class="touch-slot-btn p-3 rounded-xl border text-left transition flex items-center space-x-2.5 cursor-pointer"
+                [class]="nuevaReserva.idCancha === c.idCancha ? 'bg-emerald-600 text-white border-emerald-400 shadow-md ring-2 ring-emerald-400/40' : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800'">
+                <i class="fa-solid fa-futbol text-base" [class]="nuevaReserva.idCancha === c.idCancha ? 'text-white' : 'text-emerald-400'"></i>
+                <div class="overflow-hidden">
+                  <p class="font-bold text-xs truncate">{{ c.nombre }}</p>
+                  <p class="text-[10px] opacity-80">{{ c.tipo }}</p>
+                </div>
+              </button>
+            }
+          </div>
         </div>
+
+        <!-- 2. Duración Stepper Táctil -->
         <div>
-          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Hora Fin</label>
-          <input type="time" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.horaFin" (change)="recalcularMontoReserva()" />
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+              <i class="fa-solid fa-hourglass-half text-amber-400"></i>
+              <span>Duración del Turno</span>
+            </label>
+            <span class="text-xs font-bold text-emerald-400 mono-font">{{ duracionSeleccionada() }} Hora(s)</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" (click)="setDuracion(1)"
+              class="touch-slot-btn py-2 rounded-xl border text-xs font-bold transition flex items-center justify-center space-x-1 cursor-pointer"
+              [class]="duracionSeleccionada() === 1 ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'">
+              <span>1 Hora (Estándar)</span>
+            </button>
+            <button type="button" (click)="setDuracion(2)"
+              class="touch-slot-btn py-2 rounded-xl border text-xs font-bold transition flex items-center justify-center space-x-1 cursor-pointer"
+              [class]="duracionSeleccionada() === 2 ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'">
+              <span>2 Horas</span>
+            </button>
+            <button type="button" (click)="setDuracion(3)"
+              class="touch-slot-btn py-2 rounded-xl border text-xs font-bold transition flex items-center justify-center space-x-1 cursor-pointer"
+              [class]="duracionSeleccionada() === 3 ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'">
+              <span>3 Horas</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Nombre del Cliente / Responsable</label>
-        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.clienteNombre" placeholder="Ej: Carlos Mendoza" />
-      </div>
-
-      <div>
-        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Teléfono (WhatsApp)</label>
-        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.clienteTelefono" placeholder="Ej: 7788-9900" />
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
+        <!-- 3. Selección de Horarios Táctiles (Slots Pills - Sin Teclado) -->
         <div>
-          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Monto Total ($ USD)</label>
-          <input type="number" step="0.5" class="w-full bg-slate-900 border border-emerald-500/60 text-emerald-400 font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.montoTotal" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Anticipo / Seña ($ USD)</label>
-          <input type="number" step="0.5" class="w-full bg-slate-900 border border-slate-700 text-white font-mono rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.montoAnticipo" />
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+              <i class="fa-solid fa-clock text-sky-400"></i>
+              <span>Horario del Turno (Toque el horario)</span>
+            </label>
+            <span class="text-xs font-mono font-bold text-emerald-400">{{ nuevaReserva.horaInicio }} a {{ nuevaReserva.horaFin }}</span>
+          </div>
+
+          <!-- Grid de Slots Táctiles -->
+          <div class="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-44 overflow-y-auto pr-1">
+            @for (t of turnosRapidos; track t.inicio) {
+              <button type="button" (click)="seleccionarTurnoSlot(t.inicio, t.fin)"
+                class="touch-slot-btn px-2 py-2 rounded-xl border text-xs font-mono font-semibold transition flex flex-col items-center justify-center cursor-pointer"
+                [class]="nuevaReserva.horaInicio === t.inicio ? 'bg-emerald-600 text-white border-emerald-400 shadow-md ring-1 ring-white/50' : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700'">
+                <span>{{ t.inicio }}</span>
+                <span class="text-[9px] opacity-75">{{ t.tipo === 'noche' ? 'LED Noche' : 'Diurno' }}</span>
+              </button>
+            }
+          </div>
         </div>
       </div>
 
-      <div>
-        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Notas / Requerimientos</label>
-        <textarea class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevaReserva.notas" rows="2" placeholder="Opcional: Chalecos, arbitraje, etc."></textarea>
+      <!-- COLUMNA DERECHA (5 cols): Cliente, Tarifas y Confirmación -->
+      <div class="md:col-span-5 space-y-3 flex flex-col justify-between">
+        <div class="space-y-2.5">
+          <!-- Nombre del Cliente con Botones Rápidos Táctiles -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center space-x-1">
+              <i class="fa-solid fa-user text-brand-400"></i>
+              <span>Cliente / Responsable *</span>
+            </label>
+            <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white font-medium rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500"
+              [(ngModel)]="nuevaReserva.clienteNombre" placeholder="Ej: Carlos Mendoza" />
+            <!-- Accesos rápidos de cliente táctiles -->
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <button type="button" (click)="setClienteRapido('Consumidor Final')"
+                class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-semibold border border-slate-700 transition cursor-pointer">
+                + Consumidor Final
+              </button>
+              <button type="button" (click)="setClienteRapido('Cliente Frecuente')"
+                class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-semibold border border-slate-700 transition cursor-pointer">
+                + Cliente Frecuente
+              </button>
+            </div>
+          </div>
+
+          <!-- Teléfono / WhatsApp -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center space-x-1">
+              <i class="fa-brands fa-whatsapp text-emerald-400"></i>
+              <span>Teléfono WhatsApp</span>
+            </label>
+            <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white font-mono rounded-xl px-3.5 py-2 text-sm outline-none focus:border-emerald-500"
+              [(ngModel)]="nuevaReserva.clienteTelefono" placeholder="Ej: 7890-1234" />
+          </div>
+
+          <!-- Tarjeta de Resumen Económico -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Tarifa aplicada:</span>
+              <span class="text-white font-bold mono-font">
+                ${{ getTarifaVigenteInfo().tarifa | number:'1.2-2' }} <span class="text-[10px] text-slate-400">({{ getTarifaVigenteInfo().esNoche ? 'Noche LED' : 'Diurno' }})</span>
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-sm font-bold pt-1 border-t border-slate-800">
+              <span class="text-white">Total Reserva:</span>
+              <span class="text-emerald-400 font-mono text-base">${{ nuevaReserva.montoTotal | number:'1.2-2' }}</span>
+            </div>
+
+            <!-- Anticipo Táctil -->
+            <div class="pt-1.5 border-t border-slate-800">
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="text-slate-400 font-medium">Anticipo / Seña:</span>
+                <span class="font-mono text-white">${{ nuevaReserva.montoAnticipo | number:'1.2-2' }}</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1">
+                <button type="button" (click)="setAnticipoPorcentaje(0)"
+                  class="py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer"
+                  [class]="nuevaReserva.montoAnticipo === 0 ? 'bg-emerald-600 text-white border-emerald-400' : 'bg-slate-800 text-slate-400 border-slate-700'">
+                  $0 Pendiente
+                </button>
+                <button type="button" (click)="setAnticipoPorcentaje(0.5)"
+                  class="py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer"
+                  [class]="nuevaReserva.montoAnticipo > 0 && nuevaReserva.montoAnticipo < nuevaReserva.montoTotal ? 'bg-amber-600 text-white border-amber-400' : 'bg-slate-800 text-slate-400 border-slate-700'">
+                  50% Seña
+                </button>
+                <button type="button" (click)="setAnticipoPorcentaje(1)"
+                  class="py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer"
+                  [class]="nuevaReserva.montoAnticipo === nuevaReserva.montoTotal ? 'bg-blue-600 text-white border-blue-400' : 'bg-slate-800 text-slate-400 border-slate-700'">
+                  100% Total
+                </button>
+              </div>
+            </div>
+
+            <!-- Saldo Pendiente al momento de jugar -->
+            <div class="flex items-center justify-between text-xs pt-1.5 border-t border-slate-800">
+              <span class="text-slate-400">Saldo a Cobrar:</span>
+              <span class="font-mono font-bold" [class]="getSaldoCalculado() > 0 ? 'text-amber-400' : 'text-slate-400'">
+                ${{ getSaldoCalculado() | number:'1.2-2' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de Acción Fijos -->
+        <div class="flex items-center space-x-2.5 pt-2 border-t border-slate-800">
+          <button type="button" (click)="displayNuevaReservaModal = false"
+            class="touch-slot-btn px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            Cancelar
+          </button>
+          <button type="button" (click)="guardarReserva()" [disabled]="saving()"
+            class="touch-slot-btn flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 cursor-pointer">
+            @if (saving()) {
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              <span>Guardando...</span>
+            } @else {
+              <i class="fa-solid fa-check"></i>
+              <span>Confirmar Reservación</span>
+            }
+          </button>
+        </div>
+
       </div>
 
-      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
-        <button (click)="displayNuevaReservaModal = false" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
-          Cancelar
-        </button>
-        <button (click)="guardarReserva()" [disabled]="saving()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-950 transition flex items-center space-x-2 cursor-pointer">
-          @if (saving()) {
-            <i class="fa-solid fa-circle-notch fa-spin"></i>
-            <span>Guardando...</span>
-          } @else {
-            <i class="fa-solid fa-check"></i>
-            <span>Confirmar Reservación</span>
-          }
-        </button>
-      </div>
     </div>
   </p-dialog>
 
