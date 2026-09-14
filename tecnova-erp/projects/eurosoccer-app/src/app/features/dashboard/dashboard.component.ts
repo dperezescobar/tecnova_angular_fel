@@ -123,7 +123,8 @@ export class DashboardComponent implements OnInit {
     numero: '#5',
     estadoFisico: 'Excelente',
     estadoPrestamo: 'Disponible',
-    activo: true
+    activo: true,
+    precioAlquiler: 5.00
   };
 
   canchas = signal<Cancha[]>([]);
@@ -133,6 +134,23 @@ export class DashboardComponent implements OnInit {
 
   balonesDisponibles = computed(() => this.balones().filter(b => b.estadoPrestamo === 'Disponible'));
   balonesDisponiblesCount = computed(() => this.balonesDisponibles().length);
+
+  // Precio del balón elegido en el modal de préstamo (fuente de verdad: catálogo, no un input libre).
+  // Método normal, no computed(): nuevoPrestamo.idBalon es una propiedad plana atada con ngModel, no
+  // una signal, así que un computed() no reaccionaría a sus cambios.
+  // Number(...): el <select> nativo devuelve el value del <option> como string tras cualquier cambio
+  // del usuario (aunque [value] reciba un number), así que idBalon deja de ser number después del
+  // primer cambio — sin la coerción, el === contra balon.idBalon (number) nunca vuelve a coincidir.
+  precioBalonSeleccionado(): number {
+    const idBalon = Number(this.nuevoPrestamo.idBalon);
+    const balon = this.balones().find(b => b.idBalon === idBalon);
+    return balon?.precioAlquiler ?? 0;
+  }
+
+  // Préstamo activo de un balón (para mostrar "Asignado a / Responsable / Hora inicio" en su tarjeta).
+  prestamoDeBalon(idBalon: number): PrestamoBalon | undefined {
+    return this.prestamosActivos().find(p => p.idBalon === idBalon);
+  }
 
   displayNuevaReservaModal = false;
   displayNuevoPrestamoModal = false;
@@ -160,8 +178,10 @@ export class DashboardComponent implements OnInit {
     idBalon: 0,
     responsable: '',
     documentoIdentidad: '',
-    observacionesSalida: ''
+    observacionesSalida: '',
+    idCancha: 0
   };
+  formaPagoPrestamo = 'Efectivo';
 
   prestamoSeleccionado: PrestamoBalon | null = null;
   devolucionData: DevolucionBalonReq = {
@@ -270,6 +290,11 @@ export class DashboardComponent implements OnInit {
 
   toggleMobileSidebar(): void {
     this.mobileSidebarOpen.update(v => !v);
+  }
+
+  selectTab(tab: 'dashboard' | 'canchas' | 'balones' | 'torneos' | 'escuela' | 'cafeteria' | 'tienda' | 'admin' | 'inventario'): void {
+    this.activeTab.set(tab);
+    this.mobileSidebarOpen.set(false);
   }
 
   setFilterDate(offsetDays: number): void {
@@ -663,6 +688,60 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  /** Misma lógica que reimprimirRecibo (Canchas) pero para el recibo de un préstamo de balón. */
+  reimprimirReciboBalon(p: PrestamoBalon): void {
+    const idFactura = p.idFactura;
+    if (!idFactura) {
+      this.messageService.add({ severity: 'warn', summary: 'Sin recibo', detail: 'Este préstamo no tiene un recibo generado.' });
+      return;
+    }
+    if (this.reimprimiendoId() !== null) return;
+    this.reimprimiendoId.set(idFactura);
+
+    this.facturacionService.getFacturaKeysById(idFactura).pipe(
+      switchMap((keys) => this.facturacionService
+        .getFacturaDetalle(keys.Prefijo, keys.Factura, keys.Sucursal, keys.PuntoVenta, keys.TipoFactura || 'FAC')
+        .pipe(map((detalle) => ({ keys, detalle }))))
+    ).subscribe({
+      next: ({ keys, detalle }) => {
+        this.reimprimiendoId.set(null);
+        const lineas = (detalle ?? []).map((dl) => {
+          const cantidad = Number(dl.CANTIDAD) || 0;
+          const precio = Number(dl.PRECIO_UNITARIO) || 0;
+          return {
+            cantidad,
+            unidad: String(dl.UNIDAD_MEDIDA ?? '').trim(),
+            descripcion: String(dl.DESCRIPCION ?? '').trim(),
+            precio,
+            total: Math.round(cantidad * precio * 100) / 100
+          };
+        });
+        const total = lineas.reduce((a, l) => a + l.total, 0);
+        this.ticketService.imprimir({
+          nombreEmpresa: 'EuroSoccer Club',
+          logoSrc: '',
+          clienteNombre: keys.FacturarA || p.responsable,
+          fecha: keys.Fecha || p.fechaHoraSalida,
+          lineas,
+          subtotalBruto: total,
+          descuentoTotal: 0,
+          total,
+          esRecibo: true,
+          cajeroNombre: p.usuarioEntrega || this.authService.currentUser()?.username || 'EuroEmpleado',
+          puntoVenta: 'P002'
+        }).then((impreso) => {
+          if (!impreso) {
+            this.messageService.add({ severity: 'warn', summary: 'Impresión bloqueada', detail: 'El navegador bloqueó la ventana del ticket. Habilite las ventanas emergentes para este sitio e intente de nuevo.', life: 9000 });
+          }
+        });
+      },
+      error: () => {
+        this.reimprimiendoId.set(null);
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo recuperar el recibo para reimprimir.' });
+      }
+    });
+  }
+
   abrirModalCobro(res: ReservacionCancha): void {
     this.reservaEnCobro = res;
     this.cobroData = {
@@ -785,35 +864,90 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  openNuevoPrestamoModal(): void {
+  openNuevoPrestamoModal(balon?: Balon): void {
     const disp = this.balonesDisponibles();
     this.nuevoPrestamo = {
-      idBalon: disp.length > 0 ? disp[0].idBalon : 0,
+      idBalon: balon ? balon.idBalon : (disp.length > 0 ? disp[0].idBalon : 0),
       responsable: '',
       documentoIdentidad: '',
-      observacionesSalida: ''
+      observacionesSalida: '',
+      idCancha: 0
     };
+    this.formaPagoPrestamo = 'Efectivo';
     this.displayNuevoPrestamoModal = true;
   }
 
+  /**
+   * Cobro y entrega en un solo paso: recibo contable primero (Facturacion.FACTURA, EsRecibo=1, mismo
+   * puente que usan Canchas y Cafetería) y solo si tiene éxito se registra el préstamo con ese
+   * idFactura — así nunca queda un balón "entregado" sin su respaldo de cobro, ni un cobro huérfano
+   * si el préstamo llegara a fallar (el balón seguiría "Disponible").
+   */
   guardarPrestamo(): void {
     if (!this.nuevoPrestamo.responsable.trim()) {
       this.messageService.add({ severity: 'warn', summary: 'Falta información', detail: 'Por favor indique el responsable del préstamo.' });
       return;
     }
+    // Number(...): el <select> nativo devuelve el value como string tras cualquier cambio del
+    // usuario, aunque [value] reciba un number — hay que normalizarlo antes de comparar y de enviarlo.
+    const idBalon = Number(this.nuevoPrestamo.idBalon);
+    const balon = this.balones().find(b => b.idBalon === idBalon);
+    if (!balon) {
+      this.messageService.add({ severity: 'warn', summary: 'Falta información', detail: 'Seleccione un balón disponible.' });
+      return;
+    }
+    const precio = balon.precioAlquiler;
+    const responsable = this.nuevoPrestamo.responsable;
+    // Number(...): mismo motivo que idBalon — el <select> de cancha devuelve string. 0 = sin cancha.
+    const idCancha = Number(this.nuevoPrestamo.idCancha) || 0;
+    const cancha = idCancha > 0 ? this.canchas().find(c => c.idCancha === idCancha) : undefined;
+    const descripcion = `Alquiler Balón ${balon.codigo} (${balon.marca} N°${balon.numero})` + (cancha ? ` - ${cancha.nombre}` : '');
 
     this.saving.set(true);
-    this.euroService.registrarPrestamo(this.nuevoPrestamo).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.displayNuevoPrestamoModal = false;
-        this.messageService.add({ severity: 'success', summary: 'Préstamo registrado', detail: 'El balón fue entregado correctamente.' });
-        this.cargarBalones();
-        this.cargarPrestamos();
+    this.facturacionBridge.crearRecibo({
+      clienteNombre: responsable,
+      descripcion,
+      monto: precio,
+      formaPago: this.formaPagoPrestamo
+    }).subscribe({
+      next: ({ idFactura }) => {
+        const req: RegistrarPrestamoReq = { ...this.nuevoPrestamo, idBalon, idCancha: idCancha > 0 ? idCancha : undefined, idFactura, montoCobrado: precio };
+        this.euroService.registrarPrestamo(req).subscribe({
+          next: () => {
+            this.saving.set(false);
+            this.displayNuevoPrestamoModal = false;
+            this.messageService.add({ severity: 'success', summary: 'Préstamo registrado', detail: `Cobrado $${precio.toFixed(2)} y balón entregado a ${responsable}.` });
+            this.cargarBalones();
+            this.cargarPrestamos();
+
+            this.ticketService.imprimir({
+              nombreEmpresa: 'EuroSoccer Club',
+              logoSrc: '',
+              clienteNombre: responsable,
+              fecha: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+              lineas: [{ cantidad: 1, unidad: 'UND', descripcion, precio, total: precio }],
+              subtotalBruto: precio,
+              descuentoTotal: 0,
+              total: precio,
+              esRecibo: true,
+              formaPago: this.formaPagoPrestamo,
+              cajeroNombre: this.authService.currentUser()?.username || 'EuroEmpleado',
+              puntoVenta: 'P002'
+            }).then((impreso) => {
+              if (!impreso) {
+                this.messageService.add({ severity: 'warn', summary: 'Impresión bloqueada', detail: 'El navegador bloqueó la ventana del ticket. Habilite las ventanas emergentes para este sitio e intente reimprimir.', life: 9000 });
+              }
+            });
+          },
+          error: (err) => {
+            this.saving.set(false);
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: (err.error?.message || 'El recibo se creó pero no se pudo registrar el préstamo del balón. Contacte a administración.') + ` (Recibo #${idFactura} ya cobrado.)` });
+          }
+        });
       },
       error: (err) => {
         this.saving.set(false);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al registrar el préstamo.' });
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || err.message || 'Error al generar el recibo del alquiler.' });
       }
     });
   }
@@ -915,7 +1049,8 @@ export class DashboardComponent implements OnInit {
       numero: '#5',
       estadoFisico: 'Excelente',
       estadoPrestamo: 'Disponible',
-      activo: true
+      activo: true,
+      precioAlquiler: 5.00
     };
     this.displayBalonModal = true;
   }

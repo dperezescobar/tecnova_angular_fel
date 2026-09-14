@@ -20,7 +20,7 @@
           <span class="font-extrabold text-base sm:text-lg tracking-wider text-white">EURO<span class="text-brand-400 font-black">SOCCER</span></span>
           <span class="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold bg-brand-500/20 text-brand-400 rounded-full border border-brand-500/30">CLUB</span>
         </div>
-        <p class="text-[11px] text-slate-400 hidden md:block">Complejo Deportivo & Academia de Fútbol</p>
+        <p class="text-[11px] text-slate-400 hidden xl:block">Complejo Deportivo & Academia de Fútbol</p>
       </div>
     </div>
 
@@ -33,13 +33,13 @@
       </div>
 
       <!-- Currency Badge -->
-      <div class="hidden sm:flex bg-slate-800/80 border border-slate-700/60 px-2.5 py-1.5 rounded-lg items-center space-x-1 text-xs text-slate-300">
+      <div class="hidden lg:flex bg-slate-800/80 border border-slate-700/60 px-2.5 py-1.5 rounded-lg items-center space-x-1 text-xs text-slate-300">
         <i class="fa-solid fa-dollar-sign text-emerald-400"></i>
         <span class="font-semibold text-white">USD ($)</span>
       </div>
 
       <!-- User Badge -->
-      <div class="bg-slate-800/80 border border-slate-700/60 px-2.5 sm:px-3 py-1.5 rounded-lg items-center space-x-2 text-xs text-slate-300 flex">
+      <div class="hidden sm:flex bg-slate-800/80 border border-slate-700/60 px-2.5 sm:px-3 py-1.5 rounded-lg items-center space-x-2 text-xs text-slate-300">
         <i class="fa-solid fa-user text-brand-400"></i>
         <span class="font-semibold text-white truncate max-w-[120px] sm:max-w-[180px]">{{ authService.currentUser()?.username }}</span>
       </div>
@@ -47,7 +47,7 @@
       <!-- BOTÓN DE SINCRONIZACIÓN / REFRESH RÁPIDO PARA MONITOR TOUCH / KIOSK -->
       <button (click)="refrescarAgenda()" [title]="ultimaSincronizacion() ? 'Última sinc: ' + ultimaSincronizacion() : 'Sincronizar agenda'" class="bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-emerald-400 hover:text-emerald-300 text-xs px-2.5 sm:px-3 py-2 rounded-lg transition flex items-center space-x-1.5 cursor-pointer shadow-sm">
         <i class="fa-solid fa-arrows-rotate" [class.fa-spin]="isRefreshing()"></i>
-        <span class="hidden md:inline font-semibold">Sincronizar</span>
+        <span class="hidden xl:inline font-semibold">Sincronizar</span>
       </button>
 
       <!-- BOTÓN TOGGLE MODO OSCURO / CLARO -->
@@ -65,20 +65,20 @@
       @if (authService.isAdmin()) {
         <button (click)="activeTab.set('admin')" [class]="activeTab() === 'admin' ? 'bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-amber-400 text-white' : 'bg-slate-800 hover:bg-slate-700 border border-amber-500/50 text-amber-400 hover:text-white'" class="font-semibold text-xs px-2.5 sm:px-3.5 py-2 rounded-lg transition flex items-center space-x-1.5 cursor-pointer shadow-md">
           <i class="fa-solid fa-shield-halved"></i>
-          <span class="hidden md:inline">Administración</span>
+          <span class="hidden xl:inline">Administración</span>
         </button>
       }
 
       <!-- Quick New Action Button -->
       <button (click)="openNuevaReservaModal()" class="bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-semibold text-xs px-2.5 sm:px-3.5 py-2 rounded-lg shadow-md shadow-emerald-950 transition flex items-center space-x-1.5 cursor-pointer">
         <i class="fa-solid fa-plus"></i>
-        <span class="hidden md:inline">Nueva Reserva</span>
+        <span class="hidden xl:inline">Nueva Reserva</span>
       </button>
 
       <!-- Logout Button -->
       <button (click)="logout()" title="Cerrar Sesión" class="bg-slate-800 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/40 text-slate-300 hover:text-rose-300 text-xs p-2 sm:px-3 sm:py-2 rounded-lg transition flex items-center space-x-1.5 cursor-pointer">
         <i class="fa-solid fa-right-from-bracket"></i>
-        <span class="hidden sm:inline">Salir</span>
+        <span class="hidden xl:inline">Salir</span>
       </button>
     </div>
   </header>
@@ -108,7 +108,7 @@
         <div>
           <div class="px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Panel Principal</div>
           <nav class="space-y-1">
-            <button (click)="activeTab.set('dashboard')" [class.active]="activeTab() === 'dashboard'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('dashboard')" [class.active]="activeTab() === 'dashboard'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <i class="fa-solid fa-chart-pie w-5 text-center text-brand-400"></i>
               <span>Dashboard Gerencial</span>
             </button>
@@ -123,7 +123,7 @@
               <span>Administración</span>
             </div>
             <nav class="space-y-1">
-              <button (click)="activeTab.set('admin')" [class.active]="activeTab() === 'admin'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+              <button (click)="selectTab('admin')" [class.active]="activeTab() === 'admin'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
                 <div class="flex items-center space-x-3">
                   <i class="fa-solid fa-gear w-5 text-center text-amber-400"></i>
                   <span>Gestión Canchas & Balones</span>
@@ -137,43 +137,43 @@
         <div>
           <div class="px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Unidades de Negocio (6)</div>
           <nav class="space-y-1">
-            <button (click)="activeTab.set('canchas')" [class.active]="activeTab() === 'canchas'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('canchas')" [class.active]="activeTab() === 'canchas'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <i class="fa-solid fa-calendar-check w-5 text-center text-emerald-400"></i>
               <span>1. Alquiler de Canchas</span>
             </button>
-            <button (click)="activeTab.set('balones')" [class.active]="activeTab() === 'balones'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('balones')" [class.active]="activeTab() === 'balones'" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <i class="fa-solid fa-futbol w-5 text-center text-amber-400"></i>
               <span>2. Alquiler de Pelotas</span>
             </button>
-            <button (click)="activeTab.set('torneos')" [class.active]="activeTab() === 'torneos'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('torneos')" [class.active]="activeTab() === 'torneos'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <div class="flex items-center space-x-3">
                 <i class="fa-solid fa-trophy w-5 text-center text-yellow-400"></i>
                 <span>3. Torneos & Ligas</span>
               </div>
               <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded border border-slate-700">Fase 2</span>
             </button>
-            <button (click)="activeTab.set('escuela')" [class.active]="activeTab() === 'escuela'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('escuela')" [class.active]="activeTab() === 'escuela'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <div class="flex items-center space-x-3">
                 <i class="fa-solid fa-graduation-cap w-5 text-center text-sky-400"></i>
                 <span>4. Escuela de Niños</span>
               </div>
               <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded border border-slate-700">Fase 2</span>
             </button>
-            <button (click)="activeTab.set('cafeteria')" [class.active]="activeTab() === 'cafeteria'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('cafeteria')" [class.active]="activeTab() === 'cafeteria'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <div class="flex items-center space-x-3">
                 <i class="fa-solid fa-utensils w-5 text-center text-rose-400"></i>
                 <span>5. Cafetería (POS)</span>
               </div>
               <span class="text-[9px] font-black px-1.5 py-0.5 bg-rose-500/20 text-rose-300 rounded border border-rose-500/30">POS</span>
             </button>
-            <button (click)="activeTab.set('tienda')" [class.active]="activeTab() === 'tienda'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('tienda')" [class.active]="activeTab() === 'tienda'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <div class="flex items-center space-x-3">
                 <i class="fa-solid fa-shirt w-5 text-center text-indigo-400"></i>
                 <span>6. Tienda Deportiva (POS)</span>
               </div>
               <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded border border-slate-700">Fase 2</span>
             </button>
-            <button (click)="activeTab.set('inventario'); cargarInventarioEuro()" [class.active]="activeTab() === 'inventario'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
+            <button (click)="selectTab('inventario'); cargarInventarioEuro()" [class.active]="activeTab() === 'inventario'" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-slate-800/60 transition cursor-pointer">
               <div class="flex items-center space-x-3">
                 <i class="fa-solid fa-boxes-stacked w-5 text-center text-teal-400"></i>
                 <span>7. Control de Inventario</span>
@@ -342,6 +342,7 @@
                       <th class="py-3 px-4">Número</th>
                       <th class="py-3 px-4">Estado Físico</th>
                       <th class="py-3 px-4">Estado Préstamo</th>
+                      <th class="py-3 px-4">Alquiler</th>
                       <th class="py-3 px-4 text-center">Acciones</th>
                     </tr>
                   </thead>
@@ -362,6 +363,7 @@
                             {{ b.estadoPrestamo }}
                           </span>
                         </td>
+                        <td class="py-3 px-4 font-mono font-bold text-emerald-400">${{ b.precioAlquiler | number:'1.2-2' }}</td>
                         <td class="py-3 px-4 text-center">
                           <div class="flex items-center justify-center space-x-2">
                             <button (click)="abrirModalEditarBalon(b)" title="Editar Balón" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
@@ -1009,27 +1011,50 @@
           <!-- Balones Grid -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             @for (balon of balones(); track balon.idBalon) {
-              <div class="glass-card p-4 rounded-2xl relative overflow-hidden" [class.border-amber-500/40]="balon.estadoPrestamo === 'En Uso'">
+              @let prestamo = prestamoDeBalon(balon.idBalon);
+              <div class="glass-card p-4 rounded-2xl relative overflow-hidden flex flex-col" [class.border-amber-500/40]="balon.estadoPrestamo === 'En Uso'">
                 <div class="flex items-center justify-between">
                   <span class="font-mono text-xs font-bold text-slate-400">{{ balon.codigo }}</span>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold" [class]="balon.estadoPrestamo === 'Disponible' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
-                    {{ balon.estadoPrestamo }}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase truncate max-w-[55%]"
+                    [class]="balon.estadoPrestamo === 'Disponible' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : balon.estadoPrestamo === 'En Uso' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
+                    @if (balon.estadoPrestamo === 'En Uso' && prestamo?.nombreCancha) {
+                      En {{ prestamo!.nombreCancha }}
+                    } @else {
+                      {{ balon.estadoPrestamo }}
+                    }
                   </span>
                 </div>
 
                 <div class="my-3 flex items-center space-x-3">
-                  <div class="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-amber-400 text-xl">
+                  <div class="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-amber-400 text-xl shrink-0">
                     <i class="fa-solid fa-futbol"></i>
                   </div>
-                  <div>
-                    <h4 class="font-bold text-sm text-white">{{ balon.marca }}</h4>
-                    <p class="text-[11px] text-slate-400">Balón N° <strong class="text-slate-300">{{ balon.numero }}</strong></p>
+                  <div class="min-w-0">
+                    <h4 class="font-bold text-sm text-white truncate">{{ balon.marca }}</h4>
+                    <p class="text-[11px] text-slate-400 truncate">Talla {{ balon.numero }} · Condición: {{ balon.estadoFisico }}</p>
                   </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Estado físico:</span>
-                  <span class="font-semibold text-slate-200">{{ balon.estadoFisico }}</span>
+                <div class="mt-auto">
+                  @if (prestamo) {
+                    <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 text-[11px] space-y-1 mb-3">
+                      <div class="flex justify-between"><span class="text-slate-500">Responsable:</span><span class="font-semibold text-slate-200 truncate ml-2">{{ prestamo.responsable }}</span></div>
+                      <div class="flex justify-between"><span class="text-slate-500">Hora inicio:</span><span class="font-mono text-emerald-400">{{ prestamo.fechaHoraSalida | date:'shortTime' }}</span></div>
+                    </div>
+                    <button (click)="openDevolucionModal(prestamo)" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white font-bold text-xs transition flex items-center justify-center space-x-1.5 border border-slate-700 cursor-pointer">
+                      <i class="fa-solid fa-inbox"></i>
+                      <span>Registrar Devolución</span>
+                    </button>
+                  } @else if (balon.estadoPrestamo === 'Disponible') {
+                    <button (click)="openNuevoPrestamoModal(balon)" class="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center justify-center space-x-1.5 shadow-md shadow-amber-950/40 cursor-pointer">
+                      <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                      <span>Alquilar Balón (${{ balon.precioAlquiler | number:'1.2-2' }})</span>
+                    </button>
+                  } @else {
+                    <button disabled class="w-full py-2 rounded-xl bg-slate-800/50 text-slate-500 text-xs font-semibold cursor-not-allowed">
+                      {{ balon.estadoPrestamo }}
+                    </button>
+                  }
                 </div>
               </div>
             }
@@ -1059,41 +1084,51 @@
                 <p class="text-xs text-slate-500 mt-0.5">No hay préstamos pendientes de devolución en este momento.</p>
               </div>
             } @else {
-              <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs text-slate-300">
-                  <thead class="bg-slate-900/60 uppercase tracking-wider text-[11px] text-slate-400 border-b border-slate-800">
-                    <tr>
-                      <th class="py-3 px-4">Balón</th>
-                      <th class="py-3 px-4">Responsable</th>
-                      <th class="py-3 px-4">Documento / DUI</th>
-                      <th class="py-3 px-4">Hora Salida</th>
-                      <th class="py-3 px-4">Observaciones</th>
-                      <th class="py-3 px-4">Entregado Por</th>
-                      <th class="py-3 px-4 text-center">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-800/60">
-                    @for (p of prestamosActivos(); track p.idPrestamo) {
-                      <tr class="hover:bg-slate-800/40 transition">
-                        <td class="py-3 px-4 font-mono font-bold text-white">
-                          <i class="fa-solid fa-futbol mr-1 text-amber-400"></i>
-                          {{ p.codigoBalon }} ({{ p.marcaBalon }} {{ p.numeroBalon }})
-                        </td>
-                        <td class="py-3 px-4 font-semibold text-slate-200">{{ p.responsable }}</td>
-                        <td class="py-3 px-4 font-mono text-slate-400">{{ p.documentoIdentidad || '—' }}</td>
-                        <td class="py-3 px-4 font-mono text-emerald-400">{{ p.fechaHoraSalida | date:'shortTime' }}</td>
-                        <td class="py-3 px-4 text-slate-400">{{ p.observacionesSalida || '—' }}</td>
-                        <td class="py-3 px-4 text-slate-400">{{ p.usuarioEntrega }}</td>
-                        <td class="py-3 px-4 text-center">
-                          <button (click)="openDevolucionModal(p)" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center space-x-1.5 mx-auto cursor-pointer">
-                            <i class="fa-solid fa-inbox"></i>
-                            <span>Recibir Balón</span>
-                          </button>
-                        </td>
-                      </tr>
+              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                @for (p of prestamosActivos(); track p.idPrestamo) {
+                  <div class="glass-card p-4 rounded-2xl border border-amber-500/20">
+                    <div class="flex items-center justify-between">
+                      <span class="font-mono text-xs font-bold text-white">
+                        <i class="fa-solid fa-futbol mr-1 text-amber-400"></i>{{ p.codigoBalon }}
+                      </span>
+                      @if (p.nombreCancha) {
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">{{ p.nombreCancha }}</span>
+                      }
+                    </div>
+
+                    <div class="mt-2.5">
+                      <p class="text-sm font-bold text-slate-100 truncate">{{ p.responsable }}</p>
+                      <p class="text-[11px] text-slate-500">{{ p.documentoIdentidad || 'Sin documento' }}</p>
+                    </div>
+
+                    <div class="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px]">
+                      <span class="text-slate-500">Salida <span class="font-mono text-emerald-400">{{ p.fechaHoraSalida | date:'shortTime' }}</span></span>
+                      <span class="font-mono font-bold text-emerald-400">
+                        @if (p.montoCobrado != null) { ${{ p.montoCobrado | number:'1.2-2' }} } @else { — }
+                      </span>
+                    </div>
+
+                    @if (p.observacionesSalida) {
+                      <p class="mt-2 text-[11px] text-slate-500 italic truncate">"{{ p.observacionesSalida }}"</p>
                     }
-                  </tbody>
-                </table>
+
+                    <div class="mt-3 flex items-center space-x-1.5">
+                      <button (click)="openDevolucionModal(p)" class="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-1.5 cursor-pointer">
+                        <i class="fa-solid fa-inbox"></i>
+                        <span>Recibir Balón</span>
+                      </button>
+                      @if (p.idFactura) {
+                        <button (click)="reimprimirReciboBalon(p)" [disabled]="reimprimiendoId() !== null" title="Reimprimir recibo" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+                          @if (reimprimiendoId() === p.idFactura) {
+                            <i class="fa-solid fa-circle-notch fa-spin"></i>
+                          } @else {
+                            <i class="fa-solid fa-receipt"></i>
+                          }
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
               </div>
             }
           </div>
@@ -1239,9 +1274,15 @@
         </div>
       </div>
 
-      <div>
-        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Marca / Modelo</label>
-        <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-amber-500" [(ngModel)]="balonEnEdicion.marca" placeholder="Ej: Nike Strike Pro, Adidas Tiro League" />
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Marca / Modelo</label>
+          <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-amber-500" [(ngModel)]="balonEnEdicion.marca" placeholder="Ej: Nike Strike Pro" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Precio de Alquiler ($ USD)</label>
+          <input type="number" step="0.5" min="0" class="w-full bg-slate-900 border border-emerald-500/60 text-emerald-400 font-mono font-bold rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="balonEnEdicion.precioAlquiler" />
+        </div>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
@@ -1517,6 +1558,30 @@
       </div>
 
       <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Cancha donde se usará</label>
+        <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevoPrestamo.idCancha">
+          <option [value]="0">-- Sin cancha asignada --</option>
+          @for (c of canchas(); track c.idCancha) {
+            <option [value]="c.idCancha">{{ c.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-slate-800/80 border border-amber-500/30 flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Monto a Cobrar</span>
+        <span class="text-lg font-bold text-amber-400 font-mono">${{ precioBalonSeleccionado() | number:'1.2-2' }}</span>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Forma de Pago</label>
+        <select class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="formaPagoPrestamo">
+          <option value="Efectivo">Efectivo</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Tarjeta">Tarjeta</option>
+        </select>
+      </div>
+
+      <div>
         <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Nombre del Responsable</label>
         <input type="text" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500" [(ngModel)]="nuevoPrestamo.responsable" placeholder="Persona que recibe el balón" />
       </div>
@@ -1541,7 +1606,7 @@
             <span>Procesando...</span>
           } @else {
             <i class="fa-solid fa-arrow-right-from-bracket"></i>
-            <span>Registrar Entrega</span>
+            <span>Cobrar y Entregar</span>
           }
         </button>
       </div>

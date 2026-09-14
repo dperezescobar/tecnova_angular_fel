@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Bootstrap Icons: pos-hibrido y otros componentes compartidos con tecnova-erp usan clases bi bi-* */
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+/* .glass-card/.glass-panel se usan en todo el dashboard (canchas, balones, etc.) pero nunca tuvieron
+   una definición base — solo existe el override de modo claro más abajo. Sin esto, en modo oscuro
+   (el default) quedan sin fondo/borde/sombra: se ven "planas", pegadas al fondo, sin verse como card. */
+.glass-panel,
+.glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-card:hover {
+  border-color: rgba(100, 116, 139, 0.6);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.4);
+}
+
 /* PrimeNG Dialog Theme Standardization */
 html.dark {
   .p-dialog {
@@ -165,8 +183,10 @@ html:not(.dark) {
     .text-slate-400 {
       color: #64748b !important;
     }
+    // Antes #94a3b8 (~2.3:1 sobre blanco, ilegible) — este mismo valor se usa mucho como texto
+    // secundario/label ("Responsable:", "Hora inicio:", etc.) sobre fondos casi blancos en modo claro.
     .text-slate-500 {
-      color: #94a3b8 !important;
+      color: #475569 !important;
     }
 
     /* Bloques y fondos interiores */
@@ -181,6 +201,8 @@ html:not(.dark) {
     }
 
     .bg-slate-800,
+    .bg-slate-800\/40,
+    .bg-slate-800\/50,
     .bg-slate-800\/60,
     .bg-slate-800\/70,
     .bg-slate-800\/80,
@@ -188,6 +210,14 @@ html:not(.dark) {
       background-color: #f8fafc !important;
       border: 1px solid #e2e8f0 !important;
       color: #1e293b !important;
+    }
+
+    // bg-slate-950 fuera de .pitch-grass (que ya tiene su propia excepción más abajo): cajas de
+    // estadísticas/paneles internos que quedaban casi negras y translúcidas sobre fondo claro.
+    .bg-slate-950,
+    .bg-slate-950\/40 {
+      background-color: #f1f5f9 !important;
+      border: 1px solid #e2e8f0 !important;
     }
 
     /* Bordes */

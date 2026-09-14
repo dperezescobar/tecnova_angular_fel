@@ -54,6 +54,7 @@ export interface Balon {
   estadoFisico: string;
   estadoPrestamo: string;
   activo: boolean;
+  precioAlquiler: number;
 }
 
 export interface PrestamoBalon {
@@ -72,6 +73,10 @@ export interface PrestamoBalon {
   observacionesEntrega?: string;
   usuarioEntrega: string;
   usuarioRecibe?: string;
+  idFactura?: number;
+  montoCobrado?: number;
+  idCancha?: number;
+  nombreCancha?: string;
 }
 
 export interface RegistrarPrestamoReq {
@@ -80,6 +85,9 @@ export interface RegistrarPrestamoReq {
   responsable: string;
   documentoIdentidad?: string;
   observacionesSalida?: string;
+  idFactura?: number;
+  montoCobrado?: number;
+  idCancha?: number;
 }
 
 export interface DevolucionBalonReq {
