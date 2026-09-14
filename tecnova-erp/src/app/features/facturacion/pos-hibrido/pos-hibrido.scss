@@ -27,6 +27,12 @@
      .pos-item-total, "Venta actual") heredaba el dark:text-slate-100 (#f1f5f9) del shell cuando
      la app estaba en modo oscuro -- casi invisible sobre el fondo blanco fijo del carrito. */
   color: #0f172a;
+  /* Con la app en modo oscuro, el navegador también hereda color-scheme:dark (viene del tema de
+     PrimeNG) y repinta los controles nativos (inputs, spinners) con su fondo oscuro propio --
+     independiente del color de texto de arriba. Resultado: el input de cantidad quedaba con texto
+     oscuro (línea de arriba) sobre fondo gris oscuro nativo, casi invisible. Se fuerza light aquí
+     para que todo control nativo dentro del POS use siempre el chrome claro. */
+  color-scheme: light;
   box-sizing: border-box;
   overflow: hidden; /* el scroll vive dentro del grid y del carrito, no en la página */
 }
