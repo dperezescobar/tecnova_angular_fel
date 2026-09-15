@@ -1,3 +1,8 @@
+export interface SistemaItem {
+  idSistema: number;
+  sistema: string;
+}
+
 export interface UsuarioListado {
   usuario: string;
   nombre: string;
@@ -7,6 +12,8 @@ export interface UsuarioListado {
   bloqueado: boolean;
   createdBy?: string;
   roles?: string[];
+  sistemas?: number[];
+  sistemasNombres?: string[];
 }
 
 export interface UsuarioDetalle {
@@ -18,6 +25,7 @@ export interface UsuarioDetalle {
   bloqueado: boolean;
   politicaNuevoPassword: boolean;
   dui?: string;
+  sistemas?: number[];
 }
 
 export interface UsuarioNuevoRequest {
@@ -30,6 +38,7 @@ export interface UsuarioNuevoRequest {
   dui?: string;
   idEmpresa: number;
   idSistema: number;
+  sistemas?: number[];
 }
 
 export interface UsuarioEditarRequest {
@@ -38,6 +47,7 @@ export interface UsuarioEditarRequest {
   correo: string;
   dui?: string;
   activo: boolean;
+  sistemas?: number[];
 }
 
 export interface ReiniciarPasswordResponse {

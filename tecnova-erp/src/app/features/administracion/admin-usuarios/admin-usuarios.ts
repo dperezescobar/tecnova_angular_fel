@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
@@ -21,13 +21,14 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { UsuariosAdminService } from '../services/usuarios-admin';
 import { RolesAdminService, PermisoRol } from '../services/roles-admin';
 import { AuthService } from '../../../core/services/auth';
-import { ReiniciarPasswordResponse, UsuarioListado } from '../../../core/models/usuarios-admin.models';
+import { ReiniciarPasswordResponse, SistemaItem, UsuarioListado } from '../../../core/models/usuarios-admin.models';
 
 @Component({
   selector: 'app-admin-usuarios',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,
@@ -55,7 +56,9 @@ export class AdminUsuariosComponent {
   private messageService = inject(MessageService);
   private fb = inject(FormBuilder);
 
-  private readonly idSistema = 2;
+  sistemas = signal<SistemaItem[]>([]);
+  sistemaFiltro = signal<number>(2);
+  formSistemas = signal<number[]>([2]);
 
   usuarios = signal<UsuarioListado[]>([]);
   loading = signal(false);
@@ -90,6 +93,14 @@ export class AdminUsuariosComponent {
     { label: 'Inactivo', value: false }
   ];
 
+  sistemaFiltroOptions = computed(() => {
+    const list = this.sistemas().map((s) => ({
+      label: s.sistema,
+      value: s.idSistema
+    }));
+    return [{ label: 'Todos los sistemas', value: 0 }, ...list];
+  });
+
   formTitle = computed(() => (this.isEditMode() ? `Editar usuario ${this.editandoUsuario() ?? ''}` : 'Nuevo usuario'));
 
   filteredUsuarios = computed(() => {
@@ -120,6 +131,7 @@ export class AdminUsuariosComponent {
   });
 
   constructor() {
+    this.loadSistemas();
     this.loadUsuarios();
   }
 
@@ -136,6 +148,18 @@ export class AdminUsuariosComponent {
     this.filterText.set(value);
   }
 
+  onSistemaFiltroChange(value: number) {
+    this.sistemaFiltro.set(value);
+    this.loadUsuarios();
+  }
+
+  loadSistemas() {
+    this.usuariosService.getSistemas().subscribe({
+      next: (list) => this.sistemas.set(list ?? []),
+      error: () => {}
+    });
+  }
+
   loadUsuarios() {
     if (!this.idEmpresa) {
       this.errorMessage.set('No hay una empresa seleccionada.');
@@ -146,7 +170,7 @@ export class AdminUsuariosComponent {
     this.errorMessage.set('');
 
     this.usuariosService
-      .getListado(this.idEmpresa, this.idSistema)
+      .getListado(this.idEmpresa, this.sistemaFiltro())
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (list) => this.usuarios.set(list ?? []),
@@ -154,11 +178,31 @@ export class AdminUsuariosComponent {
       });
   }
 
+  isSistemaSelected(idSistema: number): boolean {
+    return this.formSistemas().includes(idSistema);
+  }
+
+  toggleFormSistema(idSistema: number) {
+    const current = this.formSistemas();
+    if (current.includes(idSistema)) {
+      if (current.length === 1) {
+        this.messageService.add({ severity: 'warn', summary: 'Atención', detail: 'El usuario debe pertenecer al menos a un sistema.' });
+        return;
+      }
+      this.formSistemas.set(current.filter((id) => id !== idSistema));
+    } else {
+      this.formSistemas.set([...current, idSistema]);
+    }
+  }
+
   openCreateForm() {
     this.isEditMode.set(false);
     this.editandoUsuario.set(null);
     this.showForm.set(true);
     this.errorMessage.set('');
+
+    const defaultSis = this.sistemaFiltro() > 0 ? this.sistemaFiltro() : 2;
+    this.formSistemas.set([defaultSis]);
 
     this.usuarioForm.reset({ correo: '', nombre: '', tipo: 'U', dui: '', activo: true, password: '', passwordConfirmar: '' });
     this.usuarioForm.controls.password.setValidators([Validators.required, Validators.minLength(6)]);
@@ -174,6 +218,8 @@ export class AdminUsuariosComponent {
     this.showForm.set(true);
     this.errorMessage.set('');
 
+    this.formSistemas.set(usuario.sistemas && usuario.sistemas.length > 0 ? [...usuario.sistemas] : [2]);
+
     this.usuarioForm.controls.password.clearValidators();
     this.usuarioForm.controls.passwordConfirmar.clearValidators();
     this.usuarioForm.controls.password.updateValueAndValidity();
@@ -185,6 +231,9 @@ export class AdminUsuariosComponent {
       .pipe(finalize(() => this.loadingFormData.set(false)))
       .subscribe({
         next: (detalle) => {
+          if (detalle.sistemas && detalle.sistemas.length > 0) {
+            this.formSistemas.set([...detalle.sistemas]);
+          }
           this.usuarioForm.reset({
             correo: detalle.correoElectronico,
             nombre: detalle.nombre,
@@ -213,6 +262,11 @@ export class AdminUsuariosComponent {
       return;
     }
 
+    if (this.formSistemas().length === 0) {
+      this.errorMessage.set('Debe seleccionar al menos un sistema para el usuario.');
+      return;
+    }
+
     const value = this.usuarioForm.getRawValue();
 
     if (!this.isEditMode() && value.password !== value.passwordConfirmar) {
@@ -236,7 +290,8 @@ export class AdminUsuariosComponent {
           tipo: value.tipo,
           correo: value.correo ?? '',
           dui: value.dui ?? '',
-          activo: !!value.activo
+          activo: !!value.activo,
+          sistemas: this.formSistemas()
         })
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
@@ -250,17 +305,20 @@ export class AdminUsuariosComponent {
       return;
     }
 
+    const mainSistema = this.formSistemas().length > 0 ? this.formSistemas()[0] : (this.sistemaFiltro() > 0 ? this.sistemaFiltro() : 2);
+
     this.usuariosService
       .crear({
-        usuario: value.correo ?? '',
+        usuario: (value.correo ?? '').trim().toUpperCase(),
         password: value.password ?? '',
-        nombre: value.nombre ?? '',
+        nombre: (value.nombre ?? '').trim().toUpperCase(),
         tipo: value.tipo,
-        correo: value.correo ?? '',
+        correo: (value.correo ?? '').trim().toUpperCase(),
         activo: !!value.activo,
         dui: value.dui ?? '',
         idEmpresa: this.idEmpresa,
-        idSistema: this.idSistema
+        idSistema: mainSistema,
+        sistemas: this.formSistemas()
       })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({

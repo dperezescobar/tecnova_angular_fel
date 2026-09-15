@@ -40,7 +40,9 @@ export class UsuariosAdminService {
       activo: this.toBoolean(this.pick(raw, 'activo', 'Activo')),
       bloqueado: this.toBoolean(this.pick(raw, 'bloqueado', 'Bloqueado')),
       createdBy: String(this.pick(raw, 'createdBy', 'CreatedBy') ?? '') || undefined,
-      roles: (this.pick(raw, 'roles', 'Roles') as string[]) ?? []
+      roles: (this.pick(raw, 'roles', 'Roles') as string[]) ?? [],
+      sistemas: ((this.pick(raw, 'sistemas', 'Sistemas') as number[]) ?? []).map(Number),
+      sistemasNombres: (this.pick(raw, 'sistemasNombres', 'SistemasNombres') as string[]) ?? []
     };
   }
 
@@ -53,7 +55,8 @@ export class UsuariosAdminService {
       activo: this.toBoolean(this.pick(raw, 'activo', 'Activo')),
       bloqueado: this.toBoolean(this.pick(raw, 'bloqueado', 'Bloqueado')),
       politicaNuevoPassword: this.toBoolean(this.pick(raw, 'politicaNuevoPassword', 'PoliticaNuevoPassword')),
-      dui: String(this.pick(raw, 'dui', 'DUI') ?? '') || undefined
+      dui: String(this.pick(raw, 'dui', 'DUI') ?? '') || undefined,
+      sistemas: ((this.pick(raw, 'sistemas', 'Sistemas') as number[]) ?? []).map(Number)
     };
   }
 
@@ -64,9 +67,24 @@ export class UsuariosAdminService {
     };
   }
 
-  getListado(idEmpresa: number, idSistema: number): Observable<UsuarioListado[]> {
+  getSistemas(): Observable<{ idSistema: number; sistema: string }[]> {
+    return this.http.get<{ idSistema: number; sistema: string; IdSistema?: number; Sistema?: string }[]>(`${this.apiUrl}/Sistemas`).pipe(
+      map((rows) =>
+        (rows ?? []).map((r) => ({
+          idSistema: Number(r.idSistema ?? r.IdSistema ?? 0),
+          sistema: String(r.sistema ?? r.Sistema ?? '')
+        }))
+      )
+    );
+  }
+
+  getListado(idEmpresa: number, idSistema?: number): Observable<UsuarioListado[]> {
+    const params: Record<string, any> = { idEmpresa };
+    if (idSistema && idSistema > 0) {
+      params['idSistema'] = idSistema;
+    }
     return this.http
-      .get<Record<string, unknown>[]>(`${this.apiUrl}/Listado`, { params: { idEmpresa, idSistema } })
+      .get<Record<string, unknown>[]>(`${this.apiUrl}/Listado`, { params })
       .pipe(map((rows) => (rows ?? []).map((r) => this.normalizeListado(r))));
   }
 

@@ -9,6 +9,18 @@
 
     <div class="header-actions">
       @if (!showForm()) {
+        <div class="sistema-filter">
+          <p-select
+            [options]="sistemaFiltroOptions()"
+            [ngModel]="sistemaFiltro()"
+            (ngModelChange)="onSistemaFiltroChange($event)"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Filtrar por sistema"
+            styleClass="sistema-select"
+          ></p-select>
+        </div>
+
         <span class="search-box">
           <i class="pi pi-search"></i>
           <input
@@ -51,6 +63,7 @@
                 <th>Usuario</th>
                 <th>Nombre</th>
                 <th>Tipo</th>
+                <th>Sistemas</th>
                 <th>Roles Asignados</th>
                 <th>Estado</th>
               </tr>
@@ -79,6 +92,12 @@
                   <td>{{ usuario.tipo === 'A' ? 'Administrador' : 'Usuario' }}</td>
                   <td>
                     <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+                      <span *ngFor="let s of usuario.sistemasNombres" style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px;">{{ s }}</span>
+                      <span *ngIf="!usuario.sistemasNombres?.length" style="font-size: 11px; color: #94a3b8; font-style: italic;">Sin sistema</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
                       <span *ngFor="let r of usuario.roles" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px;">{{ r }}</span>
                       <span *ngIf="!usuario.roles?.length && usuario.tipo === 'A'" style="font-size: 11px; color: #64748b; font-style: italic;">Todos (Admin)</span>
                       <span *ngIf="!usuario.roles?.length && usuario.tipo !== 'A'" style="font-size: 11px; color: #94a3b8; font-style: italic;">Sin roles</span>
@@ -95,7 +114,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6">No se encontraron usuarios con el filtro aplicado.</td>
+                  <td colspan="7">No se encontraron usuarios con el filtro aplicado.</td>
                 </tr>
               }
             </tbody>
@@ -115,6 +134,13 @@
                 <div class="card-row">
                   <span class="card-label">Tipo</span>
                   <span class="card-value">{{ usuario.tipo === 'A' ? 'Administrador' : 'Usuario' }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">Sistemas</span>
+                  <span class="card-value d-flex flex-wrap gap-1">
+                    <span *ngFor="let s of usuario.sistemasNombres" style="background: #f0fdf4; color: #15803d; font-size: 11px; padding: 1px 5px; border-radius: 4px;">{{ s }}</span>
+                    <span *ngIf="!usuario.sistemasNombres?.length" style="font-size: 11px; color: #94a3b8;">Sin sistema</span>
+                  </span>
                 </div>
                 <div class="card-row">
                   <span class="card-label">Roles</span>
@@ -203,6 +229,27 @@
                   <p-password id="passwordConfirmar" formControlName="passwordConfirmar" [feedback]="false" [toggleMask]="true" styleClass="w-full" [inputStyle]="{ width: '100%' }"></p-password>
                 </div>
               }
+
+              <div class="field-item field-wide" style="margin-top: 0.5rem;">
+                <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Sistemas con acceso</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; padding: 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                  @for (sis of sistemas(); track sis.idSistema) {
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <p-checkbox
+                        [binary]="true"
+                        [inputId]="'sis_' + sis.idSistema"
+                        [ngModel]="isSistemaSelected(sis.idSistema)"
+                        [ngModelOptions]="{ standalone: true }"
+                        (onChange)="toggleFormSistema(sis.idSistema)"
+                      ></p-checkbox>
+                      <label [for]="'sis_' + sis.idSistema" style="cursor: pointer; font-size: 0.875rem; font-weight: 500; margin: 0;">
+                        {{ sis.sistema }}
+                      </label>
+                    </div>
+                  }
+                </div>
+                <small style="color: #64748b; margin-top: 0.25rem; display: block;">Seleccione al menos un sistema. El usuario solo podrá acceder a los sistemas marcados.</small>
+              </div>
             </div>
 
             <div class="form-actions">

@@ -85,7 +85,9 @@ export const routes: Routes = [
             },
             {
                 path: 'facturacion/cierre-recibos',
-                loadComponent: () => import('./features/facturacion/cierre-recibos/cierre-recibos').then((m) => m.CierreRecibosComponent)
+                loadComponent: () => import('./features/facturacion/cierre-recibos/cierre-recibos').then((m) => m.CierreRecibosComponent),
+                canActivate: [menuGuard],
+                data: { clave: 'FAC_CIERRE_RECIBOS' }
             },
             {
                 path: 'inventario/ingresos',

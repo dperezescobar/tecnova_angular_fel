@@ -128,10 +128,10 @@
             }
 
 
-            @if (grupoVisible(['FAC_POS','FAC_FAC','FAC_CCF','FAC_NC','FAC_FEX','REP_LIBROS','REP_ANEXOS','REP_CUADRO'])) {
+            @if (grupoVisible(['FAC_POS','FAC_CIERRE_RECIBOS','FAC_FAC','FAC_CCF','FAC_NC','FAC_FEX','REP_LIBROS','REP_ANEXOS','REP_CUADRO'])) {
             <span class="nav-section-label" *ngIf="!isSidebarInIconMode()">Facturación &amp; Reportes</span>
             }
-            @if (grupoVisible(['FAC_POS','FAC_FAC','FAC_CCF','FAC_NC','FAC_FEX'])) {
+            @if (grupoVisible(['FAC_POS','FAC_CIERRE_RECIBOS','FAC_FAC','FAC_CCF','FAC_NC','FAC_FEX'])) {
             <div class="nav-group">
                 <div class="nav-item cursor-pointer" (click)="toggleFacturacion()">
                     <i class="bi bi-cart-check"></i>
@@ -145,7 +145,7 @@
                     @if (puedeVer('FAC_CCF')) { <a routerLink="/facturacion/ccf" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>CCF - Crédito Fiscal</a> }
                     @if (puedeVer('FAC_NC')) { <a routerLink="/facturacion/nc" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>NC - Nota de Crédito</a> }
                     @if (puedeVer('FAC_FEX')) { <a routerLink="/facturacion/fex" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>FEX - Factura de Exportación</a> }
-                    @if (esRoot() || adminAccess()) { <a routerLink="/facturacion/cierre-recibos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Cierre de Recibos</a> }
+                    @if (puedeVer('FAC_CIERRE_RECIBOS')) { <a routerLink="/facturacion/cierre-recibos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Cierre de Recibos</a> }
                 </div>
             </div>
             }
