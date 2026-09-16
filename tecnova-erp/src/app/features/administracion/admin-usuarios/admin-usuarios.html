@@ -330,8 +330,9 @@
           <input 
             type="checkbox" 
             [checked]="isRolSeleccionado(item.rol)" 
-            (change)="toggleRolSeleccionado(item.rol)"
-            style="width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb;" 
+            tabindex="-1"
+            aria-hidden="true"
+            style="width: 16px; height: 16px; accent-color: #2563eb; pointer-events: none;" 
           />
           <div style="flex: 1; min-width: 0;">
             <div style="font-weight: 700; font-size: 13px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">

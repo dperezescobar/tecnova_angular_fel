@@ -480,11 +480,21 @@ export class AdminUsuariosComponent {
     this.showRolesDialog.set(true);
 
     this.rolesService.getRoles().subscribe({
-      next: (catalogo) => this.catalogoRoles.set(catalogo ?? [])
+      next: (catalogo) => {
+        const normalized = (catalogo ?? []).map((c) => ({
+          ...c,
+          rol: (c.rol || '').trim().toUpperCase(),
+          nombre: (c.nombre || c.rol || '').trim().toUpperCase()
+        }));
+        this.catalogoRoles.set(normalized);
+      }
     });
 
     this.rolesService.getRolesUsuario(u.usuario).subscribe({
-      next: (asignados) => this.rolesSeleccionados.set(asignados ?? [])
+      next: (asignados) => {
+        const normalized = (asignados ?? []).map((r) => (r || '').trim().toUpperCase());
+        this.rolesSeleccionados.set(normalized);
+      }
     });
   }
 
@@ -494,18 +504,20 @@ export class AdminUsuariosComponent {
   }
 
   toggleRolSeleccionado(rol: string): void {
-    const list = [...this.rolesSeleccionados()];
-    const index = list.indexOf(rol);
+    const target = (rol || '').trim().toUpperCase();
+    const list = this.rolesSeleccionados().map((r) => (r || '').trim().toUpperCase());
+    const index = list.indexOf(target);
     if (index >= 0) {
       list.splice(index, 1);
     } else {
-      list.push(rol);
+      list.push(target);
     }
     this.rolesSeleccionados.set(list);
   }
 
   isRolSeleccionado(rol: string): boolean {
-    return this.rolesSeleccionados().includes(rol);
+    const target = (rol || '').trim().toUpperCase();
+    return this.rolesSeleccionados().some((r) => (r || '').trim().toUpperCase() === target);
   }
 
   guardarRolesUsuario(): void {
@@ -513,13 +525,16 @@ export class AdminUsuariosComponent {
     if (!usuario || this.savingRoles()) return;
 
     this.savingRoles.set(true);
-    this.rolesService.asignarRolesUsuario(usuario, this.rolesSeleccionados(), this.idEmpresa)
+    const rolesLimpios = Array.from(
+      new Set(this.rolesSeleccionados().map((r) => (r || '').trim().toUpperCase()).filter(Boolean))
+    );
+
+    this.rolesService.asignarRolesUsuario(usuario, rolesLimpios, this.idEmpresa)
       .pipe(finalize(() => this.savingRoles.set(false)))
       .subscribe({
         next: () => {
-          const nuevosRoles = [...this.rolesSeleccionados()];
           this.usuarios.update((items) =>
-            items.map((u) => (u.usuario.toLowerCase() === usuario.toLowerCase() ? { ...u, roles: nuevosRoles } : u))
+            items.map((u) => (u.usuario.toLowerCase() === usuario.toLowerCase() ? { ...u, roles: rolesLimpios } : u))
           );
           this.messageService.add({ severity: 'success', summary: 'Roles Asignados', detail: `Roles actualizados para ${usuario}` });
           this.cerrarModalRoles();
