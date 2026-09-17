@@ -158,6 +158,7 @@ export interface SucursalPuntoVendedorDto {
   Sucursal: string;
   UsuarioAsignado: string;
   ID_EMPRESA: string;
+  BodegaAsignada: string | null;
 }
 
 export interface PerfilClienteDto {

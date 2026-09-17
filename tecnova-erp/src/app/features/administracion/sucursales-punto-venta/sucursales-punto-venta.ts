@@ -19,6 +19,7 @@ import { SucursalesPuntoVentaService } from '../services/sucursales-punto-venta'
 import { UsuariosAdminService } from '../services/usuarios-admin';
 import { AuthService } from '../../../core/services/auth';
 import {
+  BodegaCatalogo,
   CondicionPago,
   PuntoVentaListado,
   Sucursal,
@@ -93,6 +94,8 @@ export class SucursalesPuntoVentaComponent {
   loadingPV = signal(false);
   filterPV = signal('');
   condicionesPago = signal<CondicionPago[]>([]);
+  bodegas = signal<BodegaCatalogo[]>([]);
+  savingBodegaPV = signal<string | null>(null);
   showPVForm = signal(false);
   isEditPV = signal(false);
   editingPV = signal<{ sucursal: string; puntoVenta: string } | null>(null);
@@ -120,6 +123,7 @@ export class SucursalesPuntoVentaComponent {
   });
 
   condicionPagoOptions = computed(() => this.condicionesPago().map((c) => ({ label: c.descripcion, value: c.condicionPago })));
+  bodegaOptions = computed(() => this.bodegas().map((b) => ({ label: `${b.bodega} - ${b.descripcion}`, value: b.bodega })));
 
   // ===== Usuarios/Vendedores asignados (solo al editar un punto de venta existente) =====
   usuariosAsignados = signal<string[]>([]);
@@ -150,6 +154,7 @@ export class SucursalesPuntoVentaComponent {
     this.loadSucursales();
     this.loadPuntosVenta();
     this.service.getCondicionesPago().subscribe({ next: (c) => this.condicionesPago.set(c ?? []) });
+    this.service.getBodegasCatalogo().subscribe({ next: (b) => this.bodegas.set(b ?? []) });
   }
 
   onTabChange(value: string | number | undefined) {
@@ -372,6 +377,35 @@ export class SucursalesPuntoVentaComponent {
         });
       }
     });
+  }
+
+  actualizarBodegaPV(pv: PuntoVentaListado, bodega: string) {
+    if (!bodega || bodega === pv.bodegaAsignada) return;
+
+    const key = `${pv.sucursal}|${pv.puntoVenta}`;
+    this.savingBodegaPV.set(key);
+    this.service
+      .actualizarBodegaPuntoVenta(pv.sucursal, pv.puntoVenta, bodega)
+      .pipe(finalize(() => this.savingBodegaPV.set(null)))
+      .subscribe({
+        next: () => {
+          this.puntosVenta.update((lista) =>
+            lista.map((item) => (item.sucursal === pv.sucursal && item.puntoVenta === pv.puntoVenta ? { ...item, bodegaAsignada: bodega } : item))
+          );
+          this.messageService.add({ severity: 'success', summary: 'Bodega asignada', detail: `${pv.puntoVenta} -> ${bodega}` });
+        },
+        error: (err) => {
+          // El select ya refleja visualmente la selección del usuario aunque el guardado falló;
+          // se recarga desde el servidor para que el combo vuelva al valor real (PrimeNG no revierte
+          // su ngModel solo con un cambio de referencia local).
+          this.loadPuntosVenta();
+          this.messageService.add({
+            severity: 'error',
+            summary: 'No se pudo asignar la bodega',
+            detail: err?.error?.message ?? 'Ocurrió un error al asignar la bodega.'
+          });
+        }
+      });
   }
 
   // ===== Usuarios/Vendedores asignados =====

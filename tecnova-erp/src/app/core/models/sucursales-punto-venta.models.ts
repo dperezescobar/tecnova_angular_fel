@@ -23,6 +23,7 @@ export interface PuntoVentaListado {
   sucursalDescripcion: string;
   codigoMH: string;
   condicionPago: string;
+  bodegaAsignada: string;
 }
 
 export interface PuntoVentaUpsertRequest {
@@ -42,6 +43,11 @@ export interface CondicionPago {
 export interface Vendedor {
   vendedor: string;
   nombre: string;
+}
+
+export interface BodegaCatalogo {
+  bodega: string;
+  descripcion: string;
 }
 
 export interface VendedorPuntoVenta {

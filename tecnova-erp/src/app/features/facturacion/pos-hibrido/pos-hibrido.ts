@@ -601,15 +601,18 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
     const sc = (sp.Sucursal ?? '').trim();
     this.puntoVentaActual.set(pv);
     this.sucursalActual.set(sc);
+
+    // La bodega asignada a cada punto de venta es dato administrable (Facturacion.PUNTO_VENTA.BODEGA_ASIGNADA,
+    // ver "Sucursales y puntos de venta"). Mientras un tenant no la tenga configurada (columna en rollout),
+    // se conserva la heurística anterior (P002/EUROSOCCER -> BODEURO) para no romper el catálogo de EuroSoccer
+    // durante la transición; una vez asignada, el dato administrado siempre gana.
     const pvUpper = pv.toUpperCase();
     const pvDesc = (sp.NombrePV ?? '').trim().toUpperCase();
-    if (pvUpper === 'P002' || pvDesc.includes('EUROSOCCER')) {
-      this._bodega.set('BODEURO');
-      this.posVenta.setBodega('BODEURO');
-    } else {
-      this._bodega.set('BOD01');
-      this.posVenta.setBodega('BOD01');
-    }
+    const fallbackHeuristico = pvUpper === 'P002' || pvDesc.includes('EUROSOCCER') ? 'BODEURO' : 'BOD01';
+    const bodegaAsignada = (sp.BodegaAsignada ?? '').trim().toUpperCase() || fallbackHeuristico;
+    this._bodega.set(bodegaAsignada);
+    this.posVenta.setBodega(bodegaAsignada);
+
     this.grupoActivo.set('');
     this.cargar();
   }

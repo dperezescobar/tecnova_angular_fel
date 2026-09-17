@@ -125,6 +125,11 @@
   white-space: nowrap;
 }
 
+:host ::ng-deep .bodega-select {
+  width: 100%;
+  min-width: 160px;
+}
+
 /* --- FORMULARIO --- */
 .form-panel {
   margin-top: 1rem;

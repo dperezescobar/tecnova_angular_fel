@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import {
+  BodegaCatalogo,
   CondicionPago,
   PuntoVentaListado,
   PuntoVentaUpsertRequest,
@@ -17,6 +18,7 @@ import {
 export class SucursalesPuntoVentaService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/SucursalesPuntoVenta`;
+  private inventarioApiUrl = `${environment.apiUrl}/Inventario`;
 
   private pick(raw: Record<string, unknown>, ...keys: string[]): unknown {
     for (const key of keys) {
@@ -44,7 +46,15 @@ export class SucursalesPuntoVentaService {
       descripcion: String(this.pick(raw, 'descripcion', 'Descripcion') ?? ''),
       sucursalDescripcion: String(this.pick(raw, 'sucursalDescripcion', 'SucursalDescripcion') ?? ''),
       codigoMH: String(this.pick(raw, 'codigoMH', 'CodigoMH') ?? ''),
-      condicionPago: String(this.pick(raw, 'condicionPago', 'CondicionPago') ?? '')
+      condicionPago: String(this.pick(raw, 'condicionPago', 'CondicionPago') ?? ''),
+      bodegaAsignada: String(this.pick(raw, 'bodegaAsignada', 'BodegaAsignada') ?? '')
+    };
+  }
+
+  private normalizeBodega(raw: Record<string, unknown>): BodegaCatalogo {
+    return {
+      bodega: String(this.pick(raw, 'bodega', 'Bodega') ?? ''),
+      descripcion: String(this.pick(raw, 'descripcion', 'Descripcion') ?? '')
     };
   }
 
@@ -113,6 +123,19 @@ export class SucursalesPuntoVentaService {
 
   eliminarPuntoVenta(sucursal: string, puntoVenta: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/PuntosVenta/${encodeURIComponent(sucursal)}/${encodeURIComponent(puntoVenta)}`);
+  }
+
+  actualizarBodegaPuntoVenta(sucursal: string, puntoVenta: string, bodega: string): Observable<void> {
+    return this.http.put<void>(
+      `${this.apiUrl}/PuntosVenta/${encodeURIComponent(sucursal)}/${encodeURIComponent(puntoVenta)}/bodega`,
+      { bodega }
+    );
+  }
+
+  getBodegasCatalogo(): Observable<BodegaCatalogo[]> {
+    return this.http
+      .get<Record<string, unknown>[]>(`${this.inventarioApiUrl}/GetBodegas`)
+      .pipe(map((rows) => (rows ?? []).map((r) => this.normalizeBodega(r))));
   }
 
   // ===== Usuarios asignados =====

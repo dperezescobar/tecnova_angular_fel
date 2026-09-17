@@ -165,6 +165,7 @@
                     <th>Descripción</th>
                     <th>Sucursal</th>
                     <th>Código MH</th>
+                    <th>Bodega asignada</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -178,9 +179,19 @@
                       <td>{{ pv.descripcion }}</td>
                       <td>{{ pv.sucursalDescripcion }}</td>
                       <td>{{ pv.codigoMH }}</td>
+                      <td>
+                        <p-select
+                          [options]="bodegaOptions()"
+                          [ngModel]="pv.bodegaAsignada"
+                          (ngModelChange)="actualizarBodegaPV(pv, $event)"
+                          [disabled]="savingBodegaPV() === (pv.sucursal + '|' + pv.puntoVenta)"
+                          placeholder="Sin asignar"
+                          styleClass="bodega-select"
+                        ></p-select>
+                      </td>
                     </tr>
                   } @empty {
-                    <tr><td colspan="5">No se encontraron puntos de venta con el filtro aplicado.</td></tr>
+                    <tr><td colspan="6">No se encontraron puntos de venta con el filtro aplicado.</td></tr>
                   }
                 </tbody>
               </table>
@@ -192,6 +203,17 @@
                     <div class="card-row"><span class="card-label">Descripción</span><span class="card-value">{{ pv.descripcion }}</span></div>
                     <div class="card-row"><span class="card-label">Sucursal</span><span class="card-value">{{ pv.sucursalDescripcion }}</span></div>
                     <div class="card-row"><span class="card-label">Código MH</span><span class="card-value">{{ pv.codigoMH }}</span></div>
+                    <div class="card-row">
+                      <span class="card-label">Bodega asignada</span>
+                      <p-select
+                        [options]="bodegaOptions()"
+                        [ngModel]="pv.bodegaAsignada"
+                        (ngModelChange)="actualizarBodegaPV(pv, $event)"
+                        [disabled]="savingBodegaPV() === (pv.sucursal + '|' + pv.puntoVenta)"
+                        placeholder="Sin asignar"
+                        styleClass="bodega-select"
+                      ></p-select>
+                    </div>
                     <div class="card-actions">
                       <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar punto de venta" (onClick)="openEditPV(pv)"></p-button>
                       <p-button icon="pi pi-trash" [text]="true" severity="danger" styleClass="action-icon-btn" ariaLabel="Eliminar punto de venta" (onClick)="solicitarEliminarPV(pv)"></p-button>

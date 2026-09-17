@@ -233,7 +233,8 @@ export class FacturacionService {
       PUNTO_VENTA: this.toString(this.pickValue(raw, 'PUNTO_VENTA', 'puntO_VENTA', 'puntoVenta', 'punto_venta')),
       Sucursal: this.toString(this.pickValue(raw, 'Sucursal', 'sucursal', 'SUCURSAL')),
       UsuarioAsignado: this.toString(this.pickValue(raw, 'UsuarioAsignado', 'usuarioAsignado', 'USUARIOASIGNADO')),
-      ID_EMPRESA: this.toString(this.pickValue(raw, 'ID_EMPRESA', 'iD_EMPRESA', 'idEmpresa', 'id_empresa'))
+      ID_EMPRESA: this.toString(this.pickValue(raw, 'ID_EMPRESA', 'iD_EMPRESA', 'idEmpresa', 'id_empresa')),
+      BodegaAsignada: (this.pickValue(raw, 'BodegaAsignada', 'bodegaAsignada', 'BODEGA_ASIGNADA') as string | null) ?? null
     };
   }
 
