@@ -14,6 +14,7 @@ import {
   ArticuloUpdateDto,
   BodegaCatalogoDto,
   GrupoInventarioCatalogoDto,
+  GrupoInventarioCompletoDto,
   GrupoInventarioConsultaDto,
   GrupoInventarioDeleteDto,
   GrupoInventarioUpdateDto,
@@ -249,6 +250,23 @@ export class ArticulosService {
             PuntoVenta: this.toText(this.pick(r, 'PuntoVenta', 'puntoVenta')),
             PuntoVentaNombre: this.toText(this.pick(r, 'PuntoVentaNombre', 'puntoVentaNombre')),
             Asignado: this.toBoolean(this.pick(r, 'Asignado', 'asignado'))
+          }))
+        )
+      );
+  }
+
+  getGruposInventarioCompleto(): Observable<GrupoInventarioCompletoDto[]> {
+    return this.http
+      .get<Array<Record<string, unknown>>>(`${this.apiUrl}/GetGruposInventarioCompleto`)
+      .pipe(
+        map((rows) =>
+          (rows ?? []).map((r) => ({
+            GrupoInventario: this.toText(this.pick(r, 'GrupoInventario', 'grupoInventario', 'GRUPO_INVENTARIO')),
+            Descripcion: this.toText(this.pick(r, 'Descripcion', 'descripcion', 'DESCRIPCION')),
+            Nivel: this.toNumber(this.pick(r, 'Nivel', 'nivel', 'NIVEL'), 1),
+            TotalArticulos: this.toNumber(this.pick(r, 'TotalArticulos', 'totalArticulos'), 0),
+            TotalPvAsignados: this.toNumber(this.pick(r, 'TotalPvAsignados', 'totalPvAsignados'), 0),
+            TotalPvDisponibles: this.toNumber(this.pick(r, 'TotalPvDisponibles', 'totalPvDisponibles'), 0)
           }))
         )
       );

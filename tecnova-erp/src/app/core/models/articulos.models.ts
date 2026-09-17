@@ -95,6 +95,15 @@ export interface GrupoInventarioConsultaDto {
   Descripcion: string;
 }
 
+export interface GrupoInventarioCompletoDto {
+  GrupoInventario: string;
+  Descripcion: string;
+  Nivel: number;
+  TotalArticulos: number;
+  TotalPvAsignados: number;
+  TotalPvDisponibles: number;
+}
+
 export interface PuntoVentaGrupoItemDto {
   Sucursal: string;
   SucursalNombre: string;

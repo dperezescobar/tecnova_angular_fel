@@ -1,0 +1,360 @@
+<section class="grupos-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Encabezado de la página -->
+  <header class="grupos-header">
+    <div class="header-titles">
+      <div class="title-with-badge">
+        <h1>Grupos de Inventario</h1>
+        <p-tag severity="info" [value]="filteredGrupos().length + ' registros'" icon="pi pi-tags"></p-tag>
+      </div>
+      <p class="header-desc">
+        Catálogo y mantenimiento de grupos y subgrupos de inventario con autorización de venta por caja y punto de venta.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <p-button
+        label="Nuevo Grupo / Subgrupo"
+        icon="pi pi-plus"
+        severity="primary"
+        (onClick)="openCreate()"
+      ></p-button>
+      <p-button
+        icon="pi pi-refresh"
+        severity="secondary"
+        [text]="true"
+        pTooltip="Recargar datos"
+        tooltipPosition="bottom"
+        (onClick)="loadGrupos()"
+        [loading]="loading()"
+      ></p-button>
+    </div>
+  </header>
+
+  <!-- Métricas rápidas -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon metric-icon--blue">
+        <i class="pi pi-folder"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Grupos Principales (Nivel 1)</span>
+        <span class="metric-value">{{ totalGruposNivel1() }}</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon metric-icon--purple">
+        <i class="pi pi-folder-open"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Subgrupos (Nivel 2)</span>
+        <span class="metric-value">{{ totalGruposNivel2() }}</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon metric-icon--green">
+        <i class="pi pi-shop"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Control por Punto de Venta</span>
+        <span class="metric-value">Activo</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de filtros -->
+  <div class="toolbar-card">
+    <div class="search-box">
+      <i class="pi pi-search"></i>
+      <input
+        pInputText
+        type="text"
+        placeholder="Buscar por código o descripción..."
+        [value]="filterText()"
+        (input)="filterText.set($any($event.target).value)"
+      />
+      @if (filterText()) {
+        <button type="button" class="btn-clear-search" (click)="filterText.set('')" title="Limpiar búsqueda">
+          <i class="pi pi-times"></i>
+        </button>
+      }
+    </div>
+
+    <div class="filter-controls">
+      <label class="filter-label">Nivel:</label>
+      <p-select
+        [options]="nivelFilterOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="selectedNivelFilter()"
+        (onChange)="onNivelFilterChange($event.value)"
+        styleClass="nivel-filter-select"
+      ></p-select>
+    </div>
+  </div>
+
+  <!-- Tabla de grupos -->
+  <div class="table-card">
+    <p-table
+      [value]="filteredGrupos()"
+      [loading]="loading()"
+      [paginator]="true"
+      [rows]="15"
+      [rowsPerPageOptions]="[10, 15, 25, 50]"
+      styleClass="p-datatable-striped p-datatable-sm"
+      responsiveLayout="scroll"
+      [tableStyle]="{ 'min-width': '52rem' }"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 100px" class="text-center">Acciones</th>
+          <th style="width: 140px">Código</th>
+          <th>Descripción</th>
+          <th style="width: 170px">Nivel</th>
+          <th style="width: 130px" class="text-center">Artículos</th>
+          <th style="width: 230px">Cajas Autorizadas</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-grupo>
+        <tr>
+          <td class="text-center">
+            <div class="action-buttons-cell">
+              <p-button
+                icon="pi pi-pencil"
+                [text]="true"
+                severity="info"
+                pTooltip="Editar grupo y cajas autorizadas"
+                tooltipPosition="top"
+                (onClick)="openEdit(grupo)"
+              ></p-button>
+              <p-button
+                icon="pi pi-trash"
+                [text]="true"
+                severity="danger"
+                pTooltip="Eliminar grupo"
+                tooltipPosition="top"
+                (onClick)="confirmDelete(grupo)"
+              ></p-button>
+            </div>
+          </td>
+
+          <td>
+            <span class="grupo-code-badge">{{ grupo.GrupoInventario }}</span>
+          </td>
+
+          <td>
+            <span class="grupo-desc-text">{{ grupo.Descripcion }}</span>
+          </td>
+
+          <td>
+            @if (grupo.Nivel === 1) {
+              <p-tag severity="info" value="Nivel 1: Grupo" icon="pi pi-folder"></p-tag>
+            } @else {
+              <p-tag severity="secondary" value="Nivel 2: Subgrupo" icon="pi pi-folder-open"></p-tag>
+            }
+          </td>
+
+          <td class="text-center">
+            <span
+              class="articulos-count-badge"
+              [class.has-items]="grupo.TotalArticulos > 0"
+              pTooltip="Artículos que usan este grupo"
+              tooltipPosition="top"
+            >
+              <i class="pi pi-box"></i> {{ grupo.TotalArticulos }}
+            </span>
+          </td>
+
+          <td>
+            @if (grupo.Nivel === 1) {
+              @if (grupo.TotalPvDisponibles === 0) {
+                <span class="pv-status-pill pv-status-pill--none">Sin cajas</span>
+              } @else if (grupo.TotalPvAsignados === grupo.TotalPvDisponibles) {
+                <span class="pv-status-pill pv-status-pill--all" pTooltip="Habilitado en todas las cajas de venta" tooltipPosition="top">
+                  <i class="pi pi-check-circle"></i> Todas ({{ grupo.TotalPvAsignados }}/{{ grupo.TotalPvDisponibles }})
+                </span>
+              } @else if (grupo.TotalPvAsignados > 0) {
+                <span class="pv-status-pill pv-status-pill--partial" pTooltip="Habilitado solo en cajas seleccionadas" tooltipPosition="top">
+                  <i class="pi pi-exclamation-circle"></i> Parcial ({{ grupo.TotalPvAsignados }}/{{ grupo.TotalPvDisponibles }})
+                </span>
+              } @else {
+                <span class="pv-status-pill pv-status-pill--empty" pTooltip="No autorizado en ninguna caja" tooltipPosition="top">
+                  <i class="pi pi-times-circle"></i> Ninguna (0/{{ grupo.TotalPvDisponibles }})
+                </span>
+              }
+            } @else {
+              <span class="pv-status-pill pv-status-pill--subgroup" pTooltip="Hereda los permisos del grupo principal N1" tooltipPosition="top">
+                <i class="pi pi-link"></i> Hereda de Nivel 1
+              </span>
+            }
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="empty-message-cell">
+            <div class="empty-state">
+              <i class="pi pi-inbox"></i>
+              <p>No se encontraron grupos de inventario con los criterios aplicados.</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <!-- Modal Dialog: Crear / Editar Grupo -->
+  <p-dialog
+    [visible]="showDialog()"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [closable]="true"
+    [style]="{ width: 'min(780px, 95vw)' }"
+    [header]="isEditMode() ? 'Editar Grupo: ' + grupoForm.controls.GpoInventario.value : 'Nuevo Grupo de Inventario'"
+    (onHide)="closeDialog()"
+  >
+    <form class="dialog-form" [formGroup]="grupoForm" (ngSubmit)="saveGrupo()">
+      <div class="form-grid">
+        <!-- Nivel -->
+        <div class="form-field full-width">
+          <label for="form-nivel">Nivel del Grupo <span class="required">*</span></label>
+          <p-select
+            inputId="form-nivel"
+            [options]="nivelFormOptions"
+            optionLabel="label"
+            optionValue="value"
+            formControlName="Nivel"
+            (onChange)="onNivelFormChange($event.value)"
+          ></p-select>
+          <small class="field-hint">
+            Los grupos Nivel 1 gestionan de forma directa en qué cajas y puntos de venta se permite vender.
+          </small>
+        </div>
+
+        <!-- Código -->
+        <div class="form-field">
+          <label for="form-codigo">Código <span class="required">*</span></label>
+          <input
+            pInputText
+            id="form-codigo"
+            formControlName="GpoInventario"
+            maxlength="20"
+            placeholder="Ej: BEB, SNK, DEP"
+            class="uppercase-input"
+          />
+          @if (grupoForm.controls.GpoInventario.touched && grupoForm.controls.GpoInventario.errors?.['required']) {
+            <small class="field-error">El código es obligatorio.</small>
+          }
+        </div>
+
+        <!-- Descripción -->
+        <div class="form-field">
+          <label for="form-desc">Descripción <span class="required">*</span></label>
+          <input
+            pInputText
+            id="form-desc"
+            formControlName="Descripcion"
+            maxlength="100"
+            placeholder="Ej: BEBIDAS Y REFRIGERIOS"
+          />
+          @if (grupoForm.controls.Descripcion.touched && grupoForm.controls.Descripcion.errors?.['required']) {
+            <small class="field-error">La descripción es obligatoria.</small>
+          }
+        </div>
+      </div>
+
+      <!-- Sección de Autorización por Punto de Venta (Solo Nivel 1) -->
+      @if (grupoForm.controls.Nivel.value === 1) {
+        <div class="pv-section">
+          <div class="pv-section-header">
+            <div class="pv-title-wrap">
+              <i class="pi pi-shop pv-icon"></i>
+              <div>
+                <h4>Puntos de Venta Autorizados</h4>
+                <p class="pv-subtitle">
+                  Marque las cajas o puntos de venta donde se permitirá facturar artículos de este grupo.
+                </p>
+              </div>
+            </div>
+
+            <div class="pv-quick-actions">
+              <p-button
+                type="button"
+                label="Marcar todas"
+                icon="pi pi-check-square"
+                [text]="true"
+                size="small"
+                (onClick)="setAllPuntosVenta(true)"
+              ></p-button>
+              <p-button
+                type="button"
+                label="Desmarcar todas"
+                icon="pi pi-minus-square"
+                [text]="true"
+                severity="secondary"
+                size="small"
+                (onClick)="setAllPuntosVenta(false)"
+              ></p-button>
+            </div>
+          </div>
+
+          @if (loadingPv()) {
+            <div class="pv-loading-box">
+              <i class="pi pi-spin pi-spinner"></i>
+              <span>Cargando puntos de venta disponibles...</span>
+            </div>
+          } @else {
+            <div class="pv-cards-grid">
+              @for (pv of puntosVenta(); track pv.Sucursal + '|' + pv.PuntoVenta) {
+                <label class="pv-card" [class.is-checked]="pv.Asignado">
+                  <input
+                    type="checkbox"
+                    class="pv-checkbox"
+                    [checked]="pv.Asignado"
+                    (change)="togglePuntoVenta(pv)"
+                  />
+                  <div class="pv-card-info">
+                    <div class="pv-card-code">{{ pv.PuntoVenta }}</div>
+                    <div class="pv-card-name">{{ pv.PuntoVentaNombre }}</div>
+                    <div class="pv-card-branch">{{ pv.SucursalNombre }} ({{ pv.Sucursal }})</div>
+                  </div>
+                </label>
+              } @empty {
+                <div class="pv-empty-box">
+                  <i class="pi pi-info-circle"></i>
+                  <span>No hay puntos de venta configurados en esta empresa.</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Acciones del Modal -->
+      <div class="dialog-actions">
+        <p-button
+          type="button"
+          label="Cancelar"
+          icon="pi pi-times"
+          severity="secondary"
+          [text]="true"
+          (onClick)="closeDialog()"
+        ></p-button>
+        <p-button
+          type="submit"
+          [label]="isEditMode() ? 'Actualizar Grupo' : 'Crear Grupo'"
+          icon="pi pi-save"
+          severity="primary"
+          [loading]="saving()"
+        ></p-button>
+      </div>
+    </form>
+  </p-dialog>
+</section>

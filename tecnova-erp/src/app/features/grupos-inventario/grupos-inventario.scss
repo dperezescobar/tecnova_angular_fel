@@ -1,0 +1,496 @@
+.grupos-page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+// Encabezado
+.grupos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+
+  .header-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+
+    .title-with-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-color, #1e293b);
+        letter-spacing: -0.02em;
+      }
+    }
+
+    .header-desc {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--text-color-secondary, #64748b);
+      max-width: 650px;
+      line-height: 1.4;
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+// Métricas rápidas
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.metric-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  }
+
+  .metric-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+
+    &--blue {
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
+    &--purple {
+      background: #f5f3ff;
+      color: #7c3aed;
+    }
+
+    &--green {
+      background: #f0fdf4;
+      color: #16a34a;
+    }
+  }
+
+  .metric-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    .metric-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-color-secondary, #64748b);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .metric-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text-color, #1e293b);
+    }
+  }
+}
+
+// Barra de herramientas / filtros
+.toolbar-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.25rem;
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: 0.75rem;
+
+  .search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 280px;
+    flex: 1;
+    max-width: 450px;
+
+    i.pi-search {
+      position: absolute;
+      left: 0.85rem;
+      color: var(--text-color-secondary, #94a3b8);
+      font-size: 0.875rem;
+      pointer-events: none;
+    }
+
+    input {
+      width: 100%;
+      padding-left: 2.35rem;
+      padding-right: 2rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .btn-clear-search {
+      position: absolute;
+      right: 0.65rem;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        color: #475569;
+      }
+    }
+  }
+
+  .filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+
+    .filter-label {
+      font-size: 0.825rem;
+      font-weight: 600;
+      color: var(--text-color-secondary, #64748b);
+    }
+
+    .nivel-filter-select {
+      min-width: 210px;
+    }
+  }
+}
+
+// Tabla de grupos
+.table-card {
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.action-buttons-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.grupo-code-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #1e40af;
+  background: #eff6ff;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.35rem;
+  border: 1px solid #dbeafe;
+  letter-spacing: 0.02em;
+}
+
+.grupo-desc-text {
+  font-weight: 600;
+  color: var(--text-color, #1e293b);
+  font-size: 0.875rem;
+}
+
+.articulos-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  background: #f1f5f9;
+  color: #64748b;
+
+  &.has-items {
+    background: #e0f2fe;
+    color: #0369a1;
+  }
+}
+
+// Píldoras de estado de puntos de venta
+.pv-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 1rem;
+
+  &--all {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+
+  &--partial {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+  }
+
+  &--empty {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+
+  &--subgroup {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+  }
+
+  &--none {
+    background: #f1f5f9;
+    color: #94a3b8;
+  }
+}
+
+.empty-message-cell {
+  padding: 3rem 1rem !important;
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    color: #94a3b8;
+
+    i {
+      font-size: 2.25rem;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+  }
+}
+
+// Formulario en Modal Dialog
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-top: 0.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+
+  .full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  label {
+    font-size: 0.825rem;
+    font-weight: 600;
+    color: var(--text-color, #334155);
+
+    .required {
+      color: #ef4444;
+    }
+  }
+
+  .uppercase-input {
+    text-transform: uppercase;
+  }
+
+  .field-hint {
+    font-size: 0.75rem;
+    color: var(--text-color-secondary, #64748b);
+  }
+
+  .field-error {
+    font-size: 0.75rem;
+    color: #ef4444;
+  }
+}
+
+// Sección de Puntos de Venta en el Modal
+.pv-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+
+  .pv-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+
+    .pv-title-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+
+      .pv-icon {
+        font-size: 1.2rem;
+        color: #2563eb;
+        margin-top: 0.15rem;
+      }
+
+      h4 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+      }
+
+      .pv-subtitle {
+        margin: 0.15rem 0 0;
+        font-size: 0.775rem;
+        color: #64748b;
+      }
+    }
+
+    .pv-quick-actions {
+      display: flex;
+      gap: 0.25rem;
+    }
+  }
+
+  .pv-loading-box,
+  .pv-empty-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    font-size: 0.85rem;
+    color: #64748b;
+    background: #ffffff;
+    border-radius: 0.5rem;
+    border: 1px dashed #cbd5e1;
+    justify-content: center;
+  }
+
+  .pv-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 0.65rem;
+  }
+
+  .pv-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.65rem 0.85rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.55rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    user-select: none;
+
+    &:hover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    &.is-checked {
+      border-color: #2563eb;
+      background: #eff6ff;
+      box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .pv-checkbox {
+      margin-top: 0.2rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      accent-color: #2563eb;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .pv-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+      overflow: hidden;
+
+      .pv-card-code {
+        font-size: 0.7rem;
+        font-weight: 700;
+        font-family: monospace;
+        color: #2563eb;
+      }
+
+      .pv-card-name {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pv-card-branch {
+        font-size: 0.725rem;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+}
+
+// Acciones del modal
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+}

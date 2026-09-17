@@ -33,7 +33,7 @@
                 <span *ngIf="!isSidebarInIconMode()">Estrategia y Control de Precios</span>
             </a>
 
-            @if (grupoVisible(['CAT_CLIENTES','CAT_PROVEEDORES','CAT_ARTICULOS'])) {
+            @if (grupoVisible(['CAT_CLIENTES','CAT_PROVEEDORES','CAT_ARTICULOS','CAT_GRUPOS'])) {
             <div class="nav-group">
                 <div class="nav-item cursor-pointer" (click)="toggleCatalogos()">
                     <i class="bi bi-journal-text"></i>
@@ -45,6 +45,7 @@
                     @if (puedeVer('CAT_CLIENTES')) { <a routerLink="/clientes" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Clientes</a> }
                     @if (puedeVer('CAT_PROVEEDORES')) { <a routerLink="/proveedores" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Proveedores</a> }
                     @if (puedeVer('CAT_ARTICULOS')) { <a routerLink="/articulos" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Artículos</a> }
+                    @if (puedeVer('CAT_GRUPOS')) { <a routerLink="/catalogos/grupos-inventario" routerLinkActive="active" class="nav-subitem" (click)="onNavLinkClick()"><span class="nav-subitem-dot" aria-hidden="true"></span>Grupos de inventario</a> }
                 </div>
             </div>
             }

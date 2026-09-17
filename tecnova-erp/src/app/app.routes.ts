@@ -36,6 +36,13 @@ export const routes: Routes = [
             { path: 'clientes', component: ClientesComponent, canActivate: [menuGuard], data: { clave: 'CAT_CLIENTES' } },
             { path: 'proveedores', component: ProveedoresComponent, canActivate: [menuGuard], data: { clave: 'CAT_PROVEEDORES' } },
             { path: 'articulos', component: ArticulosComponent, canActivate: [menuGuard], data: { clave: 'CAT_ARTICULOS' } },
+            {
+                path: 'catalogos/grupos-inventario',
+                loadComponent: () => import('./features/grupos-inventario/grupos-inventario').then((m) => m.GruposInventarioComponent),
+                canActivate: [menuGuard],
+                data: { clave: 'CAT_GRUPOS' }
+            },
+            { path: 'grupos-inventario', redirectTo: 'catalogos/grupos-inventario', pathMatch: 'full' },
             { path: 'facturacion', redirectTo: 'facturacion/fac', pathMatch: 'full' },
             {
                 path: 'facturacion/fac',
