@@ -27,6 +27,7 @@ import {
   ArticuloUpdateDto,
   GrupoInventarioConsultaDto,
   GrupoInventarioUpdateDto,
+  PuntoVentaGrupoItemDto,
   SelectOption
 } from '../../core/models/articulos.models';
 import { AuthService } from '../../core/services/auth';
@@ -100,6 +101,8 @@ articuloCreado = output<string>();
   grupoDialogSelectedCode = signal('');
   grupoDialogLoading = signal(false);
   grupoDialogSaving = signal(false);
+  grupoDialogPuntosVenta = signal<PuntoVentaGrupoItemDto[]>([]);
+  grupoDialogPvLoading = signal(false);
 
   descuentoTipoOptions: SelectOption[] = [
     { value: 'P', label: 'Porcentaje' },
@@ -445,6 +448,11 @@ articuloCreado = output<string>();
     this.grupoDialogSelectedCode.set('');
     this.grupoDialogForm.reset({ GpoInventario: '', Descripcion: '' });
     this.loadGrupoInventarioDialogRows();
+    if (nivel === 1) {
+      this.cargarPuntosVentaGrupo('');
+    } else {
+      this.grupoDialogPuntosVenta.set([]);
+    }
   }
 
   closeGrupoInventarioDialog(refreshOptions: boolean = false, selectedValue: string = '') {
@@ -454,6 +462,8 @@ articuloCreado = output<string>();
     this.grupoDialogSaving.set(false);
     this.grupoDialogRows.set([]);
     this.grupoDialogSelectedCode.set('');
+    this.grupoDialogPuntosVenta.set([]);
+    this.grupoDialogPvLoading.set(false);
     this.grupoDialogForm.reset({ GpoInventario: '', Descripcion: '' });
 
     if (!refreshOptions) {
@@ -496,11 +506,38 @@ articuloCreado = output<string>();
       GpoInventario: row.GrupoInventario,
       Descripcion: row.Descripcion
     });
+    if (this.grupoDialogNivel() === 1) {
+      this.cargarPuntosVentaGrupo(row.GrupoInventario);
+    }
   }
 
   newGrupoInventarioDialog() {
     this.grupoDialogSelectedCode.set('');
     this.grupoDialogForm.reset({ GpoInventario: '', Descripcion: '' });
+    if (this.grupoDialogNivel() === 1) {
+      this.cargarPuntosVentaGrupo('');
+    }
+  }
+
+  cargarPuntosVentaGrupo(grupo: string = '') {
+    this.grupoDialogPvLoading.set(true);
+    this.articulosService
+      .getPuntosVentaPorGrupo(grupo)
+      .pipe(finalize(() => this.grupoDialogPvLoading.set(false)))
+      .subscribe({
+        next: (rows) => this.grupoDialogPuntosVenta.set(rows ?? []),
+        error: () => this.grupoDialogPuntosVenta.set([])
+      });
+  }
+
+  togglePuntoVentaAsignacion(pv: PuntoVentaGrupoItemDto) {
+    this.grupoDialogPuntosVenta.update((list) =>
+      list.map((item) =>
+        item.Sucursal === pv.Sucursal && item.PuntoVenta === pv.PuntoVenta
+          ? { ...item, Asignado: !item.Asignado }
+          : item
+      )
+    );
   }
 
   saveGrupoInventarioDialog() {
@@ -520,7 +557,12 @@ articuloCreado = output<string>();
       Descripcion: descripcion,
       Nivel: nivel,
       Usuario: usuario,
-      Modificar: isModify ? 1 : 0
+      Modificar: isModify ? 1 : 0,
+      PuntosVenta: nivel === 1 ? this.grupoDialogPuntosVenta().map((p) => ({
+        Sucursal: p.Sucursal,
+        PuntoVenta: p.PuntoVenta,
+        Asignado: p.Asignado
+      })) : undefined
     };
 
     this.grupoDialogSaving.set(true);

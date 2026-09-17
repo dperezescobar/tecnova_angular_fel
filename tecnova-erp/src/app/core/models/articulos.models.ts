@@ -95,12 +95,27 @@ export interface GrupoInventarioConsultaDto {
   Descripcion: string;
 }
 
+export interface PuntoVentaGrupoItemDto {
+  Sucursal: string;
+  SucursalNombre: string;
+  PuntoVenta: string;
+  PuntoVentaNombre: string;
+  Asignado: boolean;
+}
+
+export interface PuntoVentaGrupoAsignacionDto {
+  Sucursal: string;
+  PuntoVenta: string;
+  Asignado: boolean;
+}
+
 export interface GrupoInventarioUpdateDto {
   GpoInventario: string;
   Descripcion: string;
   Nivel: number;
   Usuario: string;
   Modificar: number;
+  PuntosVenta?: PuntoVentaGrupoAsignacionDto[];
 }
 
 export interface GrupoInventarioDeleteDto {

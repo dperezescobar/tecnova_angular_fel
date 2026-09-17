@@ -18,6 +18,7 @@ import {
   GrupoInventarioDeleteDto,
   GrupoInventarioUpdateDto,
   ImpuestoCatalogoDto,
+  PuntoVentaGrupoItemDto,
   TipoArticuloCatalogoDto,
   UnidadMedidaCatalogoDto
 } from '../../../core/models/articulos.models';
@@ -231,6 +232,23 @@ export class ArticulosService {
           (rows ?? []).map((r) => ({
             GrupoInventario: this.toText(this.pick(r, 'GrupoInventario', 'grupoInventario', 'GRUPO_INVENTARIO')),
             Descripcion: this.toText(this.pick(r, 'Descripcion', 'descripcion', 'DESCRIPCION'))
+          }))
+        )
+      );
+  }
+
+  getPuntosVentaPorGrupo(grupo: string = ''): Observable<PuntoVentaGrupoItemDto[]> {
+    const params = new HttpParams().set('grupo', (grupo || '').trim());
+    return this.http
+      .get<Array<Record<string, unknown>>>(`${this.apiUrl}/GetPuntosVentaPorGrupo`, { params })
+      .pipe(
+        map((rows) =>
+          (rows ?? []).map((r) => ({
+            Sucursal: this.toText(this.pick(r, 'Sucursal', 'sucursal')),
+            SucursalNombre: this.toText(this.pick(r, 'SucursalNombre', 'sucursalNombre')),
+            PuntoVenta: this.toText(this.pick(r, 'PuntoVenta', 'puntoVenta')),
+            PuntoVentaNombre: this.toText(this.pick(r, 'PuntoVentaNombre', 'puntoVentaNombre')),
+            Asignado: this.toBoolean(this.pick(r, 'Asignado', 'asignado'))
           }))
         )
       );

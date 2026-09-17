@@ -468,11 +468,19 @@ export class FacturacionService {
     );
   }
 
-  getArticulosPorBodega(bodega: string = 'BOD01'): Observable<ArticuloPorBodegaDto[]> {
+  getArticulosPorBodega(
+    bodega: string = 'BOD01',
+    puntoVenta?: string,
+    sucursal?: string
+  ): Observable<ArticuloPorBodegaDto[]> {
     const bodegaNormalized = String(bodega || 'BOD01').trim() || 'BOD01';
-    const cacheKey = `catalogo:articulos:${bodegaNormalized}`;
+    const pvNormalized = String(puntoVenta || '').trim();
+    const scNormalized = String(sucursal || '').trim();
+    const cacheKey = `catalogo:articulos:${bodegaNormalized}:${scNormalized}:${pvNormalized}`;
     return this.getCachedRequest(cacheKey, () => {
-      const params = new HttpParams().set('bodega', bodegaNormalized);
+      let params = new HttpParams().set('bodega', bodegaNormalized);
+      if (pvNormalized) params = params.set('puntoVenta', pvNormalized);
+      if (scNormalized) params = params.set('sucursal', scNormalized);
       return this.http
         .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetArticulosPorBodega`, { params })
         .pipe(map((rows) => (rows ?? []).map((item) => this.mapArticuloPorBodega(item))));

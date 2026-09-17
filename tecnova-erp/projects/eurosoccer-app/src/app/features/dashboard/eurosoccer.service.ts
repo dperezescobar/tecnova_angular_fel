@@ -179,7 +179,7 @@ export class EuroSoccerService {
   }
 
   getCatalogoGeneral(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.baseUrl}/Factura/GetArticulosPorBodega?bodega=BODEURO`);
+    return this.http.get<any[]>(`${this.baseUrl}/Factura/GetArticulosPorBodega?bodega=BODEURO&puntoVenta=P002&sucursal=SC0001`);
   }
 
   guardarMovimiento(req: MovimientoInventarioReq): Observable<{ message: string; documentoInv: number }> {

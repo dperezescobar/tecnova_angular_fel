@@ -453,6 +453,41 @@
           </div>
         </div>
 
+        @if (grupoDialogNivel() === 1) {
+          <div class="pv-asignacion-container">
+            <div class="pv-header">
+              <span class="pv-title"><i class="pi pi-shop"></i> Puntos de Venta autorizados</span>
+              <span class="pv-hint">Selecciona las cajas donde se permite vender productos de este grupo</span>
+            </div>
+
+            @if (grupoDialogPvLoading()) {
+              <div class="pv-loading">
+                <i class="pi pi-spin pi-spinner"></i> Cargando puntos de venta...
+              </div>
+            } @else {
+              <div class="pv-chips-grid">
+                @for (pv of grupoDialogPuntosVenta(); track pv.Sucursal + '|' + pv.PuntoVenta) {
+                  <label class="pv-chip-card" [class.is-active]="pv.Asignado">
+                    <input
+                      type="checkbox"
+                      class="pv-native-cb"
+                      [checked]="pv.Asignado"
+                      (change)="togglePuntoVentaAsignacion(pv)"
+                    />
+                    <div class="pv-chip-content">
+                      <span class="pv-badge">{{ pv.PuntoVenta }}</span>
+                      <span class="pv-name">{{ pv.PuntoVentaNombre }}</span>
+                      <span class="pv-branch">({{ pv.SucursalNombre }})</span>
+                    </div>
+                  </label>
+                } @empty {
+                  <div class="pv-empty">No hay puntos de venta configurados.</div>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <div class="grupo-dialog-actions">
           <p-button
             type="button"

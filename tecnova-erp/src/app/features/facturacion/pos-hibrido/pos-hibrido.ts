@@ -161,6 +161,8 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
     return this._bodega();
   }
   private _bodega = signal<string>('BOD01');
+  puntoVentaActual = signal<string>('');
+  sucursalActual = signal<string>('');
   @Input() @HostBinding('class.embedded') embedded = false;
 
   loading = signal(false);
@@ -366,10 +368,16 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
         this.facturacionService.getSucursalPuntoVendedor(usuarioActual).subscribe({
           next: (rows) => {
             const sp = (rows ?? [])[0];
-            const pv = (sp?.PUNTO_VENTA ?? '').trim().toUpperCase();
+            const pv = (sp?.PUNTO_VENTA ?? '').trim();
+            const sc = (sp?.Sucursal ?? '').trim();
+            this.puntoVentaActual.set(pv);
+            this.sucursalActual.set(sc);
+            const pvUpper = pv.toUpperCase();
             const pvDesc = (sp?.NombrePV ?? '').trim().toUpperCase();
-            if (pv === 'P002' || pvDesc.includes('EUROSOCCER')) {
+            if (pvUpper === 'P002' || pvDesc.includes('EUROSOCCER')) {
               this.bodega = 'BODEURO';
+            } else {
+              this.cargar();
             }
           }
         });
@@ -612,7 +620,7 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
       error: () => this.promociones.set({})
     });
 
-    this.facturacionService.getArticulosPorBodega(this.bodega)
+    this.facturacionService.getArticulosPorBodega(this.bodega, this.puntoVentaActual(), this.sucursalActual())
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (rows) => {

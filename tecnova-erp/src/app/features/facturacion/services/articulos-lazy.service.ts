@@ -20,13 +20,17 @@ export class ArticulosLazyService {
     bodega: string = 'BOD01',
     filtro: string = '',
     skip: number = 0,
-    take: number = 20
+    take: number = 20,
+    puntoVenta?: string,
+    sucursal?: string
   ): Observable<ArticuloPorBodegaDto[]> {
-    const params = new HttpParams()
+    let params = new HttpParams()
       .set('bodega', bodega)
       .set('filtro', filtro)
       .set('skip', skip)
       .set('take', take);
+    if (puntoVenta) params = params.set('puntoVenta', puntoVenta.trim());
+    if (sucursal) params = params.set('sucursal', sucursal.trim());
     return this.http
       .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetArticulosPorBodegaLazy`, { params })
       .pipe(map((rows) => (rows ?? []).map((item) => this.mapArticuloPorBodega(item))));

@@ -446,6 +446,123 @@
   grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
 }
 
+.pv-asignacion-container {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface-border, #e5e7eb) 20%, transparent);
+  border: 1px solid var(--surface-border, #e5e7eb);
+}
+
+.pv-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pv-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-color, #1f2937);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  i {
+    color: var(--primary-color, #0b63f3);
+  }
+}
+
+.pv-hint {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary, #6b7280);
+}
+
+.pv-loading {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary, #6b7280);
+  padding: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pv-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.pv-chip-card {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.55rem;
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e5e7eb);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  user-select: none;
+
+  &:hover {
+    border-color: var(--primary-color, #0b63f3);
+    background: color-mix(in srgb, var(--primary-color, #0b63f3) 4%, var(--surface-card, #ffffff));
+  }
+
+  &.is-active {
+    border-color: var(--primary-color, #0b63f3);
+    background: color-mix(in srgb, var(--primary-color, #0b63f3) 8%, var(--surface-card, #ffffff));
+    box-shadow: 0 1px 3px rgba(11, 99, 243, 0.1);
+  }
+}
+
+.pv-native-cb {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--primary-color, #0b63f3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pv-chip-content {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.82rem;
+}
+
+.pv-badge {
+  font-weight: 700;
+  color: var(--primary-color, #0b63f3);
+  flex-shrink: 0;
+}
+
+.pv-name {
+  font-weight: 600;
+  color: var(--text-color, #1f2937);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pv-branch {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary, #6b7280);
+  flex-shrink: 0;
+}
+
+.pv-empty {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary, #6b7280);
+  font-style: italic;
+  padding: 0.3rem 0;
+}
+
 .grupo-dialog-actions {
   display: flex;
   justify-content: flex-end;
