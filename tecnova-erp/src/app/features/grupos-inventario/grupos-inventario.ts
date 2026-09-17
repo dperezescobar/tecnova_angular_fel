@@ -124,6 +124,11 @@ export class GruposInventarioComponent implements OnInit {
     this.selectedNivelFilter.set(Number(value ?? 0));
   }
 
+  getPuntosVentaList(pvString?: string): string[] {
+    if (!pvString || !pvString.trim()) return [];
+    return pvString.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
   ngOnInit(): void {
     this.loadGrupos();
   }

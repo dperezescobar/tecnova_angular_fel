@@ -172,20 +172,18 @@
 
           <td>
             @if (grupo.Nivel === 1) {
-              @if (grupo.TotalPvDisponibles === 0) {
-                <span class="pv-status-pill pv-status-pill--none">Sin cajas</span>
-              } @else if (grupo.TotalPvAsignados === grupo.TotalPvDisponibles) {
-                <span class="pv-status-pill pv-status-pill--all" pTooltip="Habilitado en todas las cajas de venta" tooltipPosition="top">
-                  <i class="pi pi-check-circle"></i> Todas ({{ grupo.TotalPvAsignados }}/{{ grupo.TotalPvDisponibles }})
-                </span>
-              } @else if (grupo.TotalPvAsignados > 0) {
-                <span class="pv-status-pill pv-status-pill--partial" pTooltip="Habilitado solo en cajas seleccionadas" tooltipPosition="top">
-                  <i class="pi pi-exclamation-circle"></i> Parcial ({{ grupo.TotalPvAsignados }}/{{ grupo.TotalPvDisponibles }})
+              @if (getPuntosVentaList(grupo.PuntosVentaAsignados).length === 0) {
+                <span class="pv-status-pill pv-status-pill--empty" pTooltip="No autorizado en ninguna caja" tooltipPosition="top">
+                  <i class="pi pi-times-circle"></i> Ninguna caja
                 </span>
               } @else {
-                <span class="pv-status-pill pv-status-pill--empty" pTooltip="No autorizado en ninguna caja" tooltipPosition="top">
-                  <i class="pi pi-times-circle"></i> Ninguna (0/{{ grupo.TotalPvDisponibles }})
-                </span>
+                <div class="pv-tags-container">
+                  @for (pvNombre of getPuntosVentaList(grupo.PuntosVentaAsignados); track pvNombre) {
+                    <span class="pv-tag-badge">
+                      <i class="pi pi-shop"></i> {{ pvNombre }}
+                    </span>
+                  }
+                </div>
               }
             } @else {
               <span class="pv-status-pill pv-status-pill--subgroup" pTooltip="Hereda los permisos del grupo principal N1" tooltipPosition="top">

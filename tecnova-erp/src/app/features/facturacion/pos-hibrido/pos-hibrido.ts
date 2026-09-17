@@ -5,7 +5,7 @@ import { Observable, Subject, forkJoin, of } from 'rxjs';
 import { catchError, concatMap, finalize, map, switchMap, tap } from 'rxjs/operators';
 import { FacturacionService } from '../services/facturacion';
 import { ArticulosService } from '../../articulos/services/articulos';
-import { ArticuloPorBodegaDto, FacturaDetalleDto, FacturaGeneralDto, FacturaTotalesDto, FormaPagoDto, PerfilClienteDto } from '../../../core/models/facturacion.models';
+import { ArticuloPorBodegaDto, FacturaDetalleDto, FacturaGeneralDto, FacturaTotalesDto, FormaPagoDto, PerfilClienteDto, SucursalPuntoVendedorDto } from '../../../core/models/facturacion.models';
 import { AuthService } from '../../../core/services/auth';
 import { HttpClient } from '@angular/common/http';
 import { PosSignalRService } from '../../../core/services/pos-signalr.service';
@@ -163,6 +163,7 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
   private _bodega = signal<string>('BOD01');
   puntoVentaActual = signal<string>('');
   sucursalActual = signal<string>('');
+  puntosVentaDisponibles = signal<SucursalPuntoVendedorDto[]>([]);
   @Input() @HostBinding('class.embedded') embedded = false;
 
   loading = signal(false);
@@ -350,7 +351,9 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
 
   constructor() {
     this.posVenta.setBodega(this.bodega);
-    this.cargar();
+    if (this.embedded) {
+      this.cargar();
+    }
     this.cargarClientes();
 
     this.posVenta.getFormasPago().subscribe({
@@ -367,21 +370,19 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
       if (!this.embedded) {
         this.facturacionService.getSucursalPuntoVendedor(usuarioActual).subscribe({
           next: (rows) => {
-            const sp = (rows ?? [])[0];
-            const pv = (sp?.PUNTO_VENTA ?? '').trim();
-            const sc = (sp?.Sucursal ?? '').trim();
-            this.puntoVentaActual.set(pv);
-            this.sucursalActual.set(sc);
-            const pvUpper = pv.toUpperCase();
-            const pvDesc = (sp?.NombrePV ?? '').trim().toUpperCase();
-            if (pvUpper === 'P002' || pvDesc.includes('EUROSOCCER')) {
-              this.bodega = 'BODEURO';
+            const list = rows ?? [];
+            this.puntosVentaDisponibles.set(list);
+            if (list.length > 0) {
+              this.seleccionarPuntoVenta(list[0]);
             } else {
               this.cargar();
             }
-          }
+          },
+          error: () => this.cargar()
         });
       }
+    } else if (!this.embedded) {
+      this.cargar();
     }
     effect(() => { for (const a of this.visibles()) this.cargarImagen(a); });
 
@@ -595,8 +596,36 @@ export class PosHibridoComponent implements OnInit, OnDestroy {
       });
   }
 
+  seleccionarPuntoVenta(sp: SucursalPuntoVendedorDto): void {
+    const pv = (sp.PUNTO_VENTA ?? '').trim();
+    const sc = (sp.Sucursal ?? '').trim();
+    this.puntoVentaActual.set(pv);
+    this.sucursalActual.set(sc);
+    const pvUpper = pv.toUpperCase();
+    const pvDesc = (sp.NombrePV ?? '').trim().toUpperCase();
+    if (pvUpper === 'P002' || pvDesc.includes('EUROSOCCER')) {
+      this._bodega.set('BODEURO');
+      this.posVenta.setBodega('BODEURO');
+    } else {
+      this._bodega.set('BOD01');
+      this.posVenta.setBodega('BOD01');
+    }
+    this.grupoActivo.set('');
+    this.cargar();
+  }
+
+  onCambiarPuntoVenta(pvCodigo: string): void {
+    const target = this.puntosVentaDisponibles().find(
+      (p) => (p.PUNTO_VENTA ?? '').trim().toUpperCase() === String(pvCodigo ?? '').trim().toUpperCase()
+    );
+    if (target) {
+      this.seleccionarPuntoVenta(target);
+    }
+  }
+
   // ── Catálogo & Promociones ───────────────────────────────────────────────
   cargar(): void {
+    this.facturacionService.invalidateCacheByPrefix('catalogo:articulos');
     this.loading.set(true);
     this.objectUrls.forEach((u) => URL.revokeObjectURL(u));
     this.objectUrls = [];

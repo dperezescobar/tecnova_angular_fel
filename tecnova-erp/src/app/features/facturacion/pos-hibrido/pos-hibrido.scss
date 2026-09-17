@@ -52,6 +52,52 @@
   gap: 12px;
 
   h1 { font-size: 18px; font-weight: 700; margin: 0; color: #0f1b2d; white-space: nowrap; }
+
+  .pos-header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pos-pv-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-size: 13px;
+    color: #1d4ed8;
+
+    i { font-size: 14px; color: #2563eb; }
+
+    .pos-pv-select {
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e40af;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+  }
+
+  .pos-pv-single-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+
+    i { font-size: 13px; color: #64748b; }
+  }
 }
 
 .pos-search {

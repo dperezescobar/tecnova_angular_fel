@@ -3,7 +3,29 @@
   <!-- Catálogo -->
   <section class="pos-catalogo">
     <header class="pos-topbar">
-      <h1>Punto de venta</h1>
+      <div class="pos-header-title">
+        <h1>Punto de venta</h1>
+        @if (puntosVentaDisponibles().length > 1) {
+          <div class="pos-pv-picker" title="Punto de venta activo">
+            <i class="bi bi-shop"></i>
+            <select
+              [ngModel]="puntoVentaActual()"
+              (ngModelChange)="onCambiarPuntoVenta($event)"
+              class="pos-pv-select"
+            >
+              @for (p of puntosVentaDisponibles(); track p.PUNTO_VENTA) {
+                <option [value]="p.PUNTO_VENTA">
+                  {{ p.PUNTO_VENTA }} - {{ p.NombrePV || p.PUNTO_VENTA }}
+                </option>
+              }
+            </select>
+          </div>
+        } @else if (puntoVentaActual()) {
+          <span class="pos-pv-single-tag" title="Punto de venta asignado">
+            <i class="bi bi-shop"></i> {{ puntoVentaActual() }}
+          </span>
+        }
+      </div>
       <div class="pos-search">
         <i class="bi bi-search"></i>
         <input

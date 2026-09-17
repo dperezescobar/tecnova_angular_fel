@@ -82,7 +82,7 @@ export class FacturacionService {
     return request$;
   }
 
-  private invalidateCacheByPrefix(prefix: string): void {
+  invalidateCacheByPrefix(prefix: string): void {
     for (const key of Array.from(this.cacheStore.keys())) {
       if (key.startsWith(prefix)) {
         this.cacheStore.delete(key);

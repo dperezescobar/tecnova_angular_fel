@@ -266,7 +266,8 @@ export class ArticulosService {
             Nivel: this.toNumber(this.pick(r, 'Nivel', 'nivel', 'NIVEL'), 1),
             TotalArticulos: this.toNumber(this.pick(r, 'TotalArticulos', 'totalArticulos'), 0),
             TotalPvAsignados: this.toNumber(this.pick(r, 'TotalPvAsignados', 'totalPvAsignados'), 0),
-            TotalPvDisponibles: this.toNumber(this.pick(r, 'TotalPvDisponibles', 'totalPvDisponibles'), 0)
+            TotalPvDisponibles: this.toNumber(this.pick(r, 'TotalPvDisponibles', 'totalPvDisponibles'), 0),
+            PuntosVentaAsignados: this.toText(this.pick(r, 'PuntosVentaAsignados', 'puntosVentaAsignados', 'PUNTOS_VENTA_ASIGNADOS'))
           }))
         )
       );

@@ -102,6 +102,7 @@ export interface GrupoInventarioCompletoDto {
   TotalArticulos: number;
   TotalPvAsignados: number;
   TotalPvDisponibles: number;
+  PuntosVentaAsignados?: string;
 }
 
 export interface PuntoVentaGrupoItemDto {
