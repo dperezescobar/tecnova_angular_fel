@@ -167,8 +167,20 @@
                   </div>
 
                   <div class="field-item check-item">
-                    <label for="activo">Activo</label>
-                    <p-checkbox inputId="activo" [binary]="true" formControlName="Activo"></p-checkbox>
+                    <div class="check-label-row">
+                      <label for="activo">Activo</label>
+                      @if (isCompuesto() && componentes().length < 2) {
+                        <span class="badge-req-activo" title="Requiere al menos 2 componentes para activarse">
+                          <i class="pi pi-lock"></i> Requiere 2+ componentes
+                        </span>
+                      }
+                    </div>
+                    <p-checkbox
+                      inputId="activo"
+                      [binary]="true"
+                      formControlName="Activo"
+                      [disabled]="isCompuesto() && componentes().length < 2"
+                    ></p-checkbox>
                   </div>
 
                   <div class="field-item">
@@ -321,6 +333,123 @@
                   }
                 </div>
               </section>
+
+              @if (isCompuesto()) {
+                <section class="section-card wide-section componentes-card">
+                  <div class="componentes-card-header">
+                    <div class="header-info">
+                      <h3><i class="pi pi-box"></i> Composición del Artículo Compuesto (Kit / Combo)</h3>
+                      <p class="componentes-hint">
+                        Seleccione los artículos terminados (TM) y la cantidad que componen este producto.
+                      </p>
+                    </div>
+                    <div class="componentes-badge-wrap">
+                      <span
+                        class="compuesto-counter-badge"
+                        [class.badge-valid]="componentes().length >= 2"
+                        [class.badge-invalid]="componentes().length < 2"
+                      >
+                        <i class="pi" [class.pi-check-circle]="componentes().length >= 2" [class.pi-exclamation-triangle]="componentes().length < 2"></i>
+                        {{ componentes().length }} / 2 componentes mínimo
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="field-grid componente-add-grid">
+                    <div class="field-item select-articulo-tm">
+                      <label for="articulo-tm-select">Artículo componente (Tipo TM)</label>
+                      <p-select
+                        inputId="articulo-tm-select"
+                        [options]="articulosTmSelectOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        [filter]="true"
+                        filterBy="label"
+                        placeholder="Buscar y seleccionar artículo..."
+                        [ngModel]="componenteSelected()"
+                        (ngModelChange)="componenteSelected.set($event)"
+                        [ngModelOptions]="{standalone: true}"
+                        [disabled]="loadingTmOptions()"
+                      ></p-select>
+                    </div>
+                    <div class="field-item cantidad-item">
+                      <label for="cant-componente">Cantidad unitaria</label>
+                      <p-inputNumber
+                        inputId="cant-componente"
+                        [ngModel]="componenteCantidad()"
+                        (ngModelChange)="componenteCantidad.set($event)"
+                        [ngModelOptions]="{standalone: true}"
+                        [min]="0.0001"
+                        [maxFractionDigits]="4"
+                        [minFractionDigits]="0"
+                        placeholder="Ej. 1"
+                      ></p-inputNumber>
+                    </div>
+                    <div class="field-item inline-action add-componente-btn">
+                      <label>&nbsp;</label>
+                      <div>
+                        <p-button
+                          type="button"
+                          icon="pi pi-plus"
+                          label="Agregar a la composición"
+                          severity="info"
+                          (onClick)="addComponente()"
+                          [disabled]="!componenteSelected() || componenteCantidad() <= 0"
+                        ></p-button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="table-wrap compact">
+                    <table class="nested-table" aria-label="Componentes del artículo compuesto">
+                      <thead>
+                        <tr>
+                          <th class="actions-col">Acción</th>
+                          <th>Código</th>
+                          <th>Descripción</th>
+                          <th>Cantidad</th>
+                          <th>Unidad Medida</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (c of componentes(); track c.ArticuloHijo) {
+                          <tr>
+                            <td class="actions-col">
+                              <p-button
+                                type="button"
+                                icon="pi pi-trash"
+                                [text]="true"
+                                severity="danger"
+                                styleClass="action-icon-btn action-delete"
+                                ariaLabel="Quitar componente"
+                                (onClick)="removeComponente(c.ArticuloHijo)"
+                              ></p-button>
+                            </td>
+                            <td><strong>{{ c.ArticuloHijo }}</strong></td>
+                            <td>{{ c.Descripcion }}</td>
+                            <td><span class="componente-cantidad-badge">{{ c.Cantidad }}</span></td>
+                            <td>{{ c.UnidadMedida || 'UND' }}</td>
+                          </tr>
+                        } @empty {
+                          <tr>
+                            <td colspan="5" class="empty-componentes-msg">
+                              <i class="pi pi-info-circle"></i> No hay artículos componentes registrados aún. Debe agregar al menos 2 artículos tipo TM para poder activar este producto compuesto.
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+
+                  @if (componentes().length < 2) {
+                    <div class="componentes-warning-banner">
+                      <i class="pi pi-exclamation-triangle"></i>
+                      <span><strong>Restricción de activación:</strong> Un producto compuesto requiere al menos 2 artículos componentes registrados para poder activarse (Activo = Sí). Actualmente cuenta con {{ componentes().length }}.</span>
+                    </div>
+                  }
+                </section>
+              }
+
               <section class="section-card imagen-card">
                 <div class="imagen-card-header">
                   <h3>Fotografía del producto</h3>

@@ -5,12 +5,15 @@ import { environment } from '../../../../environments/environment';
 import {
   ArticuloBodegaDeleteDto,
   ArticuloBodegaUpdateDto,
+  ArticuloComponenteDto,
+  ArticuloComponentesGuardarDto,
   ArticuloDetalleDto,
   ArticuloDescuentoUpdateDto,
   ArticuloDto,
   ArticuloImpuestoDeleteDto,
   ArticuloImpuestoUpdateDto,
   ArticuloImagenUploadDto,
+  ArticuloTmCatalogoDto,
   ArticuloUpdateDto,
   BodegaCatalogoDto,
   GrupoInventarioCatalogoDto,
@@ -136,6 +139,13 @@ export class ArticulosService {
                   Activo: this.toNumber(this.pick(d, 'Activo', 'activo')),
                   Articulo: this.toText(this.pick(d, 'Articulo', 'articulo', 'ARTICULO')),
                   FechaIngreso: this.toText(this.pick(d, 'FechaIngreso', 'fechaIngreso'))
+                })),
+            Componentes: this.pickArray(raw, 'Componentes', 'componentes', 'COMPONENTES').map((c) => ({
+                  ArticuloPadre: this.toText(this.pick(c, 'ArticuloPadre', 'articuloPadre', 'ARTICULO_PADRE')),
+                  ArticuloHijo: this.toText(this.pick(c, 'ArticuloHijo', 'articuloHijo', 'ARTICULO_HIJO')),
+                  Descripcion: this.toText(this.pick(c, 'Descripcion', 'descripcion', 'DESCRIPCION')),
+                  UnidadMedida: this.toText(this.pick(c, 'UnidadMedida', 'unidadMedida', 'UNIDAD_MEDIDA')),
+                  Cantidad: this.toNumber(this.pick(c, 'Cantidad', 'cantidad', 'CANTIDAD'))
                 }))
           };
         })
@@ -188,10 +198,12 @@ export class ArticulosService {
       .get<Array<Record<string, unknown>>>(`${this.apiUrl}/GetCatalogoTipoArticulo`)
       .pipe(
         map((rows) =>
-          (rows ?? []).map((r) => ({
-            TipoArticulo: this.toText(this.pick(r, 'TipoArticulo', 'tipoArticulo', 'TIPO_ARTICULO')),
-            Descripcion: this.toText(this.pick(r, 'Descripcion', 'descripcion', 'DESCRIPCION'))
-          }))
+          (rows ?? [])
+            .map((r) => ({
+              TipoArticulo: this.toText(this.pick(r, 'TipoArticulo', 'tipoArticulo', 'TIPO_ARTICULO')),
+              Descripcion: this.toText(this.pick(r, 'Descripcion', 'descripcion', 'DESCRIPCION'))
+            }))
+            .filter((t) => t.TipoArticulo !== 'VN' && !t.Descripcion.toUpperCase().includes('PERECEDERO'))
         )
       );
   }
@@ -307,6 +319,42 @@ export class ArticulosService {
 
   deleteArticulo(articulo: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiUrl}/DeleteArticulo`, { Valor: articulo });
+  }
+
+  getComponentes(articulo: string): Observable<ArticuloComponenteDto[]> {
+    return this.http
+      .get<Array<Record<string, unknown>>>(`${this.apiUrl}/GetComponentes/${encodeURIComponent(articulo)}`)
+      .pipe(
+        map((rows) =>
+          (rows ?? []).map((c) => ({
+            ArticuloPadre: this.toText(this.pick(c, 'ArticuloPadre', 'articuloPadre', 'ARTICULO_PADRE')),
+            ArticuloHijo: this.toText(this.pick(c, 'ArticuloHijo', 'articuloHijo', 'ARTICULO_HIJO')),
+            Descripcion: this.toText(this.pick(c, 'Descripcion', 'descripcion', 'DESCRIPCION')),
+            UnidadMedida: this.toText(this.pick(c, 'UnidadMedida', 'unidadMedida', 'UNIDAD_MEDIDA')),
+            Cantidad: this.toNumber(this.pick(c, 'Cantidad', 'cantidad', 'CANTIDAD'))
+          }))
+        )
+      );
+  }
+
+  saveComponentes(dto: ArticuloComponentesGuardarDto): Observable<{ message: string; totalComponentes?: number; activo?: boolean }> {
+    return this.http.post<{ message: string; totalComponentes?: number; activo?: boolean }>(`${this.apiUrl}/SaveComponentes`, dto);
+  }
+
+  getArticulosTM(filtro: string = ''): Observable<ArticuloTmCatalogoDto[]> {
+    const params = new HttpParams().set('filtro', filtro);
+    return this.http
+      .get<Array<Record<string, unknown>>>(`${this.apiUrl}/GetArticulosTM`, { params })
+      .pipe(
+        map((rows) =>
+          (rows ?? []).map((r) => ({
+            Articulo: this.toText(this.pick(r, 'Articulo', 'articulo', 'ARTICULO')),
+            Descripcion: this.toText(this.pick(r, 'Descripcion', 'descripcion', 'DESCRIPCION')),
+            UnidadMedida: this.toText(this.pick(r, 'UnidadMedida', 'unidadMedida', 'UNIDAD_MEDIDA')),
+            UltimoPrecio: this.toNumber(this.pick(r, 'UltimoPrecio', 'ultimoPrecio', 'ULTIMO_PRECIO'))
+          }))
+        )
+      );
   }
 
   /**

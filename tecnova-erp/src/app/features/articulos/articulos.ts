@@ -19,11 +19,13 @@ import { MessageService } from 'primeng/api';
 import { ArticulosService } from './services/articulos';
 import {
   ArticuloBodegaDto,
+  ArticuloComponenteDto,
   ArticuloDescuentoDto,
   ArticuloDetalleDto,
   ArticuloDto,
   ArticuloDescuentoUpdateDto,
   ArticuloImpuestoDto,
+  ArticuloTmCatalogoDto,
   ArticuloUpdateDto,
   GrupoInventarioConsultaDto,
   GrupoInventarioUpdateDto,
@@ -31,12 +33,14 @@ import {
   SelectOption
 } from '../../core/models/articulos.models';
 import { AuthService } from '../../core/services/auth';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-articulos',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,
@@ -302,9 +306,38 @@ articuloCreado = output<string>();
     Descripcion: ['', [Validators.required]]
   });
 
+  // ── Artículos Compuestos (CM) ───────────────────────────────────────────────
+  componentes = signal<ArticuloComponenteDto[]>([]);
+  articulosTmOptions = signal<ArticuloTmCatalogoDto[]>([]);
+  loadingTmOptions = signal(false);
+  componenteSelected = signal<string>('');
+  componenteCantidad = signal<number>(1);
+  selectedTipoArticulo = signal<string>('');
+
+  isCompuesto = computed(() => {
+    return this.selectedTipoArticulo().trim().toUpperCase() === 'CM';
+  });
+
+  articulosTmSelectOptions = computed(() => {
+    const selectedHijos = new Set(this.componentes().map((c) => c.ArticuloHijo));
+    const currentCode = String(this.articuloForm?.controls?.Articulo?.value ?? '').trim();
+    return this.articulosTmOptions()
+      .filter((item) => !selectedHijos.has(item.Articulo) && item.Articulo !== currentCode)
+      .map((item) => ({
+        value: item.Articulo,
+        label: `${item.Articulo} - ${item.Descripcion} (${item.UnidadMedida || 'UND'})`
+      }));
+  });
+  // ────────────────────────────────────────────────────────────────────────────
+
   constructor() {
     this.loadCatalogos();
     this.loadArticulos();
+
+    this.articuloForm.controls.TipoArticulo.valueChanges.subscribe((tipo) => {
+      this.selectedTipoArticulo.set(String(tipo ?? ''));
+      this.handleTipoArticuloChange(tipo);
+    });
   }
 
   private showSuccess(summary: string, detail: string) {
@@ -313,6 +346,131 @@ articuloCreado = output<string>();
 
   private showError(summary: string, detail: string) {
     this.messageService.add({ severity: 'error', summary, detail });
+  }
+
+  loadArticulosTM() {
+    if (this.articulosTmOptions().length > 0 || this.loadingTmOptions()) {
+      return;
+    }
+    this.loadingTmOptions.set(true);
+    this.articulosService
+      .getArticulosTM()
+      .pipe(finalize(() => this.loadingTmOptions.set(false)))
+      .subscribe({
+        next: (rows) => this.articulosTmOptions.set(rows ?? []),
+        error: () => this.showError('Artículos TM', 'No se pudo cargar el catálogo de artículos terminados.')
+      });
+  }
+
+  syncActivoStateForCompuesto() {
+    if (this.isCompuesto()) {
+      if (this.componentes().length < 2) {
+        this.articuloForm.controls.Activo.setValue(false, { emitEvent: false });
+        this.articuloForm.controls.Activo.disable({ emitEvent: false });
+      } else {
+        this.articuloForm.controls.Activo.enable({ emitEvent: false });
+      }
+    } else {
+      this.articuloForm.controls.Activo.enable({ emitEvent: false });
+    }
+  }
+
+  handleTipoArticuloChange(tipo: string | null) {
+    const isCm = String(tipo ?? '').trim().toUpperCase() === 'CM';
+    if (isCm) {
+      this.loadArticulosTM();
+      this.syncActivoStateForCompuesto();
+    } else {
+      this.articuloForm.controls.Activo.enable({ emitEvent: false });
+    }
+  }
+
+  addComponente() {
+    const codHijo = String(this.componenteSelected() ?? '').trim();
+    const cant = Number(this.componenteCantidad() ?? 0);
+    if (!codHijo || cant <= 0) {
+      this.showError('Componentes', 'Seleccione un artículo TM y especifique una cantidad válida mayor a 0.');
+      return;
+    }
+
+    const tm = this.articulosTmOptions().find((x) => x.Articulo === codHijo);
+    if (!tm) return;
+
+    const exists = this.componentes().some((c) => c.ArticuloHijo === codHijo);
+    if (exists) {
+      this.showError('Componentes', 'El artículo seleccionado ya forma parte de los componentes.');
+      return;
+    }
+
+    const newComp: ArticuloComponenteDto = {
+      ArticuloPadre: this.currentArticuloCode(),
+      ArticuloHijo: tm.Articulo,
+      Descripcion: tm.Descripcion,
+      UnidadMedida: tm.UnidadMedida || 'UND',
+      Cantidad: cant
+    };
+
+    const updated = [...this.componentes(), newComp];
+    this.componentes.set(updated);
+    this.componenteSelected.set('');
+    this.componenteCantidad.set(1);
+    this.syncActivoStateForCompuesto();
+
+    if (this.isEditMode()) {
+      const padre = this.currentArticuloCode();
+      if (padre) {
+        this.articulosService
+          .saveComponentes({
+            ArticuloPadre: padre,
+            Componentes: updated.map((c) => ({ ArticuloHijo: c.ArticuloHijo, Cantidad: c.Cantidad }))
+          })
+          .subscribe({
+            next: (res) => {
+              this.showSuccess('Componentes', 'Componente agregado correctamente.');
+              if (res.activo !== undefined) {
+                this.articuloForm.patchValue({ Activo: res.activo }, { emitEvent: false });
+                this.syncActivoStateForCompuesto();
+              }
+            },
+            error: () => {
+              this.showError('Componentes', 'No se pudo guardar el componente en el servidor.');
+            }
+          });
+      }
+    } else {
+      this.showSuccess('Componentes', 'Componente agregado. Se guardará con el artículo.');
+    }
+  }
+
+  removeComponente(codHijo: string) {
+    const updated = this.componentes().filter((c) => c.ArticuloHijo !== codHijo);
+    this.componentes.set(updated);
+    this.syncActivoStateForCompuesto();
+
+    if (this.isEditMode()) {
+      const padre = this.currentArticuloCode();
+      if (padre) {
+        this.articulosService
+          .saveComponentes({
+            ArticuloPadre: padre,
+            Componentes: updated.map((c) => ({ ArticuloHijo: c.ArticuloHijo, Cantidad: c.Cantidad }))
+          })
+          .subscribe({
+            next: (res) => {
+              this.showSuccess('Componentes', 'Componente eliminado correctamente.');
+              if (res.activo !== undefined) {
+                this.articuloForm.patchValue({ Activo: res.activo }, { emitEvent: false });
+                this.syncActivoStateForCompuesto();
+              }
+            },
+            error: () => {
+              this.showError('Componentes', 'No se pudo eliminar el componente en el servidor.');
+            }
+          });
+      }
+    } else {
+      this.showSuccess('Componentes', 'Componente removido de la captura actual.');
+    }
   }
 
   onFilterChange(value: string) {
@@ -358,7 +516,9 @@ articuloCreado = output<string>();
     this.articulosService.getCatalogoTipoArticulo().subscribe({
       next: (rows) => {
         this.tipoArticuloOptions.set(
-          (rows ?? []).map((item) => ({ value: item.TipoArticulo, label: item.Descripcion || item.TipoArticulo }))
+          (rows ?? [])
+            .filter((item) => item.TipoArticulo !== 'VN' && !item.Descripcion.toUpperCase().includes('PERECEDERO'))
+            .map((item) => ({ value: item.TipoArticulo, label: item.Descripcion || item.TipoArticulo }))
         );
         this.ensureDefaultSelectionsForCreate();
       }
@@ -657,6 +817,11 @@ articuloCreado = output<string>();
     this.impuestosDetalle.set([]);
     this.bodegasDetalle.set([this.buildDefaultBodega()]);
     this.descuentosDetalle.set([]);
+    this.componentes.set([]);
+    this.componenteSelected.set('');
+    this.componenteCantidad.set(1);
+    this.selectedTipoArticulo.set(this.getDefaultTipoArticulo());
+    this.syncActivoStateForCompuesto();
     this.revocarPreviewSiEsObjectUrl();
     this.imagenPreview.set(null);
     this.imagenPendiente.set(null);
@@ -727,6 +892,12 @@ articuloCreado = output<string>();
     this.impuestosDetalle.set(detalle.Impuestos ?? []);
     this.bodegasDetalle.set((detalle.Bodegas ?? []).length > 0 ? (detalle.Bodegas ?? []) : [this.buildDefaultBodega()]);
     this.descuentosDetalle.set(detalle.Descuentos ?? []);
+    this.selectedTipoArticulo.set(tipoArticuloValue);
+    this.componentes.set(detalle.Componentes ?? []);
+    if (String(tipoArticuloValue ?? '').trim().toUpperCase() === 'CM') {
+      this.loadArticulosTM();
+    }
+    this.syncActivoStateForCompuesto();
   }
 
   private buildDefaultBodega(): ArticuloBodegaDto {
@@ -837,6 +1008,9 @@ articuloCreado = output<string>();
     this.revocarPreviewSiEsObjectUrl();
     this.imagenPreview.set(null);
     this.imagenPendiente.set(null);
+    this.componentes.set([]);
+    this.componenteSelected.set('');
+    this.componenteCantidad.set(1);
   }
 
   deleteArticulo(item: ArticuloDto) {
@@ -1107,6 +1281,16 @@ this.articulosService.deleteArticulo(codigo).subscribe({
     const currentUser = this.authService.currentUser()?.username ?? 'WEB';
     const modificar = Number(values.Modificar ?? (this.isEditMode() ? 1 : 0)) === 1 ? 1 : 0;
 
+    if (this.isCompuesto()) {
+      if (values.Activo && this.componentes().length < 2) {
+        this.showError('Artículo Compuesto', 'No se puede activar un artículo compuesto que tenga menos de 2 productos componentes.');
+        return;
+      }
+    }
+
+    const isCm = String(values.TipoArticulo ?? '').trim().toUpperCase() === 'CM';
+    const activoVal = isCm && this.componentes().length < 2 ? false : !!values.Activo;
+
     const articuloPayload: ArticuloUpdateDto = {
       Articulo: values.Articulo ?? '',
       Descripcion: values.Descripcion ?? '',
@@ -1118,7 +1302,7 @@ this.articulosService.deleteArticulo(codigo).subscribe({
       TipoArticulo: values.TipoArticulo ?? '',
       ExistenciaMinima: Number(values.ExistenciaMinima ?? 0),
       ExistenciaMaxima: Number(values.ExistenciaMaxima ?? 0),
-      Activo: !!values.Activo,
+      Activo: activoVal,
       MetodoCosteoInterno: 'PR',
       ArticuloCuenta: String(values.ArticuloCuenta ?? '').trim() || 'NA',
       UnidadMedida: values.UnidadMedida ?? '',
@@ -1150,6 +1334,29 @@ this.articulosService.deleteArticulo(codigo).subscribe({
             UsuarioCreacion: currentUser,
             Activo: articuloPayload.Activo
           };
+
+          if (this.isCompuesto()) {
+            this.articulosService
+              .saveComponentes({
+                ArticuloPadre: articuloResumen.Articulo,
+                Componentes: this.componentes().map((c) => ({
+                  ArticuloHijo: c.ArticuloHijo,
+                  Cantidad: c.Cantidad
+                }))
+              })
+              .subscribe({
+                next: (res) => {
+                  if (res.activo !== undefined) {
+                    articuloResumen.Activo = res.activo;
+                    this.articuloForm.patchValue({ Activo: res.activo }, { emitEvent: false });
+                    this.syncActivoStateForCompuesto();
+                  }
+                },
+                error: () => {
+                  this.showError('Componentes', 'No se pudieron registrar los componentes del artículo compuesto.');
+                }
+              });
+          }
 
           if (modificar === 1) {
             this.articulos.update((list) =>

@@ -32,6 +32,31 @@ export interface ArticuloDescuentoDto {
   FechaIngreso: string;
 }
 
+export interface ArticuloComponenteDto {
+  ArticuloPadre: string;
+  ArticuloHijo: string;
+  Descripcion: string;
+  UnidadMedida: string;
+  Cantidad: number;
+}
+
+export interface ArticuloComponenteItemDto {
+  ArticuloHijo: string;
+  Cantidad: number;
+}
+
+export interface ArticuloComponentesGuardarDto {
+  ArticuloPadre: string;
+  Componentes: ArticuloComponenteItemDto[];
+}
+
+export interface ArticuloTmCatalogoDto {
+  Articulo: string;
+  Descripcion: string;
+  UnidadMedida: string;
+  UltimoPrecio: number;
+}
+
 export interface ArticuloDetalleDto extends Omit<ArticuloDto, 'Activo'> {
   GrupoInventario1: string;
   Des1: string;
@@ -63,6 +88,7 @@ export interface ArticuloDetalleDto extends Omit<ArticuloDto, 'Activo'> {
   Bodegas: ArticuloBodegaDto[];
   Impuestos: ArticuloImpuestoDto[];
   Descuentos: ArticuloDescuentoDto[];
+  Componentes?: ArticuloComponenteDto[];
 }
 
 export interface ImpuestoCatalogoDto {
