@@ -197,6 +197,23 @@ export class AdminGestionPreciosComponent implements OnInit {
     return parts[0].trim();
   }
 
+  // Al seleccionar un articulo en el dialogo, precarga sus precios vigentes (Menudeo/Mayoreo)
+  // en vez de dejar los campos en cero — evita sobrescribir por error un precio existente.
+  onArticuloPrecioSeleccionado(valor: string) {
+    const cod = this.extractCodigo(valor || '');
+    if (!cod) return;
+
+    const vigentes = this.precios().filter(p => p.articulo.toUpperCase() === cod.toUpperCase());
+    const menudeo = vigentes.find(p => p.tipoPrecioID === this.tipoMenudeo()?.tipoPrecioID);
+    const mayoreo = vigentes.find(p => p.tipoPrecioID === this.tipoMayoreo()?.tipoPrecioID);
+
+    this.precioForm.patchValue({
+      precioMenudeo: menudeo?.precio ?? 0,
+      precioMayoreo: mayoreo?.precio ?? 0,
+      cantidadMinimaMayoreo: mayoreo?.cantidadMinima ?? 1
+    });
+  }
+
   // CRUD PRECIOS
   abrirNuevoPrecio() {
     this.precioForm.reset({ precioMenudeo: 0, precioMayoreo: 0, cantidadMinimaMayoreo: 1 });

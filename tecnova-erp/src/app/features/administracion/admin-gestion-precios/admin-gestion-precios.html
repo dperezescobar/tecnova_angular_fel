@@ -174,7 +174,7 @@
   <form [formGroup]="precioForm" (ngSubmit)="guardarPrecio()" class="p-fluid dialog-form-grid">
     <div class="form-field-group">
       <label class="form-field-label">Artículo de Catálogo</label>
-      <p-autoComplete formControlName="articulo" [suggestions]="articuloSuggestions()" (completeMethod)="onArticuloComplete($event.query)" placeholder="Buscar por código o nombre..." [dropdown]="true" appendTo="body" [style]="{'width': '100%'}"></p-autoComplete>
+      <p-autoComplete formControlName="articulo" [suggestions]="articuloSuggestions()" (completeMethod)="onArticuloComplete($event.query)" (onSelect)="onArticuloPrecioSeleccionado($event.value)" placeholder="Buscar por código o nombre..." [dropdown]="true" appendTo="body" [style]="{'width': '100%'}"></p-autoComplete>
     </div>
 
     <p class="text-muted small mb-0">Complete uno o ambos precios; se guardan juntos al presionar Guardar.</p>
