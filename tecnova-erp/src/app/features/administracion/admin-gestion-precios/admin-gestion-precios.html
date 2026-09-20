@@ -170,32 +170,34 @@
 </div>
 
 <!-- DIÁLOGO CREAR / EDITAR PRECIO -->
-<p-dialog header="Asignar Precio / Escala de Mayoreo" [(visible)]="displayPrecioDialog" [modal]="true" [style]="{ width: '540px', 'max-width': '95vw' }">
+<p-dialog header="Asignar Precio (Menudeo y Mayoreo)" [(visible)]="displayPrecioDialog" [modal]="true" [style]="{ width: '540px', 'max-width': '95vw' }">
   <form [formGroup]="precioForm" (ngSubmit)="guardarPrecio()" class="p-fluid dialog-form-grid">
     <div class="form-field-group">
       <label class="form-field-label">Artículo de Catálogo</label>
       <p-autoComplete formControlName="articulo" [suggestions]="articuloSuggestions()" (completeMethod)="onArticuloComplete($event.query)" placeholder="Buscar por código o nombre..." [dropdown]="true" appendTo="body" [style]="{'width': '100%'}"></p-autoComplete>
     </div>
 
+    <p class="text-muted small mb-0">Complete uno o ambos precios; se guardan juntos al presionar Guardar.</p>
+
     <div class="form-field-group">
-      <label class="form-field-label">Tipo de Tarifa / Nivel</label>
-      <p-select formControlName="tipoPrecioID" [options]="tiposPrecio()" optionLabel="nombre" optionValue="tipoPrecioID" placeholder="Seleccione tarifa..." appendTo="body" [style]="{'width': '100%'}"></p-select>
+      <label class="form-field-label">Precio Menudeo ($)</label>
+      <p-inputNumber formControlName="precioMenudeo" mode="currency" currency="USD" locale="en-US" [minFractionDigits]="2" [maxFractionDigits]="4" [style]="{'width': '100%'}"></p-inputNumber>
     </div>
 
     <div class="form-row-2col">
       <div class="form-field-group">
-        <label class="form-field-label">Cantidad Mínima</label>
-        <p-inputNumber formControlName="cantidadMinima" [min]="1" placeholder="Ej: 12" [style]="{'width': '100%'}"></p-inputNumber>
+        <label class="form-field-label">Precio Mayoreo ($)</label>
+        <p-inputNumber formControlName="precioMayoreo" mode="currency" currency="USD" locale="en-US" [minFractionDigits]="2" [maxFractionDigits]="4" [style]="{'width': '100%'}"></p-inputNumber>
       </div>
       <div class="form-field-group">
-        <label class="form-field-label">Precio Unitario ($)</label>
-        <p-inputNumber formControlName="precio" mode="currency" currency="USD" locale="en-US" [minFractionDigits]="2" [maxFractionDigits]="4" [style]="{'width': '100%'}"></p-inputNumber>
+        <label class="form-field-label">Cant. Mínima Mayoreo</label>
+        <p-inputNumber formControlName="cantidadMinimaMayoreo" [min]="1" placeholder="Ej: 12" [style]="{'width': '100%'}"></p-inputNumber>
       </div>
     </div>
 
     <div class="dialog-actions">
       <p-button label="Cancelar" styleClass="p-button-text p-button-secondary" (onClick)="displayPrecioDialog.set(false)"></p-button>
-      <p-button label="Guardar Precio" icon="pi pi-check" styleClass="p-button-primary" [loading]="isSaving()" type="submit"></p-button>
+      <p-button label="Guardar Precio(s)" icon="pi pi-check" styleClass="p-button-primary" [loading]="isSaving()" type="submit"></p-button>
     </div>
   </form>
 </p-dialog>

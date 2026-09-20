@@ -1,6 +1,7 @@
 import { Component, inject, signal, OnInit, computed, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { forkJoin, Observable } from 'rxjs';
 
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -71,13 +72,16 @@ export class AdminGestionPreciosComponent implements OnInit {
   isSaving = signal(false);
   sinPermiso = signal(false);
 
-  // Formulario Precios (Pilares 1, 2, 3)
+  // Formulario Precios (Pilares 1, 2, 3) — guarda Menudeo y Mayoreo en una sola accion
   precioForm = this.fb.group({
     articulo: ['', [Validators.required]],
-    tipoPrecioID: [1, [Validators.required]],
-    precio: [0, [Validators.required, Validators.min(0)]],
-    cantidadMinima: [1, [Validators.required, Validators.min(1)]]
+    precioMenudeo: [0, [Validators.min(0)]],
+    precioMayoreo: [0, [Validators.min(0)]],
+    cantidadMinimaMayoreo: [1, [Validators.min(1)]]
   });
+
+  tipoMenudeo = computed(() => this.tiposPrecio().find(t => !t.esMayoreo) ?? null);
+  tipoMayoreo = computed(() => this.tiposPrecio().find(t => t.esMayoreo) ?? null);
 
   // Formulario Promociones (Pilar 4)
   promoForm = this.fb.group({
@@ -195,7 +199,7 @@ export class AdminGestionPreciosComponent implements OnInit {
 
   // CRUD PRECIOS
   abrirNuevoPrecio() {
-    this.precioForm.reset({ tipoPrecioID: 1, precio: 0, cantidadMinima: 1 });
+    this.precioForm.reset({ precioMenudeo: 0, precioMayoreo: 0, cantidadMinimaMayoreo: 1 });
     this.displayPrecioDialog.set(true);
   }
 
@@ -208,15 +212,36 @@ export class AdminGestionPreciosComponent implements OnInit {
       return;
     }
 
+    const llamadas: Observable<{ message: string }>[] = [];
+    const tipoMenudeo = this.tipoMenudeo();
+    const tipoMayoreo = this.tipoMayoreo();
+
+    if ((val.precioMenudeo ?? 0) > 0 && tipoMenudeo) {
+      llamadas.push(this.service.guardarPrecio({
+        articulo: cod,
+        tipoPrecioID: tipoMenudeo.tipoPrecioID,
+        precio: val.precioMenudeo!,
+        cantidadMinima: 1
+      }));
+    }
+    if ((val.precioMayoreo ?? 0) > 0 && tipoMayoreo) {
+      llamadas.push(this.service.guardarPrecio({
+        articulo: cod,
+        tipoPrecioID: tipoMayoreo.tipoPrecioID,
+        precio: val.precioMayoreo!,
+        cantidadMinima: val.cantidadMinimaMayoreo || 1
+      }));
+    }
+
+    if (llamadas.length === 0) {
+      this.showError('Error', 'Ingrese al menos un precio (Menudeo o Mayoreo).');
+      return;
+    }
+
     this.isSaving.set(true);
-    this.service.guardarPrecio({
-      articulo: cod,
-      tipoPrecioID: val.tipoPrecioID ?? 1,
-      precio: val.precio ?? 0,
-      cantidadMinima: val.cantidadMinima ?? 1
-    }).subscribe({
-      next: (res) => {
-        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: res.message });
+    forkJoin(llamadas).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Precio(s) actualizado(s) correctamente.' });
         this.displayPrecioDialog.set(false);
         this.cargarPrecios();
       },
