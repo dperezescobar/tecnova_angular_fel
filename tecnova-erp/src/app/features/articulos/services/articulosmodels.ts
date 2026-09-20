@@ -67,7 +67,9 @@ export class ArticulosService {
       UltimoPrecio: this.toNumber(this.pick(raw, 'UltimoPrecio', 'ultimoPrecio', 'ULTIMO_PRECIO')),
       MaterialId: this.toNumber(this.pick(raw, 'MaterialId', 'materialId', 'MATERIALID')),
       UsuarioCreacion: this.toText(this.pick(raw, 'UsuarioCreacion', 'usuarioCreacion', 'Usuario_creacion')),
-      Activo: this.toBoolean(this.pick(raw, 'Activo', 'activo', 'ACTIVO'))
+      Activo: this.toBoolean(this.pick(raw, 'Activo', 'activo', 'ACTIVO')),
+      TieneImagen: this.toBoolean(this.pick(raw, 'TieneImagen', 'tieneImagen', 'TIENE_IMAGEN')),
+      GrupoInventario: this.toText(this.pick(raw, 'GrupoInventario', 'grupoInventario', 'GRUPO_INVENTARIO_1'))
     };
   }
 

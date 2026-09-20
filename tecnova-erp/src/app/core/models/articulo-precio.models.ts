@@ -6,6 +6,14 @@ export interface ArticuloPrecioGuardarRequest {
   usuario: string;
 }
 
+export interface ArticuloDoblePrecioGuardarRequest {
+  articulo: string;
+  precioUnidad: number;
+  precioMayoreo?: number | null;
+  cantidadMinimaMayoreo?: number | null;
+  usuario: string;
+}
+
 export interface ArticuloPrecioVigenteResponse {
   articulo: string;
   tipoPrecio: string;
@@ -13,4 +21,6 @@ export interface ArticuloPrecioVigenteResponse {
   cantidadMinima: number;
   fechaInicio: string; 
   articulodescripcion: string;
+  tieneImagen?: boolean;
+  grupoInventario?: string;
 }

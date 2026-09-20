@@ -297,7 +297,7 @@
             </div>
 
             <!-- Fila de ingreso: Cantidad + Precios de Venta en Catálogo -->
-            <div class="entry-fields-grid">
+            <div class="entry-fields-grid" [class.entry-fields-grid--single]="operacion() !== 'INGRESO'">
               <!-- Bloque 1: Cantidad de Entrada -->
               <div class="entry-card entry-card--qty">
                 <div class="entry-card-header">
@@ -306,7 +306,7 @@
                 </div>
                 <div class="entry-card-body">
                   <div class="field-item">
-                    <label for="cantidad-input">Unidades a Ingresar</label>
+                    <label for="cantidad-input">{{ labelCantidadHero() }}</label>
                     <div class="qty-input-wrapper">
                       <input type="number" id="cantidad-input"
                         (focus)="selectInputText($event)"
@@ -319,56 +319,58 @@
                 </div>
               </div>
 
-              <!-- Bloque 2: Catálogo de Precios (Opcional) -->
-              <div class="entry-card entry-card--prices">
-                <div class="entry-card-header">
-                  <div class="flex align-items-center gap-2">
-                    <i class="pi pi-tags" aria-hidden="true"></i>
-                    <span>2. PRECIO DE VENTA ACTUAL (CATÁLOGO)</span>
-                  </div>
-                  <span class="price-badge-pill">Opcional</span>
-                </div>
-                <div class="entry-card-body prices-grid-body">
-                  <div class="price-input-box">
-                    <div class="price-input-header">
-                      <span class="price-title">Por Unidad</span>
-                      <span class="price-badge-mini">P.V.P.</span>
+              <!-- Bloque 2: Catálogo de Precios (Opcional - Solo para Ingreso) -->
+              @if (operacion() === 'INGRESO') {
+                <div class="entry-card entry-card--prices">
+                  <div class="entry-card-header">
+                    <div class="flex align-items-center gap-2">
+                      <i class="pi pi-tags" aria-hidden="true"></i>
+                      <span>2. PRECIO DE VENTA ACTUAL (CATÁLOGO)</span>
                     </div>
-                    <p-inputNumber
-                      formControlName="precioUnitario"
-                      mode="currency" currency="USD" locale="en-US"
-                      [showButtons]="false"
-                      class="price-number-input"
-                      (onFocus)="selectInputText($event)">
-                    </p-inputNumber>
+                    <span class="price-badge-pill">Opcional</span>
                   </div>
-
-                  <div class="price-input-box price-input-box--mayoreo">
-                    <div class="price-input-header">
-                      <span class="price-title">Por Mayoreo</span>
-                      <span class="price-badge-mini">Volumen</span>
-                    </div>
-                    <div class="mayoreo-inputs-inline">
+                  <div class="entry-card-body prices-grid-body">
+                    <div class="price-input-box">
+                      <div class="price-input-header">
+                        <span class="price-title">Por Unidad</span>
+                        <span class="price-badge-mini">P.V.P.</span>
+                      </div>
                       <p-inputNumber
-                        formControlName="precioMayoreo"
+                        formControlName="precioUnitario"
                         mode="currency" currency="USD" locale="en-US"
                         [showButtons]="false"
                         class="price-number-input"
                         (onFocus)="selectInputText($event)">
                       </p-inputNumber>
-                      <div class="min-units-inline">
-                        <span class="min-label">Mín. Uds</span>
+                    </div>
+
+                    <div class="price-input-box price-input-box--mayoreo">
+                      <div class="price-input-header">
+                        <span class="price-title">Por Mayoreo</span>
+                        <span class="price-badge-mini">Volumen</span>
+                      </div>
+                      <div class="mayoreo-inputs-inline">
                         <p-inputNumber
-                          formControlName="cantidadMinimaMayoreo"
+                          formControlName="precioMayoreo"
+                          mode="currency" currency="USD" locale="en-US"
                           [showButtons]="false"
-                          class="min-qty-input-clean"
+                          class="price-number-input"
                           (onFocus)="selectInputText($event)">
                         </p-inputNumber>
+                        <div class="min-units-inline">
+                          <span class="min-label">Mín. Uds</span>
+                          <p-inputNumber
+                            formControlName="cantidadMinimaMayoreo"
+                            [showButtons]="false"
+                            class="min-qty-input-clean"
+                            (onFocus)="selectInputText($event)">
+                          </p-inputNumber>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              }
             </div>
 
             <!-- Botón Agregar con estilo destacado y profesional -->

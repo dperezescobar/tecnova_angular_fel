@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signa
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { catchError, finalize, firstValueFrom, map, of } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -70,6 +70,46 @@ articuloCreado = output<string>();
   errorMessage = signal('');
   successMessage = signal('');
   filterText = signal('');
+  verImagenes = signal(false);
+  showPdfDialog = signal(false);
+  exportandoPdf = signal(false);
+  exportandoEnSegundoPlano = signal(false);
+  exportProgresoTexto = signal('');
+  exportGrupoFiltro = signal('');
+  exportSoloActivos = signal(false);
+  articuloImagenesUrls = signal<Record<string, string>>({});
+  private loadingArticuloImageCodes = new Set<string>();
+  private cancelExportRequested = false;
+
+  gruposDisponibles = computed(() => {
+    const list = this.articulos();
+    const set = new Set<string>();
+    for (const item of list) {
+      const g = (item.GrupoInventario ?? '').trim();
+      if (g) set.add(g);
+    }
+    return Array.from(set).sort();
+  });
+
+  itemsParaExportar = computed(() => {
+    let list = this.articulos();
+    const grupo = this.exportGrupoFiltro().trim();
+    if (grupo) {
+      list = list.filter(a => (a.GrupoInventario ?? '').trim().toUpperCase() === grupo.toUpperCase());
+    }
+    if (this.exportSoloActivos()) {
+      list = list.filter(a => a.Activo);
+    }
+    const query = this.filterText().toLowerCase().trim();
+    if (query) {
+      list = list.filter(a =>
+        a.Articulo.toLowerCase().includes(query) ||
+        a.Descripcion.toLowerCase().includes(query) ||
+        a.TipoArticulo.toLowerCase().includes(query)
+      );
+    }
+    return list;
+  });
 
   showDetail = signal(false);
   isEditMode = signal(false);
@@ -265,6 +305,195 @@ articuloCreado = output<string>();
       );
     });
   });
+
+  toggleVerImagenes(checked: boolean): void {
+    this.verImagenes.set(checked);
+  }
+
+  getArticuloImagenUrl(codigo: string): string | null {
+    if (!this.verImagenes()) return null;
+    const url = this.articuloImagenesUrls()[codigo];
+    if (url) return url;
+    if (!this.loadingArticuloImageCodes.has(codigo)) {
+      this.cargarImagenArticulo(codigo);
+    }
+    return null;
+  }
+
+  private cargarImagenArticulo(codigo: string): void {
+    this.loadingArticuloImageCodes.add(codigo);
+    this.articulosService.getArticuloImagen(codigo).pipe(
+      map(blob => URL.createObjectURL(blob)),
+      catchError(() => of(null)),
+      finalize(() => this.loadingArticuloImageCodes.delete(codigo))
+    ).subscribe(url => {
+      if (url) {
+        this.articuloImagenesUrls.update(prev => ({ ...prev, [codigo]: url }));
+      }
+    });
+  }
+
+  cancelarExportacion(): void {
+    this.cancelExportRequested = true;
+    this.exportProgresoTexto.set('Cancelando exportación...');
+  }
+
+  async exportarExcel() {
+    const list = this.itemsParaExportar();
+    if (!list || list.length === 0) {
+      this.messageService.add({ severity: 'info', summary: 'Sin datos', detail: 'No hay artículos para exportar.' });
+      return;
+    }
+
+    try {
+      const XLSX = await import('xlsx');
+      const rows = list.map(item => ({
+        'Artículo': item.Articulo,
+        'Descripción': item.Descripcion,
+        'Grupo': item.GrupoInventario || 'Sin Grupo',
+        'Tipo Artículo': item.TipoArticulo,
+        'Precio': Number(item.UltimoPrecio || 0),
+        'Disponible': item.Activo ? 'Sí' : 'No'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Catálogo');
+      XLSX.writeFile(workbook, `Catalogo_Articulos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Catálogo exportado a Excel.' });
+      this.showPdfDialog.set(false);
+    } catch {
+      this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el archivo Excel.' });
+    }
+  }
+
+  async ejecutarExportarPdf(conImagenes: boolean) {
+    const list = this.itemsParaExportar();
+    if (!list || list.length === 0) {
+      this.messageService.add({ severity: 'info', summary: 'Sin datos', detail: 'No hay artículos para exportar.' });
+      this.showPdfDialog.set(false);
+      return;
+    }
+
+    // Si es con fotos, cerramos el diálogo inmediatamente y procesamos en segundo plano
+    if (conImagenes) {
+      this.showPdfDialog.set(false);
+      this.exportandoEnSegundoPlano.set(true);
+      this.cancelExportRequested = false;
+      this.exportProgresoTexto.set('Iniciando exportación con imágenes...');
+    } else {
+      this.exportandoPdf.set(true);
+    }
+
+    try {
+      const [{ default: JsPdf }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+      ]);
+
+      const doc = new JsPdf({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+      doc.setFontSize(14);
+      doc.text('Catálogo de Artículos', 40, 40);
+      doc.setFontSize(9);
+      const grupoText = this.exportGrupoFiltro() ? `Grupo: ${this.exportGrupoFiltro()}   |   ` : '';
+      doc.text(`${grupoText}Fecha de exportación: ${new Date().toLocaleDateString('es-SV')}   |   Total artículos: ${list.length}`, 40, 56);
+
+      const imageMap: Record<string, string> = {};
+
+      if (conImagenes) {
+        const articulosConImg = list.filter(a => a.TieneImagen);
+        const totalConImg = articulosConImg.length;
+        const batchSize = 5;
+
+        for (let i = 0; i < totalConImg; i += batchSize) {
+          if (this.cancelExportRequested) {
+            this.messageService.add({ severity: 'info', summary: 'Cancelado', detail: 'La exportación fue cancelada.' });
+            this.exportandoEnSegundoPlano.set(false);
+            return;
+          }
+
+          const batch = articulosConImg.slice(i, i + batchSize);
+          this.exportProgresoTexto.set(`Descargando fotos: ${Math.min(i + batchSize, totalConImg)} de ${totalConImg}...`);
+
+          await Promise.all(batch.map(async (art) => {
+            try {
+              const blob = await firstValueFrom(this.articulosService.getArticuloImagen(art.Articulo));
+              const dataUrl = await this.blobToDataUrl(blob);
+              imageMap[art.Articulo] = dataUrl;
+            } catch {}
+          }));
+
+          // Yield al event loop para que el usuario pueda trabajar libremente
+          await new Promise(resolve => setTimeout(resolve, 15));
+        }
+
+        this.exportProgresoTexto.set('Generando documento PDF...');
+      }
+
+      const headers = conImagenes
+        ? [['Img', 'Artículo', 'Descripción', 'Grupo', 'Tipo', 'Precio', 'Estado']]
+        : [['Artículo', 'Descripción', 'Grupo', 'Tipo', 'Precio', 'Estado']];
+
+      const body = list.map(item => {
+        const row = [
+          item.Articulo,
+          item.Descripcion,
+          item.GrupoInventario || '-',
+          item.TipoArticulo,
+          `$${Number(item.UltimoPrecio || 0).toFixed(2)}`,
+          item.Activo ? 'Activo' : 'Inactivo'
+        ];
+        return conImagenes ? ['', ...row] : row;
+      });
+
+      autoTable(doc, {
+        startY: 68,
+        head: headers,
+        body: body,
+        styles: { fontSize: 8, cellPadding: conImagenes ? 2 : 4 },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+        columnStyles: conImagenes ? {
+          0: { cellWidth: 32, minCellHeight: 30 },
+          5: { halign: 'right' },
+          6: { halign: 'center' }
+        } : {
+          4: { halign: 'right' },
+          5: { halign: 'center' }
+        },
+        margin: { left: 40, right: 40 },
+        didDrawCell: (data) => {
+          if (conImagenes && data.section === 'body' && data.column.index === 0) {
+            const item = list[data.row.index];
+            const base64 = imageMap[item.Articulo];
+            if (base64) {
+              try {
+                doc.addImage(base64, 'JPEG', data.cell.x + 3, data.cell.y + 3, 24, 24);
+              } catch {}
+            }
+          }
+        }
+      });
+
+      doc.save(`catalogo_articulos_${new Date().toISOString().slice(0, 10)}.pdf`);
+      this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Catálogo exportado a PDF.' });
+      this.showPdfDialog.set(false);
+    } catch {
+      this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el PDF del catálogo.' });
+    } finally {
+      this.exportandoPdf.set(false);
+      this.exportandoEnSegundoPlano.set(false);
+    }
+  }
+
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
 
   detailTitle = computed(() => (this.isEditMode() ? 'Editar Artículo' : 'Nuevo Artículo'));
   modoMttoTexto = computed(() => (this.isModoEdicionValue() ? 'Edición' : 'Alta'));

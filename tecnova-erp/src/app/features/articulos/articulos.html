@@ -19,6 +19,12 @@
           />
         </span>
 
+        <label class="toggle-ver-imagenes" title="Mostrar u ocultar fotos en la lista">
+          <input type="checkbox" [checked]="verImagenes()" (change)="toggleVerImagenes($any($event.target).checked)" />
+          <span>Ver imágenes</span>
+        </label>
+
+        <p-button label="Exportar PDF" icon="pi pi-file-pdf" severity="secondary" [outlined]="true" (onClick)="showPdfDialog.set(true)" [loading]="exportandoPdf()"></p-button>
         <p-button label="Recargar" icon="pi pi-refresh" (onClick)="loadArticulos()" [disabled]="loadingList()"></p-button>
         <p-button label="Nuevo Artículo" icon="pi pi-plus" severity="info" (onClick)="openCreate()"></p-button>
       } @else {
@@ -41,6 +47,9 @@
             <thead>
               <tr>
                 <th class="actions-col">Acciones</th>
+                @if (verImagenes()) {
+                  <th class="img-col">Foto</th>
+                }
                 <th>Artículo</th>
                 <th>Descripción</th>
                 <th>Tipo</th>
@@ -68,6 +77,19 @@
                       (onClick)="deleteArticulo(item)"
                     ></p-button>
                   </td>
+                  @if (verImagenes()) {
+                    <td class="img-col">
+                      <div class="table-thumb-box">
+                        @if (item.TieneImagen && getArticuloImagenUrl(item.Articulo)) {
+                          <img [src]="getArticuloImagenUrl(item.Articulo)!" class="table-thumb-img" width="36" height="36" loading="lazy" />
+                        } @else if (item.TieneImagen) {
+                          <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
+                        } @else {
+                          <div class="thumb-none"><i class="pi pi-image"></i></div>
+                        }
+                      </div>
+                    </td>
+                  }
                   <td>{{ item.Articulo }}</td>
                   <td>{{ item.Descripcion }}</td>
                   <td>{{ item.TipoArticulo }}</td>
@@ -79,7 +101,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="5">No se encontraron artículos con el filtro actual.</td>
+                  <td [attr.colspan]="verImagenes() ? 6 : 5">No se encontraron artículos con el filtro actual.</td>
                 </tr>
               }
             </tbody>
@@ -88,6 +110,15 @@
           <div class="list-mobile-cards" aria-label="Listado de artículos en móvil">
             @for (item of filteredArticulos(); track item.Articulo) {
               <article class="list-mobile-card">
+                @if (verImagenes() && item.TieneImagen) {
+                  <div class="mobile-card-thumb-wrap">
+                    @if (getArticuloImagenUrl(item.Articulo)) {
+                      <img [src]="getArticuloImagenUrl(item.Articulo)!" class="mobile-card-thumb" width="60" height="60" loading="lazy" />
+                    } @else {
+                      <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
+                    }
+                  </div>
+                }
                 <div class="card-row">
                   <span class="card-label">Artículo</span>
                   <span class="card-value">{{ item.Articulo }}</span>
@@ -695,4 +726,85 @@
       ></p-button>
     </ng-template>
   </p-dialog>
+
+  <p-dialog
+    header="Exportar Catálogo de Artículos"
+    [(visible)]="showPdfDialog"
+    [modal]="true"
+    [style]="{ width: '440px' }"
+    [draggable]="false"
+    [closable]="!exportandoPdf()">
+    <div class="pdf-options-body">
+
+      <div class="export-filter-row">
+        <label class="export-filter-label"><i class="pi pi-filter"></i> Filtrar por Grupo:</label>
+        <select class="export-group-select" [value]="exportGrupoFiltro()" (change)="exportGrupoFiltro.set($any($event.target).value)">
+          <option value="">-- Todos los Grupos --</option>
+          @for (g of gruposDisponibles(); track g) {
+            <option [value]="g">{{ g }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="export-filter-row-chk">
+        <label class="export-chk-label">
+          <input type="checkbox" [checked]="exportSoloActivos()" (change)="exportSoloActivos.set($any($event.target).checked)" />
+          <span>Solo artículos disponibles (activos)</span>
+        </label>
+      </div>
+
+      <div class="export-count-badge">
+        <i class="pi pi-box"></i>
+        <span>Artículos a exportar: <strong>{{ itemsParaExportar().length }}</strong></span>
+      </div>
+
+      @if (itemsParaExportar().length > 100) {
+        <div class="export-warning-alert">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div>
+            <strong>Catálogo extenso ({{ itemsParaExportar().length }} artículos):</strong>
+            <span>Descargar con fotos puede demorar varios minutos. Se ejecutará en segundo plano. Para descarga inmediata se recomienda <strong>Excel</strong> o <strong>PDF sin fotos</strong>.</span>
+          </div>
+        </div>
+      }
+
+      <div class="pdf-btn-choices">
+        <p-button
+          label="Exportar a Excel (.xlsx)"
+          icon="pi pi-file-excel"
+          severity="success"
+          styleClass="w-full export-btn-excel"
+          (onClick)="exportarExcel()">
+        </p-button>
+        <p-button
+          label="Descargar PDF (sin fotos)"
+          icon="pi pi-file"
+          [outlined]="true"
+          severity="secondary"
+          styleClass="w-full"
+          (onClick)="ejecutarExportarPdf(false)"
+          [loading]="exportandoPdf()">
+        </p-button>
+        <p-button
+          label="Descargar PDF (con fotos)"
+          icon="pi pi-image"
+          severity="primary"
+          styleClass="w-full"
+          (onClick)="ejecutarExportarPdf(true)"
+          [loading]="exportandoPdf()">
+        </p-button>
+      </div>
+    </div>
+  </p-dialog>
+
+  @if (exportandoEnSegundoPlano()) {
+    <div class="floating-export-banner">
+      <i class="pi pi-spin pi-spinner export-spinner"></i>
+      <div class="export-banner-info">
+        <span class="export-banner-title">Exportando catálogo con fotos</span>
+        <span class="export-banner-sub">{{ exportProgresoTexto() }}</span>
+      </div>
+      <button type="button" class="export-banner-cancel" (click)="cancelarExportacion()">Cancelar</button>
+    </div>
+  }
 </section>

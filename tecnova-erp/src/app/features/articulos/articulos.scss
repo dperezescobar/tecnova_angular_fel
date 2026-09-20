@@ -943,3 +943,243 @@
     grid-template-columns: 1fr;
   }
 }
+
+.toggle-ver-imagenes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #2563eb;
+    cursor: pointer;
+  }
+}
+
+.img-col {
+  width: 50px;
+  text-align: center;
+}
+
+.table-thumb-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+
+  .table-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .thumb-loading, .thumb-none {
+    color: #94a3b8;
+    font-size: 1rem;
+  }
+}
+
+.mobile-card-thumb-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.6rem;
+
+  .mobile-card-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.pdf-options-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0;
+
+  .export-filter-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+
+    .export-filter-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .export-group-select {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      font-size: 0.85rem;
+      color: #1e293b;
+      cursor: pointer;
+
+      &:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+      }
+    }
+  }
+
+  .export-filter-row-chk {
+    .export-chk-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.82rem;
+      color: #334155;
+      cursor: pointer;
+
+      input[type="checkbox"] {
+        accent-color: #2563eb;
+        cursor: pointer;
+      }
+    }
+  }
+
+  .export-count-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 0.4rem 0.65rem;
+    border-radius: 5px;
+    border: 1px solid #bfdbfe;
+  }
+
+  .export-warning-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.65rem 0.8rem;
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-left: 3px solid #f59e0b;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: #92400e;
+
+    i {
+      color: #f59e0b;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+  }
+
+  .pdf-btn-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.35rem;
+  }
+}
+
+.floating-export-banner {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  background: #1e293b;
+  color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  border: 1px solid #334155;
+  animation: slideInUp 0.25s ease-out;
+
+  .export-spinner {
+    font-size: 1.3rem;
+    color: #60a5fa;
+  }
+
+  .export-banner-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    .export-banner-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .export-banner-sub {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+  }
+
+  .export-banner-cancel {
+    background: #334155;
+    border: 1px solid #475569;
+    color: #e2e8f0;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: #fff;
+    }
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+

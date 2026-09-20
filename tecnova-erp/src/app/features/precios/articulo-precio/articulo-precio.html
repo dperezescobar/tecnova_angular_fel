@@ -17,6 +17,11 @@
                [value]="filtroArticulo()"
                (input)="onFiltroInput($any($event.target).value)" />
       </div>
+      <label class="toggle-ver-imagenes" title="Mostrar u ocultar fotos en la lista">
+        <input type="checkbox" [checked]="verImagenes()" (change)="toggleVerImagenes($any($event.target).checked)" />
+        <span>Ver imágenes</span>
+      </label>
+      <p-button label="Exportar PDF" icon="pi pi-file-pdf" [outlined]="true" severity="secondary" (onClick)="showPdfDialog.set(true)" [loading]="exportandoPdf()"></p-button>
       <p-button label="Nuevo Precio" icon="pi pi-plus" (onClick)="abrirNuevo()"></p-button>
     </div>
   </header>
@@ -35,6 +40,9 @@
 
       <ng-template pTemplate="header">
         <tr>
+          @if (verImagenes()) {
+            <th style="width: 50px">Foto</th>
+          }
           <th>Artículo</th>
           <th>Tipo</th>
           <th>Precio</th>
@@ -46,6 +54,20 @@
 
       <ng-template pTemplate="body" let-p>
         <tr>
+          @if (verImagenes()) {
+            <td>
+              <span class="p-column-title">Foto</span>
+              <div class="table-thumb-box">
+                @if (p.tieneImagen && getPrecioImagenUrl(p.articulo)) {
+                  <img [src]="getPrecioImagenUrl(p.articulo)!" class="table-thumb-img" width="36" height="36" loading="lazy" />
+                } @else if (p.tieneImagen) {
+                  <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
+                } @else {
+                  <div class="thumb-none"><i class="pi pi-image"></i></div>
+                }
+              </div>
+            </td>
+          }
           <td>
             <span class="p-column-title">Artículo</span>
             <div class="articulo-info">
@@ -209,3 +231,79 @@
 
   </form>
 </p-dialog>
+
+<p-dialog
+  header="Exportar Lista de Precios"
+  [(visible)]="showPdfDialog"
+  [modal]="true"
+  [style]="{ width: '440px' }"
+  [draggable]="false"
+  [closable]="!exportandoPdf()">
+  <div class="pdf-options-body">
+
+    <div class="export-filter-row">
+      <label class="export-filter-label"><i class="pi pi-filter"></i> Filtrar por Grupo:</label>
+      <select class="export-group-select" [value]="exportGrupoFiltro()" (change)="exportGrupoFiltro.set($any($event.target).value)">
+        <option value="">-- Todos los Grupos --</option>
+        @for (g of gruposDisponibles(); track g) {
+          <option [value]="g">{{ g }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="export-count-badge">
+      <i class="pi pi-tags"></i>
+      <span>Artículos a exportar: <strong>{{ itemsParaExportar().length }}</strong></span>
+    </div>
+
+    @if (itemsParaExportar().length > 100) {
+      <div class="export-warning-alert">
+        <i class="pi pi-exclamation-triangle"></i>
+        <div>
+          <strong>Catálogo extenso ({{ itemsParaExportar().length }} artículos):</strong>
+          <span>Descargar con fotos puede demorar varios minutos. Se ejecutará en segundo plano. Para descarga inmediata se recomienda <strong>Excel</strong> o <strong>PDF sin fotos</strong>.</span>
+        </div>
+      </div>
+    }
+
+    <div class="pdf-btn-choices">
+      <p-button
+        label="Exportar a Excel (.xlsx)"
+        icon="pi pi-file-excel"
+        severity="success"
+        styleClass="w-full export-btn-excel"
+        (onClick)="exportarExcel()">
+      </p-button>
+      <p-button
+        label="Descargar PDF (sin fotos)"
+        icon="pi pi-file"
+        [outlined]="true"
+        severity="secondary"
+        styleClass="w-full"
+        (onClick)="ejecutarExportarPdf(false)"
+        [loading]="exportandoPdf()">
+      </p-button>
+      <p-button
+        label="Descargar PDF (con fotos)"
+        icon="pi pi-image"
+        severity="primary"
+        styleClass="w-full"
+        (onClick)="ejecutarExportarPdf(true)"
+        [loading]="exportandoPdf()">
+      </p-button>
+    </div>
+  </div>
+</p-dialog>
+
+@if (exportandoEnSegundoPlano()) {
+  <div class="floating-export-banner">
+    <i class="pi pi-spin pi-spinner export-spinner"></i>
+    <div class="export-banner-info">
+      <span class="export-banner-title">Exportando PDF con imágenes</span>
+      <span class="export-banner-sub">{{ exportProgresoTexto() }}</span>
+    </div>
+    <button type="button" class="export-banner-cancel" (click)="cancelarExportacion()">Cancelar</button>
+  </div>
+}
+
+

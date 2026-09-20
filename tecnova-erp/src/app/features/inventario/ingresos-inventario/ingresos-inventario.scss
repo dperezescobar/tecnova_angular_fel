@@ -511,6 +511,13 @@ $pos-text-muted: #64748b;
   width: 100%;
   max-width: 980px;
 
+  &--single {
+    max-width: 480px;
+    @media (min-width: 992px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
   @media (min-width: 992px) {
     display: grid;
     grid-template-columns: 170px 1fr;

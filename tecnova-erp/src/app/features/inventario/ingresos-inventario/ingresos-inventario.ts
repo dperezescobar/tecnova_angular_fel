@@ -95,6 +95,14 @@ export class IngresosInventarioComponent {
     }
   });
 
+  labelCantidadHero = computed(() => {
+    switch (this.operacion()) {
+      case 'SALIDA': return 'Cantidad';
+      case 'TRASLADO': return 'Trasladar';
+      default: return 'Unidades a Ingresar';
+    }
+  });
+
   // Filtros de fecha para el listado
   fechaDesde = signal< string >(this.getPrimerDiaMesAnterior());
   fechaHasta = signal< string >(this.getFechaActual());

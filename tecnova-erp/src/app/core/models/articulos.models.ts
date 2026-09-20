@@ -7,6 +7,8 @@ export interface ArticuloDto {
   MaterialId: number;
   UsuarioCreacion: string;
   Activo: boolean;
+  TieneImagen?: boolean;
+  GrupoInventario?: string;
 }
 
 export interface ArticuloBodegaDto {
