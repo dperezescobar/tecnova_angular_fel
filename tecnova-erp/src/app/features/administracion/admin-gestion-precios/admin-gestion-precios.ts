@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit, computed, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { forkJoin, Observable } from 'rxjs';
+import { firstValueFrom, forkJoin, Observable } from 'rxjs';
 
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -26,6 +26,7 @@ import {
 } from '../../../core/models/gestion-precios-admin.models';
 import { ArticuloPorBodegaDto } from '../../../core/models/facturacion.models';
 import { FacturacionService } from '../../facturacion/services/facturacion';
+import { ArticulosService } from '../../articulos/services/articulos';
 import { AccesoRestringidoComponent } from '../../../shared/components/acceso-restringido/acceso-restringido';
 
 @Component({
@@ -46,6 +47,7 @@ export class AdminGestionPreciosComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(GestionPreciosAdminService);
   private facturacionService = inject(FacturacionService);
+  private articulosService = inject(ArticulosService);
   private messageService = inject(MessageService);
 
   // Estados de datos
@@ -71,6 +73,13 @@ export class AdminGestionPreciosComponent implements OnInit {
   loading = signal(false);
   isSaving = signal(false);
   sinPermiso = signal(false);
+
+  // Exportar lista de precios vigentes (PDF/Excel, con/sin fotos)
+  showPdfDialogPrecios = signal(false);
+  exportandoPdfPrecios = signal(false);
+  exportandoPreciosEnSegundoPlano = signal(false);
+  exportProgresoTextoPrecios = signal('');
+  private cancelExportPreciosRequested = false;
 
   // Formulario Precios (Pilares 1, 2, 3) — guarda Menudeo y Mayoreo en una sola accion
   precioForm = this.fb.group({
@@ -386,5 +395,164 @@ export class AdminGestionPreciosComponent implements OnInit {
 
   private showError(summary: string, detail: string) {
     this.messageService.add({ severity: 'error', summary, detail });
+  }
+
+  // ── Exportar lista de precios vigentes (mismo patron que ArticuloPrecioComponent /
+  // catalogo de articulos: xlsx/jspdf en carga diferida, PDF con fotos en segundo plano) ──
+
+  cancelarExportacionPrecios(): void {
+    this.cancelExportPreciosRequested = true;
+    this.exportProgresoTextoPrecios.set('Cancelando exportación...');
+  }
+
+  async exportarPreciosExcel() {
+    const list = this.preciosFiltrados();
+    if (!list || list.length === 0) {
+      this.messageService.add({ severity: 'info', summary: 'Sin datos', detail: 'No hay precios para exportar.' });
+      return;
+    }
+
+    try {
+      const XLSX = await import('xlsx');
+      const rows = list.map(p => ({
+        'Artículo': p.articulo,
+        'Descripción': p.articuloDescripcion,
+        'Tipo Tarifa': p.tipoPrecioNombre,
+        'Cant. Mínima': Number(p.cantidadMinima || 1),
+        'Precio': Number(p.precio || 0)
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Precios');
+      XLSX.writeFile(workbook, `Lista_Precios_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Lista de precios exportada a Excel.' });
+      this.showPdfDialogPrecios.set(false);
+    } catch {
+      this.showError('Error', 'No se pudo generar el archivo Excel.');
+    }
+  }
+
+  async ejecutarExportarPdfPrecios(conImagenes: boolean) {
+    const list = this.preciosFiltrados();
+    if (!list || list.length === 0) {
+      this.messageService.add({ severity: 'info', summary: 'Sin datos', detail: 'No hay precios para exportar.' });
+      this.showPdfDialogPrecios.set(false);
+      return;
+    }
+
+    if (conImagenes) {
+      this.showPdfDialogPrecios.set(false);
+      this.exportandoPreciosEnSegundoPlano.set(true);
+      this.cancelExportPreciosRequested = false;
+      this.exportProgresoTextoPrecios.set('Iniciando exportación con imágenes...');
+    } else {
+      this.exportandoPdfPrecios.set(true);
+    }
+
+    try {
+      const [{ default: JsPdf }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+      ]);
+
+      const doc = new JsPdf({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+      doc.setFontSize(14);
+      doc.text('Lista de Precios Vigentes', 40, 40);
+      doc.setFontSize(9);
+      doc.text(`Fecha de emisión: ${new Date().toLocaleDateString('es-SV')}   |   Registros: ${list.length}`, 40, 56);
+
+      const imageMap: Record<string, string> = {};
+
+      if (conImagenes) {
+        // El DTO de precios no trae bandera TieneImagen: se intenta descargar la foto de
+        // cada articulo unico y se omite en silencio si no existe (404).
+        const codigosUnicos = Array.from(new Set(list.map(p => p.articulo)));
+        const batchSize = 5;
+
+        for (let i = 0; i < codigosUnicos.length; i += batchSize) {
+          if (this.cancelExportPreciosRequested) {
+            this.messageService.add({ severity: 'info', summary: 'Cancelado', detail: 'La exportación fue cancelada.' });
+            this.exportandoPreciosEnSegundoPlano.set(false);
+            return;
+          }
+
+          const batch = codigosUnicos.slice(i, i + batchSize);
+          this.exportProgresoTextoPrecios.set(`Descargando fotos: ${Math.min(i + batchSize, codigosUnicos.length)} de ${codigosUnicos.length}...`);
+
+          await Promise.all(batch.map(async (codigo) => {
+            try {
+              const blob = await firstValueFrom(this.articulosService.getArticuloImagen(codigo));
+              imageMap[codigo] = await this.blobToDataUrlPrecios(blob);
+            } catch {}
+          }));
+
+          await new Promise(resolve => setTimeout(resolve, 15));
+        }
+
+        this.exportProgresoTextoPrecios.set('Generando documento PDF...');
+      }
+
+      const headers = conImagenes
+        ? [['Img', 'Artículo', 'Descripción', 'Tipo Tarifa', 'Cant. Mín.', 'Precio']]
+        : [['Artículo', 'Descripción', 'Tipo Tarifa', 'Cant. Mín.', 'Precio']];
+
+      const body = list.map(p => {
+        const row = [
+          p.articulo,
+          p.articuloDescripcion,
+          p.tipoPrecioNombre,
+          `${p.cantidadMinima}`,
+          `$${Number(p.precio || 0).toFixed(2)}`
+        ];
+        return conImagenes ? ['', ...row] : row;
+      });
+
+      autoTable(doc, {
+        startY: 68,
+        head: headers,
+        body: body,
+        styles: { fontSize: 8, cellPadding: conImagenes ? 2 : 4 },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+        columnStyles: conImagenes ? {
+          4: { halign: 'right' },
+          5: { halign: 'right' }
+        } : {
+          3: { halign: 'right' },
+          4: { halign: 'right' }
+        },
+        margin: { left: 40, right: 40 },
+        didDrawCell: (data) => {
+          if (conImagenes && data.section === 'body' && data.column.index === 0) {
+            const item = list[data.row.index];
+            const base64 = imageMap[item.articulo];
+            if (base64) {
+              try {
+                doc.addImage(base64, 'JPEG', data.cell.x + 3, data.cell.y + 3, 24, 24);
+              } catch {}
+            }
+          }
+        }
+      });
+
+      doc.save(`lista_precios_${new Date().toISOString().slice(0, 10)}.pdf`);
+      this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Lista de precios descargada en PDF.' });
+      this.showPdfDialogPrecios.set(false);
+    } catch {
+      this.showError('Error', 'No se pudo generar el PDF de la lista de precios.');
+    } finally {
+      this.exportandoPdfPrecios.set(false);
+      this.exportandoPreciosEnSegundoPlano.set(false);
+    }
+  }
+
+  private blobToDataUrlPrecios(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 }

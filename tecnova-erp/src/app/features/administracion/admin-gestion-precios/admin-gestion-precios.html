@@ -30,6 +30,7 @@
                 <i class="pi pi-search"></i>
                 <input pInputText type="text" (input)="filtroPrecio.set($any($event.target).value)" placeholder="Buscar por código o descripción..." class="w-100 p-inputtext-sm" />
               </span>
+              <p-button label="Exportar" icon="pi pi-file-export" styleClass="p-button-sm p-button-secondary p-button-outlined" [loading]="exportandoPdfPrecios()" (onClick)="showPdfDialogPrecios.set(true)"></p-button>
               <p-button label="Nuevo Precio / Escala" icon="pi pi-plus" styleClass="p-button-sm p-button-primary" (onClick)="abrirNuevoPrecio()"></p-button>
             </div>
 
@@ -280,4 +281,58 @@
     </div>
   </form>
 </p-dialog>
+
+<!-- DIÁLOGO EXPORTAR LISTA DE PRECIOS -->
+<p-dialog
+  header="Exportar Lista de Precios"
+  [(visible)]="showPdfDialogPrecios"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  [draggable]="false"
+  [closable]="!exportandoPdfPrecios()">
+  <div class="pdf-options-body">
+    <div class="export-count-badge">
+      <i class="pi pi-tags"></i>
+      <span>Precios a exportar: <strong>{{ preciosFiltrados().length }}</strong></span>
+    </div>
+
+    <div class="pdf-btn-choices">
+      <p-button
+        label="Exportar a Excel (.xlsx)"
+        icon="pi pi-file-excel"
+        severity="success"
+        styleClass="w-full export-btn-excel"
+        (onClick)="exportarPreciosExcel()">
+      </p-button>
+      <p-button
+        label="Descargar PDF (sin fotos)"
+        icon="pi pi-file"
+        [outlined]="true"
+        severity="secondary"
+        styleClass="w-full"
+        (onClick)="ejecutarExportarPdfPrecios(false)"
+        [loading]="exportandoPdfPrecios()">
+      </p-button>
+      <p-button
+        label="Descargar PDF (con fotos)"
+        icon="pi pi-image"
+        severity="primary"
+        styleClass="w-full"
+        (onClick)="ejecutarExportarPdfPrecios(true)"
+        [loading]="exportandoPdfPrecios()">
+      </p-button>
+    </div>
+  </div>
+</p-dialog>
+
+@if (exportandoPreciosEnSegundoPlano()) {
+  <div class="floating-export-banner">
+    <i class="pi pi-spin pi-spinner export-spinner"></i>
+    <div class="export-banner-info">
+      <span class="export-banner-title">Exportando precios con fotos</span>
+      <span class="export-banner-sub">{{ exportProgresoTextoPrecios() }}</span>
+    </div>
+    <button type="button" class="export-banner-cancel" (click)="cancelarExportacionPrecios()">Cancelar</button>
+  </div>
+}
 }
