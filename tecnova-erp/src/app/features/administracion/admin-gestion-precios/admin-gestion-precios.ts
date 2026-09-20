@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit, computed, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { firstValueFrom, forkJoin, Observable } from 'rxjs';
+import { catchError, finalize, firstValueFrom, forkJoin, map, Observable, of } from 'rxjs';
 
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -28,6 +28,15 @@ import { ArticuloPorBodegaDto } from '../../../core/models/facturacion.models';
 import { FacturacionService } from '../../facturacion/services/facturacion';
 import { ArticulosService } from '../../articulos/services/articulos';
 import { AccesoRestringidoComponent } from '../../../shared/components/acceso-restringido/acceso-restringido';
+
+interface PrecioAgrupado {
+  articulo: string;
+  articuloDescripcion: string;
+  precioMenudeo: number | null;
+  precioMayoreo: number | null;
+  cantidadMinimaMayoreo: number | null;
+  fechaRegistro?: string | null;
+}
 
 @Component({
   selector: 'app-admin-gestion-precios',
@@ -77,6 +86,13 @@ export class AdminGestionPreciosComponent implements OnInit {
   isSaving = signal(false);
   sinPermiso = signal(false);
 
+  // "Ver imagenes" en la tabla de precios -- por defecto apagado (no hay bandera TieneImagen
+  // en este DTO, se intenta descargar bajo demanda y se cachea negativamente si no existe).
+  verImagenes = signal(false);
+  precioImagenesUrls = signal<Record<string, string>>({});
+  private loadingPrecioImageCodes = new Set<string>();
+  private sinImagenPrecioCodes = new Set<string>();
+
   // Exportar lista de precios vigentes (PDF/Excel, con/sin fotos)
   showPdfDialogPrecios = signal(false);
   exportandoPdfPrecios = signal(false);
@@ -123,6 +139,48 @@ export class AdminGestionPreciosComponent implements OnInit {
     const items = this.precios();
     if (!q) return items;
     return items.filter(i => i.articulo.toLowerCase().includes(q) || i.articuloDescripcion.toLowerCase().includes(q));
+  });
+
+  // Un articulo con Menudeo+Mayoreo llega del backend como 2 filas (una por TipoPrecioID);
+  // se agrupan en una sola fila horizontal para no duplicar el codigo/descripcion en pantalla.
+  preciosAgrupados = computed<PrecioAgrupado[]>(() => {
+    const list = this.preciosFiltrados();
+    const idMenudeo = this.tipoMenudeo()?.tipoPrecioID;
+    const idMayoreo = this.tipoMayoreo()?.tipoPrecioID;
+    const map = new Map<string, PrecioAgrupado>();
+
+    for (const p of list) {
+      let entry = map.get(p.articulo);
+      if (!entry) {
+        entry = {
+          articulo: p.articulo,
+          articuloDescripcion: p.articuloDescripcion,
+          precioMenudeo: null,
+          precioMayoreo: null,
+          cantidadMinimaMayoreo: null,
+          fechaRegistro: p.fechaRegistro
+        };
+        map.set(p.articulo, entry);
+      }
+      if (p.tipoPrecioID === idMenudeo) {
+        entry.precioMenudeo = p.precio;
+      } else if (p.tipoPrecioID === idMayoreo) {
+        entry.precioMayoreo = p.precio;
+        entry.cantidadMinimaMayoreo = p.cantidadMinima;
+      }
+      if (p.fechaRegistro && (!entry.fechaRegistro || p.fechaRegistro > entry.fechaRegistro)) {
+        entry.fechaRegistro = p.fechaRegistro;
+      }
+    }
+    return Array.from(map.values());
+  });
+
+  // KPIs del encabezado
+  totalArticulosConPrecio = computed(() => new Set(this.precios().map(p => p.articulo)).size);
+  promocionesVigentesCount = computed(() => this.promociones().filter(p => p.estado === 'Activa').length);
+  promocionesPorVencerCount = computed(() => {
+    const limite = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    return this.promociones().filter(p => p.estado === 'Activa' && new Date(p.fHasta).getTime() <= limite).length;
   });
 
   promosFiltradas = computed(() => {
@@ -207,6 +265,32 @@ export class AdminGestionPreciosComponent implements OnInit {
     if (!val) return '';
     const parts = val.split(' - ');
     return parts[0].trim();
+  }
+
+  // "Ver imagenes" en la tabla de precios
+  getPrecioImagenUrl(codigo: string): string | null {
+    if (!this.verImagenes()) return null;
+    const url = this.precioImagenesUrls()[codigo];
+    if (url) return url;
+    if (!this.sinImagenPrecioCodes.has(codigo) && !this.loadingPrecioImageCodes.has(codigo)) {
+      this.cargarImagenPrecio(codigo);
+    }
+    return null;
+  }
+
+  precioImagenSinFoto(codigo: string): boolean {
+    return this.sinImagenPrecioCodes.has(codigo);
+  }
+
+  private cargarImagenPrecio(codigo: string): void {
+    this.loadingPrecioImageCodes.add(codigo);
+    this.articulosService.getArticuloImagen(codigo).pipe(
+      map(blob => URL.createObjectURL(blob)),
+      catchError(() => { this.sinImagenPrecioCodes.add(codigo); return of(null); }),
+      finalize(() => this.loadingPrecioImageCodes.delete(codigo))
+    ).subscribe(url => {
+      if (url) this.precioImagenesUrls.update(prev => ({ ...prev, [codigo]: url }));
+    });
   }
 
   // Al seleccionar un articulo en el dialogo, precarga sus precios vigentes (Menudeo/Mayoreo)
@@ -409,7 +493,7 @@ export class AdminGestionPreciosComponent implements OnInit {
   }
 
   async exportarPreciosExcel() {
-    const list = this.preciosFiltrados();
+    const list = this.preciosAgrupados();
     if (!list || list.length === 0) {
       this.messageService.add({ severity: 'info', summary: 'Sin datos', detail: 'No hay precios para exportar.' });
       return;
@@ -420,9 +504,9 @@ export class AdminGestionPreciosComponent implements OnInit {
       const rows = list.map(p => ({
         'Artículo': p.articulo,
         'Descripción': p.articuloDescripcion,
-        'Tipo Tarifa': p.tipoPrecioNombre,
-        'Cant. Mínima': Number(p.cantidadMinima || 1),
-        'Precio': Number(p.precio || 0)
+        'Precio Menudeo': p.precioMenudeo != null ? Number(p.precioMenudeo) : '',
+        'Precio Mayoreo': p.precioMayoreo != null ? Number(p.precioMayoreo) : '',
+        'Cant. Mínima Mayoreo': p.cantidadMinimaMayoreo ?? ''
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -437,7 +521,7 @@ export class AdminGestionPreciosComponent implements OnInit {
   }
 
   async ejecutarExportarPdfPrecios(conImagenes: boolean) {
-    const list = this.preciosFiltrados();
+    const list = this.preciosAgrupados();
     if (!list || list.length === 0) {
       this.messageService.add({ severity: 'info', summary: 'Sin datos', detail: 'No hay precios para exportar.' });
       this.showPdfDialogPrecios.set(false);
@@ -470,8 +554,8 @@ export class AdminGestionPreciosComponent implements OnInit {
 
       if (conImagenes) {
         // El DTO de precios no trae bandera TieneImagen: se intenta descargar la foto de
-        // cada articulo unico y se omite en silencio si no existe (404).
-        const codigosUnicos = Array.from(new Set(list.map(p => p.articulo)));
+        // cada articulo (ya unico, una fila por articulo) y se omite en silencio si no existe (404).
+        const codigosUnicos = list.map(p => p.articulo);
         const batchSize = 5;
 
         for (let i = 0; i < codigosUnicos.length; i += batchSize) {
@@ -498,16 +582,16 @@ export class AdminGestionPreciosComponent implements OnInit {
       }
 
       const headers = conImagenes
-        ? [['Img', 'Artículo', 'Descripción', 'Tipo Tarifa', 'Cant. Mín.', 'Precio']]
-        : [['Artículo', 'Descripción', 'Tipo Tarifa', 'Cant. Mín.', 'Precio']];
+        ? [['Img', 'Artículo', 'Descripción', 'Precio Menudeo', 'Precio Mayoreo', 'Cant. Mín. Mayoreo']]
+        : [['Artículo', 'Descripción', 'Precio Menudeo', 'Precio Mayoreo', 'Cant. Mín. Mayoreo']];
 
       const body = list.map(p => {
         const row = [
           p.articulo,
           p.articuloDescripcion,
-          p.tipoPrecioNombre,
-          `${p.cantidadMinima}`,
-          `$${Number(p.precio || 0).toFixed(2)}`
+          p.precioMenudeo != null ? `$${Number(p.precioMenudeo).toFixed(2)}` : '-',
+          p.precioMayoreo != null ? `$${Number(p.precioMayoreo).toFixed(2)}` : '-',
+          p.cantidadMinimaMayoreo != null ? `${p.cantidadMinimaMayoreo}` : '-'
         ];
         return conImagenes ? ['', ...row] : row;
       });
@@ -519,11 +603,13 @@ export class AdminGestionPreciosComponent implements OnInit {
         styles: { fontSize: 8, cellPadding: conImagenes ? 2 : 4 },
         headStyles: { fillColor: [37, 99, 235], textColor: 255 },
         columnStyles: conImagenes ? {
-          4: { halign: 'right' },
-          5: { halign: 'right' }
-        } : {
           3: { halign: 'right' },
-          4: { halign: 'right' }
+          4: { halign: 'right' },
+          5: { halign: 'center' }
+        } : {
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+          4: { halign: 'center' }
         },
         margin: { left: 40, right: 40 },
         didDrawCell: (data) => {

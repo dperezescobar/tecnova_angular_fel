@@ -6,14 +6,30 @@
   </div>
 } @else {
 <div class="container-fluid py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="pp-header mb-3">
+    <div class="pp-header-icon"><i class="bi bi-tags-fill"></i></div>
     <div>
-      <h3 class="fw-bold mb-1"><i class="bi bi-tags-fill text-primary me-2"></i>Centro Maestro de Estrategia de Precios</h3>
-      <p class="text-muted mb-0">Administración unificada de Precios Minoristas, Escalas de Mayoreo, Tarifas Preferentes y Promociones.</p>
+      <h3 class="fw-bold mb-1">Centro de Estrategia de Precios</h3>
+      <p class="text-muted mb-0">Precios base, escalas de mayoreo y promociones vigentes.</p>
     </div>
   </div>
 
-  <p-tabs [value]="activeTab()" (valueChange)="activeTab.set($any($event))">
+  <div class="pp-kpi-strip mb-4">
+    <div class="pp-kpi-card">
+      <span class="pp-kpi-label">Artículos con precio</span>
+      <span class="pp-kpi-value">{{ totalArticulosConPrecio() }}</span>
+    </div>
+    <div class="pp-kpi-card">
+      <span class="pp-kpi-label">Promociones vigentes</span>
+      <span class="pp-kpi-value pp-kpi-success">{{ promocionesVigentesCount() }}</span>
+    </div>
+    <div class="pp-kpi-card">
+      <span class="pp-kpi-label">Por vencer en 7 días</span>
+      <span class="pp-kpi-value pp-kpi-warning">{{ promocionesPorVencerCount() }}</span>
+    </div>
+  </div>
+
+  <p-tabs class="pp-tabs" [value]="activeTab()" (valueChange)="activeTab.set($any($event))">
     <p-tablist>
       <p-tab value="0">🏷️ Precios Base & Mayoreo</p-tab>
       <p-tab value="1">🎁 Promociones & Fechas Vigentes</p-tab>
@@ -32,36 +48,54 @@
                 <i class="pi pi-search"></i>
                 <input pInputText type="text" (input)="filtroPrecio.set($any($event.target).value)" placeholder="Buscar por código o descripción..." class="w-100 p-inputtext-sm" />
               </span>
+              <label class="pp-toggle-imagenes">
+                <input type="checkbox" [checked]="verImagenes()" (change)="verImagenes.set($any($event.target).checked)" />
+                <span>Ver imágenes</span>
+              </label>
               <p-button label="Exportar" icon="pi pi-file-export" styleClass="p-button-sm p-button-secondary p-button-outlined" [loading]="exportandoPdfPrecios()" (onClick)="showPdfDialogPrecios.set(true)"></p-button>
               <p-button label="Nuevo Precio / Escala" icon="pi pi-plus" styleClass="p-button-sm p-button-primary" (onClick)="abrirNuevoPrecio()"></p-button>
             </div>
 
-            <p-table [value]="preciosFiltrados()" [loading]="loading()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
+            <p-table [value]="preciosAgrupados()" [loading]="loading()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
               <ng-template pTemplate="header">
                 <tr>
+                  @if (verImagenes()) {
+                    <th class="pp-img-col">Foto</th>
+                  }
                   <th>Código Artículo</th>
                   <th>Descripción</th>
-                  <th>Tipo de Tarifa / Nivel</th>
-                  <th>Cant. Mínima</th>
-                  <th>Precio Unitario</th>
-                  <th>Fecha Registro</th>
+                  <th>Precio Menudeo</th>
+                  <th>Precio Mayoreo</th>
+                  <th>Cant. Mín. Mayoreo</th>
+                  <th>Última Actualización</th>
                 </tr>
               </ng-template>
               <ng-template pTemplate="body" let-item>
                 <tr>
+                  @if (verImagenes()) {
+                    <td class="pp-img-col">
+                      <div class="pp-thumb-box">
+                        @if (getPrecioImagenUrl(item.articulo); as url) {
+                          <img [src]="url" width="36" height="36" loading="lazy" />
+                        } @else if (precioImagenSinFoto(item.articulo)) {
+                          <i class="pi pi-image"></i>
+                        } @else {
+                          <i class="pi pi-spin pi-spinner"></i>
+                        }
+                      </div>
+                    </td>
+                  }
                   <td class="fw-bold text-primary">{{ item.articulo }}</td>
                   <td>{{ item.articuloDescripcion }}</td>
-                  <td>
-                    <span class="badge-tipo">{{ item.tipoPrecioNombre }}</span>
-                  </td>
-                  <td class="fw-semibold">{{ item.cantidadMinima | number:'1.0-2' }} unid</td>
-                  <td class="fw-bold text-success fs-6">${{ item.precio | number:'1.2-2' }}</td>
+                  <td class="fw-bold text-success">{{ item.precioMenudeo != null ? ('$' + (item.precioMenudeo | number:'1.2-2')) : '—' }}</td>
+                  <td class="fw-bold text-success">{{ item.precioMayoreo != null ? ('$' + (item.precioMayoreo | number:'1.2-2')) : '—' }}</td>
+                  <td class="fw-semibold">{{ item.cantidadMinimaMayoreo != null ? (item.cantidadMinimaMayoreo + ' unid') : '—' }}</td>
                   <td class="text-muted small">{{ item.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</td>
                 </tr>
               </ng-template>
               <ng-template pTemplate="emptymessage">
                 <tr>
-                  <td colspan="6" class="text-center text-muted py-4">No hay registros de precios asignados.</td>
+                  <td [attr.colspan]="verImagenes() ? 7 : 6" class="text-center text-muted py-4">No hay registros de precios asignados.</td>
                 </tr>
               </ng-template>
             </p-table>
@@ -297,7 +331,7 @@
   <div class="pdf-options-body">
     <div class="export-count-badge">
       <i class="pi pi-tags"></i>
-      <span>Precios a exportar: <strong>{{ preciosFiltrados().length }}</strong></span>
+      <span>Artículos a exportar: <strong>{{ preciosAgrupados().length }}</strong></span>
     </div>
 
     <div class="pdf-btn-choices">

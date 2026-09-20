@@ -41,12 +41,144 @@
   }
 }
 
-.badge-tipo {
-  background-color: #e0e7ff;
-  color: #3730a3;
-  padding: 0.2rem 0.5rem;
-  border-radius: 8px;
+/* =========================================================
+   ENCABEZADO, KPIs Y PESTAÑAS TIPO PILDORA
+   ========================================================= */
+.pp-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.pp-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  i {
+    font-size: 1.15rem;
+    color: #2563eb;
+  }
+}
+
+.pp-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.pp-kpi-card {
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.pp-kpi-label {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.pp-kpi-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+
+  &.pp-kpi-success { color: #15803d; }
+  &.pp-kpi-warning { color: #b45309; }
+}
+
+.pp-toggle-imagenes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.82rem;
   font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover { background: #f1f5f9; border-color: #cbd5e1; }
+
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #2563eb;
+    cursor: pointer;
+  }
+}
+
+.pp-img-col {
+  width: 50px;
+  text-align: center;
+}
+
+.pp-thumb-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  color: #94a3b8;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+// Reskin del p-tabs de PrimeNG a pestañas tipo pildora, sin tocar su comportamiento.
+::ng-deep .pp-tabs {
+  .p-tablist {
+    background: #f8fafc;
+    border-radius: 0.75rem;
+    padding: 0.3rem;
+    border: none;
+    width: fit-content;
+  }
+
+  .p-tablist-tab-list {
+    border: none;
+    background: transparent;
+  }
+
+  .p-tab {
+    border: none;
+    background: transparent;
+    border-radius: 0.55rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #64748b;
+
+    &:not(.p-tab-active):hover {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+  }
+
+  .p-tab-active {
+    background: #ffffff;
+    color: #1e293b;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+
+  .p-tablist-active-bar {
+    display: none;
+  }
 }
 
 /* =========================================================
