@@ -14,6 +14,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ToastModule } from 'primeng/toast';
+import { PaginatorModule, PaginatorState } from 'primeng/paginator';
 import { MessageService } from 'primeng/api';
 
 import { ArticulosService } from './services/articulos';
@@ -51,7 +52,8 @@ import { FormsModule } from '@angular/forms';
     ProgressSpinnerModule,
     MessageModule,
     CheckboxModule,
-    ToastModule
+    ToastModule,
+    PaginatorModule
   ],
   providers: [MessageService],
   templateUrl: './articulos.html',
@@ -80,6 +82,8 @@ articuloCreado = output<string>();
   articuloImagenesUrls = signal<Record<string, string>>({});
   private loadingArticuloImageCodes = new Set<string>();
   private cancelExportRequested = false;
+  paginaActual = signal(0);
+  filasPorPagina = signal(25);
 
   gruposDisponibles = computed(() => {
     const list = this.articulos();
@@ -305,6 +309,25 @@ articuloCreado = output<string>();
       );
     });
   });
+
+  // Paginado sobre filteredArticulos: evita renderizar (y, con "Ver imágenes" activo,
+  // descargar) el catálogo completo de una vez -- en catalogos grandes (parrot: ~1100
+  // articulos, ~99% con foto) marcar el checkbox sin paginar disparaba una foto por
+  // articulo simultaneamente.
+  articulosPaginados = computed(() => {
+    const inicio = this.paginaActual() * this.filasPorPagina();
+    return this.filteredArticulos().slice(inicio, inicio + this.filasPorPagina());
+  });
+
+  onPageChange(event: PaginatorState): void {
+    this.paginaActual.set(event.page ?? 0);
+    this.filasPorPagina.set(event.rows ?? 25);
+  }
+
+  onFilterChange(value: string) {
+    this.filterText.set(value);
+    this.paginaActual.set(0);
+  }
 
   toggleVerImagenes(checked: boolean): void {
     this.verImagenes.set(checked);
@@ -702,10 +725,6 @@ articuloCreado = output<string>();
     }
   }
 
-  onFilterChange(value: string) {
-    this.filterText.set(value);
-  }
-
   loadArticulos() {
     this.loadingList.set(true);
     this.errorMessage.set('');
@@ -714,7 +733,10 @@ articuloCreado = output<string>();
       .getArticulos()
       .pipe(finalize(() => this.loadingList.set(false)))
       .subscribe({
-        next: (rows) => this.articulos.set(rows ?? []),
+        next: (rows) => {
+          this.articulos.set(rows ?? []);
+          this.paginaActual.set(0);
+        },
         error: () => this.errorMessage.set('No se pudo cargar el catálogo de artículos.')
       });
   }

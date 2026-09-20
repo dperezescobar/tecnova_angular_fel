@@ -57,7 +57,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of filteredArticulos(); track item.Articulo) {
+              @for (item of articulosPaginados(); track item.Articulo) {
                 <tr>
                   <td class="actions-col">
                     <p-button
@@ -108,7 +108,7 @@
           </table>
 
           <div class="list-mobile-cards" aria-label="Listado de artículos en móvil">
-            @for (item of filteredArticulos(); track item.Articulo) {
+            @for (item of articulosPaginados(); track item.Articulo) {
               <article class="list-mobile-card">
                 @if (verImagenes() && item.TieneImagen) {
                   <div class="mobile-card-thumb-wrap">
@@ -160,6 +160,16 @@
               <div class="mobile-empty">No se encontraron artículos con el filtro actual.</div>
             }
           </div>
+
+          @if (filteredArticulos().length > 0) {
+            <p-paginator
+              [first]="paginaActual() * filasPorPagina()"
+              [rows]="filasPorPagina()"
+              [totalRecords]="filteredArticulos().length"
+              [rowsPerPageOptions]="[10, 25, 50, 100]"
+              (onPageChange)="onPageChange($event)"
+            ></p-paginator>
+          }
         </div>
       }
     </section>
