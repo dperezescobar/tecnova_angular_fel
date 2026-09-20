@@ -972,52 +972,97 @@
   }
 }
 
-.img-col {
-  width: 50px;
-  text-align: center;
+// Grid de tarjetas con imagen grande (activo con "Ver imagenes") -- mismo patron que
+// .pos-tile en pos-hibrido.scss, para que ambas pantallas se sientan consistentes.
+.articulo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.65rem;
 }
 
-.table-thumb-box {
-  width: 38px;
-  height: 38px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+.articulo-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem;
+  border: 1px solid var(--surface-border, #d1d5db);
+  border-radius: 0.75rem;
+  background: var(--surface-card, #ffffff);
+}
+
+.articulo-tile-img {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
 
-  .table-thumb-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  img { width: 100%; height: 100%; object-fit: cover; }
 
   .thumb-loading, .thumb-none {
     color: #94a3b8;
-    font-size: 1rem;
+    font-size: 1.4rem;
   }
 }
 
-.mobile-card-thumb-wrap {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.6rem;
+.articulo-tile-tipo {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #64748b;
+}
 
-  .mobile-card-thumb {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+.articulo-tile-disp {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 5px;
+
+  &.disponible-si { background: #dcfce7; color: #15803d; }
+  &.disponible-no { background: #fee2e2; color: #b91c1c; }
+}
+
+.articulo-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.articulo-tile-cod {
+  font-size: 0.72rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.articulo-tile-desc {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-color, #1f2937);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.articulo-tile-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
 }
 
 .pdf-options-body {

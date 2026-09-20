@@ -43,23 +43,28 @@
         </div>
       } @else {
         <div class="table-wrap">
-          <table class="articulos-table" aria-label="Listado de artículos">
-            <thead>
-              <tr>
-                <th class="actions-col">Acciones</th>
-                @if (verImagenes()) {
-                  <th class="img-col">Foto</th>
-                }
-                <th>Artículo</th>
-                <th>Descripción</th>
-                <th>Tipo</th>
-                <th>Disponible</th>
-              </tr>
-            </thead>
-            <tbody>
+          @if (verImagenes()) {
+            <div class="articulo-grid" aria-label="Catálogo de artículos con imágenes">
               @for (item of articulosPaginados(); track item.Articulo) {
-                <tr>
-                  <td class="actions-col">
+                <article class="articulo-tile">
+                  <div class="articulo-tile-img">
+                    @if (item.TieneImagen && getArticuloImagenUrl(item.Articulo)) {
+                      <img [src]="getArticuloImagenUrl(item.Articulo)!" [alt]="item.Descripcion" loading="lazy" />
+                    } @else if (item.TieneImagen) {
+                      <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
+                    } @else {
+                      <div class="thumb-none"><i class="pi pi-image"></i></div>
+                    }
+                    <span class="articulo-tile-tipo">{{ item.TipoArticulo }}</span>
+                    <span class="articulo-tile-disp" [class.disponible-si]="item.Activo" [class.disponible-no]="!item.Activo">
+                      {{ item.Activo ? 'Sí' : 'No' }}
+                    </span>
+                  </div>
+                  <div class="articulo-tile-body">
+                    <span class="articulo-tile-cod">{{ item.Articulo }}</span>
+                    <span class="articulo-tile-desc">{{ item.Descripcion }}</span>
+                  </div>
+                  <div class="articulo-tile-actions">
                     <p-button
                       icon="pi pi-pencil"
                       [text]="true"
@@ -76,90 +81,106 @@
                       ariaLabel="Eliminar artículo"
                       (onClick)="deleteArticulo(item)"
                     ></p-button>
-                  </td>
-                  @if (verImagenes()) {
-                    <td class="img-col">
-                      <div class="table-thumb-box">
-                        @if (item.TieneImagen && getArticuloImagenUrl(item.Articulo)) {
-                          <img [src]="getArticuloImagenUrl(item.Articulo)!" class="table-thumb-img" width="36" height="36" loading="lazy" />
-                        } @else if (item.TieneImagen) {
-                          <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
-                        } @else {
-                          <div class="thumb-none"><i class="pi pi-image"></i></div>
-                        }
-                      </div>
+                  </div>
+                </article>
+              } @empty {
+                <div class="mobile-empty">No se encontraron artículos con el filtro actual.</div>
+              }
+            </div>
+          } @else {
+            <table class="articulos-table" aria-label="Listado de artículos">
+              <thead>
+                <tr>
+                  <th class="actions-col">Acciones</th>
+                  <th>Artículo</th>
+                  <th>Descripción</th>
+                  <th>Tipo</th>
+                  <th>Disponible</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of articulosPaginados(); track item.Articulo) {
+                  <tr>
+                    <td class="actions-col">
+                      <p-button
+                        icon="pi pi-pencil"
+                        [text]="true"
+                        severity="info"
+                        styleClass="action-icon-btn action-edit"
+                        ariaLabel="Editar artículo"
+                        (onClick)="openEdit(item)"
+                      ></p-button>
+                      <p-button
+                        icon="pi pi-trash"
+                        [text]="true"
+                        severity="danger"
+                        styleClass="action-icon-btn action-delete"
+                        ariaLabel="Eliminar artículo"
+                        (onClick)="deleteArticulo(item)"
+                      ></p-button>
                     </td>
-                  }
-                  <td>{{ item.Articulo }}</td>
-                  <td>{{ item.Descripcion }}</td>
-                  <td>{{ item.TipoArticulo }}</td>
-                  <td>
+                    <td>{{ item.Articulo }}</td>
+                    <td>{{ item.Descripcion }}</td>
+                    <td>{{ item.TipoArticulo }}</td>
+                    <td>
+                      <span class="disponible-badge" [class.disponible-si]="item.Activo" [class.disponible-no]="!item.Activo">
+                        {{ item.Activo ? 'Sí' : 'No' }}
+                      </span>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5">No se encontraron artículos con el filtro actual.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            <div class="list-mobile-cards" aria-label="Listado de artículos en móvil">
+              @for (item of articulosPaginados(); track item.Articulo) {
+                <article class="list-mobile-card">
+                  <div class="card-row">
+                    <span class="card-label">Artículo</span>
+                    <span class="card-value">{{ item.Articulo }}</span>
+                  </div>
+                  <div class="card-row">
+                    <span class="card-label">Descripción</span>
+                    <span class="card-value">{{ item.Descripcion }}</span>
+                  </div>
+                  <div class="card-row">
+                    <span class="card-label">Tipo</span>
+                    <span class="card-value">{{ item.TipoArticulo }}</span>
+                  </div>
+                  <div class="card-row">
+                    <span class="card-label">Disponible</span>
                     <span class="disponible-badge" [class.disponible-si]="item.Activo" [class.disponible-no]="!item.Activo">
                       {{ item.Activo ? 'Sí' : 'No' }}
                     </span>
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td [attr.colspan]="verImagenes() ? 6 : 5">No se encontraron artículos con el filtro actual.</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-
-          <div class="list-mobile-cards" aria-label="Listado de artículos en móvil">
-            @for (item of articulosPaginados(); track item.Articulo) {
-              <article class="list-mobile-card">
-                @if (verImagenes() && item.TieneImagen) {
-                  <div class="mobile-card-thumb-wrap">
-                    @if (getArticuloImagenUrl(item.Articulo)) {
-                      <img [src]="getArticuloImagenUrl(item.Articulo)!" class="mobile-card-thumb" width="60" height="60" loading="lazy" />
-                    } @else {
-                      <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
-                    }
                   </div>
-                }
-                <div class="card-row">
-                  <span class="card-label">Artículo</span>
-                  <span class="card-value">{{ item.Articulo }}</span>
-                </div>
-                <div class="card-row">
-                  <span class="card-label">Descripción</span>
-                  <span class="card-value">{{ item.Descripcion }}</span>
-                </div>
-                <div class="card-row">
-                  <span class="card-label">Tipo</span>
-                  <span class="card-value">{{ item.TipoArticulo }}</span>
-                </div>
-                <div class="card-row">
-                  <span class="card-label">Disponible</span>
-                  <span class="disponible-badge" [class.disponible-si]="item.Activo" [class.disponible-no]="!item.Activo">
-                    {{ item.Activo ? 'Sí' : 'No' }}
-                  </span>
-                </div>
-                <div class="card-actions">
-                  <p-button
-                    icon="pi pi-pencil"
-                    [text]="true"
-                    severity="info"
-                    styleClass="action-icon-btn action-edit"
-                    ariaLabel="Editar artículo"
-                    (onClick)="openEdit(item)"
-                  ></p-button>
-                  <p-button
-                    icon="pi pi-trash"
-                    [text]="true"
-                    severity="danger"
-                    styleClass="action-icon-btn action-delete"
-                    ariaLabel="Eliminar artículo"
-                    (onClick)="deleteArticulo(item)"
-                  ></p-button>
-                </div>
-              </article>
-            } @empty {
-              <div class="mobile-empty">No se encontraron artículos con el filtro actual.</div>
-            }
-          </div>
+                  <div class="card-actions">
+                    <p-button
+                      icon="pi pi-pencil"
+                      [text]="true"
+                      severity="info"
+                      styleClass="action-icon-btn action-edit"
+                      ariaLabel="Editar artículo"
+                      (onClick)="openEdit(item)"
+                    ></p-button>
+                    <p-button
+                      icon="pi pi-trash"
+                      [text]="true"
+                      severity="danger"
+                      styleClass="action-icon-btn action-delete"
+                      ariaLabel="Eliminar artículo"
+                      (onClick)="deleteArticulo(item)"
+                    ></p-button>
+                  </div>
+                </article>
+              } @empty {
+                <div class="mobile-empty">No se encontraron artículos con el filtro actual.</div>
+              }
+            </div>
+          }
 
           @if (filteredArticulos().length > 0) {
             <p-paginator
