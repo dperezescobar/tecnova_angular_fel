@@ -44,6 +44,9 @@ import { AccesoRestringidoComponent } from '../../../shared/components/acceso-re
   providers: [MessageService]
 })
 export class AdminGestionPreciosComponent implements OnInit {
+  // Cross-selling aun no esta completamente implementado -- oculto hasta terminarlo.
+  readonly ventaCruzadaHabilitada = false;
+
   private fb = inject(FormBuilder);
   private service = inject(GestionPreciosAdminService);
   private facturacionService = inject(FacturacionService);
