@@ -141,13 +141,23 @@
 }
 
 // Reskin del p-tabs de PrimeNG a pestañas tipo pildora, sin tocar su comportamiento.
+// width:fit-content en .p-tablist se descarto -- en movil cortaba la 2da pestaña en vez
+// de encogerse o scrollear (.p-tablist-content ya trae overflow-x:auto de PrimeNG, se
+// aprovecha en vez de forzar un ancho fijo).
 ::ng-deep .pp-tabs {
   .p-tablist {
     background: #f8fafc;
     border-radius: 0.75rem;
     padding: 0.3rem;
     border: none;
-    width: fit-content;
+    display: inline-block;
+    max-width: 100%;
+  }
+
+  .p-tablist-content {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
   .p-tablist-tab-list {
@@ -163,6 +173,7 @@
     font-size: 0.85rem;
     font-weight: 500;
     color: #64748b;
+    white-space: nowrap;
 
     &:not(.p-tab-active):hover {
       background: #f1f5f9;
@@ -178,6 +189,17 @@
 
   .p-tablist-active-bar {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .pp-kpi-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  ::ng-deep .pp-tabs .p-tab {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.78rem;
   }
 }
 
