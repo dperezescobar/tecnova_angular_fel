@@ -101,45 +101,67 @@
                 </ng-template>
               </p-table>
 
-              <div class="list-mobile-cards" aria-label="Listado de precios en móvil">
-                @for (item of preciosAgrupados(); track item.articulo) {
-                  <article class="list-mobile-card">
-                    @if (verImagenes()) {
-                      <div class="pp-mobile-thumb-wrap">
+              @if (verImagenes()) {
+                <div class="pp-tile-grid" aria-label="Listado de precios en móvil con imágenes">
+                  @for (item of preciosAgrupados(); track item.articulo) {
+                    <article class="pp-price-tile">
+                      <div class="pp-price-tile-img">
                         @if (getPrecioImagenUrl(item.articulo); as url) {
-                          <img [src]="url" width="60" height="60" loading="lazy" />
+                          <img [src]="url" [alt]="item.articuloDescripcion" loading="lazy" />
                         } @else if (precioImagenSinFoto(item.articulo)) {
-                          <div class="thumb-none"><i class="pi pi-image"></i></div>
+                          <i class="pi pi-image"></i>
                         } @else {
-                          <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
+                          <i class="pi pi-spin pi-spinner"></i>
                         }
+                        <span class="pp-price-tile-cod">{{ item.articulo }}</span>
                       </div>
-                    }
-                    <div class="card-row">
-                      <span class="card-label">Artículo</span>
-                      <span class="card-value">{{ item.articulo }}</span>
-                    </div>
-                    <div class="card-row">
-                      <span class="card-label">Descripción</span>
-                      <span class="card-value">{{ item.articuloDescripcion }}</span>
-                    </div>
-                    <div class="card-row">
-                      <span class="card-label">Menudeo</span>
-                      <span class="card-value">{{ item.precioMenudeo != null ? ('$' + (item.precioMenudeo | number:'1.2-2')) : '—' }}</span>
-                    </div>
-                    <div class="card-row">
-                      <span class="card-label">Mayoreo</span>
-                      <span class="card-value">{{ item.precioMayoreo != null ? ('$' + (item.precioMayoreo | number:'1.2-2') + ' (' + item.cantidadMinimaMayoreo + '+)') : '—' }}</span>
-                    </div>
-                    <div class="card-row">
-                      <span class="card-label">Actualizado</span>
-                      <span class="card-value">{{ item.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</span>
-                    </div>
-                  </article>
-                } @empty {
-                  <div class="mobile-empty">No hay registros de precios asignados.</div>
-                }
-              </div>
+                      <div class="pp-price-tile-body">
+                        <p class="pp-price-tile-desc">{{ item.articuloDescripcion }}</p>
+                        <div class="pp-price-tile-row">
+                          <span class="pp-price-tile-menudeo">Men.</span>
+                          <span class="pp-price-tile-menudeo pp-price-tile-value">{{ item.precioMenudeo != null ? ('$' + (item.precioMenudeo | number:'1.2-2')) : '—' }}</span>
+                        </div>
+                        <div class="pp-price-tile-row">
+                          <span class="pp-price-tile-mayoreo">May.</span>
+                          <span class="pp-price-tile-mayoreo pp-price-tile-value">{{ item.precioMayoreo != null ? ('$' + (item.precioMayoreo | number:'1.2-2')) : '—' }}</span>
+                        </div>
+                        <p class="pp-price-tile-fecha">Desde: {{ item.fechaRegistro | date:'dd/MM/yyyy' }}</p>
+                      </div>
+                    </article>
+                  } @empty {
+                    <div class="mobile-empty">No hay registros de precios asignados.</div>
+                  }
+                </div>
+              } @else {
+                <div class="list-mobile-cards" aria-label="Listado de precios en móvil">
+                  @for (item of preciosAgrupados(); track item.articulo) {
+                    <article class="list-mobile-card">
+                      <div class="card-row">
+                        <span class="card-label">Artículo</span>
+                        <span class="card-value">{{ item.articulo }}</span>
+                      </div>
+                      <div class="card-row">
+                        <span class="card-label">Descripción</span>
+                        <span class="card-value">{{ item.articuloDescripcion }}</span>
+                      </div>
+                      <div class="card-row">
+                        <span class="card-label">Menudeo</span>
+                        <span class="card-value">{{ item.precioMenudeo != null ? ('$' + (item.precioMenudeo | number:'1.2-2')) : '—' }}</span>
+                      </div>
+                      <div class="card-row">
+                        <span class="card-label">Mayoreo</span>
+                        <span class="card-value">{{ item.precioMayoreo != null ? ('$' + (item.precioMayoreo | number:'1.2-2') + ' (' + item.cantidadMinimaMayoreo + '+)') : '—' }}</span>
+                      </div>
+                      <div class="card-row">
+                        <span class="card-label">Actualizado</span>
+                        <span class="card-value">{{ item.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</span>
+                      </div>
+                    </article>
+                  } @empty {
+                    <div class="mobile-empty">No hay registros de precios asignados.</div>
+                  }
+                </div>
+              }
             </div>
           </div>
         </div>
