@@ -160,6 +160,7 @@
                 </div>
                 <div class="card-actions">
                   <p-button icon="pi pi-pencil" [text]="true" severity="info" styleClass="action-icon-btn" ariaLabel="Editar usuario" (onClick)="openEditForm(usuario)"></p-button>
+                  <p-button icon="pi pi-shield" [text]="true" severity="help" styleClass="action-icon-btn" ariaLabel="Asignar roles" (onClick)="abrirModalRoles(usuario)"></p-button>
                   <p-button icon="pi pi-key" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Cambiar contraseña" (onClick)="abrirCambiarPassword(usuario)"></p-button>
                   <p-button icon="pi pi-refresh" [text]="true" severity="warn" styleClass="action-icon-btn" ariaLabel="Reiniciar contraseña" [disabled]="esUsuarioActual(usuario.usuario)" (onClick)="solicitarReiniciarPassword(usuario)"></p-button>
                   @if (usuario.bloqueado) {

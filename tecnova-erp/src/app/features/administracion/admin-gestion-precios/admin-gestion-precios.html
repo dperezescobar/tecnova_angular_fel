@@ -56,49 +56,91 @@
               <p-button label="Nuevo Precio / Escala" icon="pi pi-plus" styleClass="p-button-sm p-button-primary" (onClick)="abrirNuevoPrecio()"></p-button>
             </div>
 
-            <p-table [value]="preciosAgrupados()" [loading]="loading()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
-              <ng-template pTemplate="header">
-                <tr>
-                  @if (verImagenes()) {
-                    <th class="pp-img-col">Foto</th>
-                  }
-                  <th>Código Artículo</th>
-                  <th>Descripción</th>
-                  <th>Precio Menudeo</th>
-                  <th>Precio Mayoreo</th>
-                  <th>Cant. Mín. Mayoreo</th>
-                  <th>Última Actualización</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-item>
-                <tr>
-                  @if (verImagenes()) {
-                    <td class="pp-img-col">
-                      <div class="pp-thumb-box">
+            <div class="table-wrap">
+              <p-table class="precios-table" [value]="preciosAgrupados()" [loading]="loading()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
+                <ng-template pTemplate="header">
+                  <tr>
+                    @if (verImagenes()) {
+                      <th class="pp-img-col">Foto</th>
+                    }
+                    <th>Código Artículo</th>
+                    <th>Descripción</th>
+                    <th>Precio Menudeo</th>
+                    <th>Precio Mayoreo</th>
+                    <th>Cant. Mín. Mayoreo</th>
+                    <th>Última Actualización</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-item>
+                  <tr>
+                    @if (verImagenes()) {
+                      <td class="pp-img-col">
+                        <div class="pp-thumb-box">
+                          @if (getPrecioImagenUrl(item.articulo); as url) {
+                            <img [src]="url" width="36" height="36" loading="lazy" />
+                          } @else if (precioImagenSinFoto(item.articulo)) {
+                            <i class="pi pi-image"></i>
+                          } @else {
+                            <i class="pi pi-spin pi-spinner"></i>
+                          }
+                        </div>
+                      </td>
+                    }
+                    <td class="fw-bold text-primary">{{ item.articulo }}</td>
+                    <td>{{ item.articuloDescripcion }}</td>
+                    <td class="fw-bold text-success">{{ item.precioMenudeo != null ? ('$' + (item.precioMenudeo | number:'1.2-2')) : '—' }}</td>
+                    <td class="fw-bold text-success">{{ item.precioMayoreo != null ? ('$' + (item.precioMayoreo | number:'1.2-2')) : '—' }}</td>
+                    <td class="fw-semibold">{{ item.cantidadMinimaMayoreo != null ? (item.cantidadMinimaMayoreo + ' unid') : '—' }}</td>
+                    <td class="text-muted small">{{ item.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr>
+                    <td [attr.colspan]="verImagenes() ? 7 : 6" class="text-center text-muted py-4">No hay registros de precios asignados.</td>
+                  </tr>
+                </ng-template>
+              </p-table>
+
+              <div class="list-mobile-cards" aria-label="Listado de precios en móvil">
+                @for (item of preciosAgrupados(); track item.articulo) {
+                  <article class="list-mobile-card">
+                    @if (verImagenes()) {
+                      <div class="pp-mobile-thumb-wrap">
                         @if (getPrecioImagenUrl(item.articulo); as url) {
-                          <img [src]="url" width="36" height="36" loading="lazy" />
+                          <img [src]="url" width="60" height="60" loading="lazy" />
                         } @else if (precioImagenSinFoto(item.articulo)) {
-                          <i class="pi pi-image"></i>
+                          <div class="thumb-none"><i class="pi pi-image"></i></div>
                         } @else {
-                          <i class="pi pi-spin pi-spinner"></i>
+                          <div class="thumb-loading"><i class="pi pi-spin pi-spinner"></i></div>
                         }
                       </div>
-                    </td>
-                  }
-                  <td class="fw-bold text-primary">{{ item.articulo }}</td>
-                  <td>{{ item.articuloDescripcion }}</td>
-                  <td class="fw-bold text-success">{{ item.precioMenudeo != null ? ('$' + (item.precioMenudeo | number:'1.2-2')) : '—' }}</td>
-                  <td class="fw-bold text-success">{{ item.precioMayoreo != null ? ('$' + (item.precioMayoreo | number:'1.2-2')) : '—' }}</td>
-                  <td class="fw-semibold">{{ item.cantidadMinimaMayoreo != null ? (item.cantidadMinimaMayoreo + ' unid') : '—' }}</td>
-                  <td class="text-muted small">{{ item.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</td>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td [attr.colspan]="verImagenes() ? 7 : 6" class="text-center text-muted py-4">No hay registros de precios asignados.</td>
-                </tr>
-              </ng-template>
-            </p-table>
+                    }
+                    <div class="card-row">
+                      <span class="card-label">Artículo</span>
+                      <span class="card-value">{{ item.articulo }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Descripción</span>
+                      <span class="card-value">{{ item.articuloDescripcion }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Menudeo</span>
+                      <span class="card-value">{{ item.precioMenudeo != null ? ('$' + (item.precioMenudeo | number:'1.2-2')) : '—' }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Mayoreo</span>
+                      <span class="card-value">{{ item.precioMayoreo != null ? ('$' + (item.precioMayoreo | number:'1.2-2') + ' (' + item.cantidadMinimaMayoreo + '+)') : '—' }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Actualizado</span>
+                      <span class="card-value">{{ item.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</span>
+                    </div>
+                  </article>
+                } @empty {
+                  <div class="mobile-empty">No hay registros de precios asignados.</div>
+                }
+              </div>
+            </div>
           </div>
         </div>
       </p-tabpanel>
@@ -115,41 +157,75 @@
               <p-button label="Crear Nueva Promoción" icon="pi pi-percentage" styleClass="p-button-sm p-button-success" (onClick)="abrirNuevaPromo()"></p-button>
             </div>
 
-            <p-table [value]="promosFiltradas()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Artículo</th>
-                  <th>Descripción</th>
-                  <th>Descuento / Oferta</th>
-                  <th>Desde</th>
-                  <th>Hasta</th>
-                  <th>Estado</th>
-                  <th class="text-center">Acciones</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-p>
-                <tr>
-                  <td class="fw-bold text-primary">{{ p.articulo }}</td>
-                  <td>{{ p.articuloDescripcion }}</td>
-                  <td class="fw-bold text-danger">
-                    {{ p.tipoDescuento === 'P' ? p.valorDescuento + '%' : '$' + p.valorDescuento }} OFF
-                  </td>
-                  <td class="small">{{ p.fdesde | date:'dd/MM/yyyy HH:mm' }}</td>
-                  <td class="small">{{ p.fHasta | date:'dd/MM/yyyy HH:mm' }}</td>
-                  <td>
-                    <span class="badge-status" [ngClass]="p.estado.toLowerCase()">{{ p.estado }}</span>
-                  </td>
-                  <td class="text-center">
-                    <p-button icon="pi pi-power-off" styleClass="p-button-rounded p-button-text p-button-danger p-button-sm" (onClick)="desactivarPromo(p)" pTooltip="Desactivar Promoción"></p-button>
-                  </td>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="7" class="text-center text-muted py-4">No hay promociones registradas.</td>
-                </tr>
-              </ng-template>
-            </p-table>
+            <div class="table-wrap">
+              <p-table class="promos-table" [value]="promosFiltradas()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Artículo</th>
+                    <th>Descripción</th>
+                    <th>Descuento / Oferta</th>
+                    <th>Desde</th>
+                    <th>Hasta</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-p>
+                  <tr>
+                    <td class="fw-bold text-primary">{{ p.articulo }}</td>
+                    <td>{{ p.articuloDescripcion }}</td>
+                    <td class="fw-bold text-danger">
+                      {{ p.tipoDescuento === 'P' ? p.valorDescuento + '%' : '$' + p.valorDescuento }} OFF
+                    </td>
+                    <td class="small">{{ p.fdesde | date:'dd/MM/yyyy HH:mm' }}</td>
+                    <td class="small">{{ p.fHasta | date:'dd/MM/yyyy HH:mm' }}</td>
+                    <td>
+                      <span class="badge-status" [ngClass]="p.estado.toLowerCase()">{{ p.estado }}</span>
+                    </td>
+                    <td class="text-center">
+                      <p-button icon="pi pi-power-off" styleClass="p-button-rounded p-button-text p-button-danger p-button-sm" (onClick)="desactivarPromo(p)" pTooltip="Desactivar Promoción"></p-button>
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No hay promociones registradas.</td>
+                  </tr>
+                </ng-template>
+              </p-table>
+
+              <div class="list-mobile-cards" aria-label="Listado de promociones en móvil">
+                @for (p of promosFiltradas(); track p.idArticuloDescuento) {
+                  <article class="list-mobile-card">
+                    <div class="card-row">
+                      <span class="card-label">Artículo</span>
+                      <span class="card-value">{{ p.articulo }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Descripción</span>
+                      <span class="card-value">{{ p.articuloDescripcion }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Descuento</span>
+                      <span class="card-value">{{ p.tipoDescuento === 'P' ? p.valorDescuento + '%' : '$' + p.valorDescuento }} OFF</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Vigencia</span>
+                      <span class="card-value">{{ p.fdesde | date:'dd/MM/yy HH:mm' }} — {{ p.fHasta | date:'dd/MM/yy HH:mm' }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Estado</span>
+                      <span class="card-value"><span class="badge-status" [ngClass]="p.estado.toLowerCase()">{{ p.estado }}</span></span>
+                    </div>
+                    <div class="card-actions">
+                      <p-button icon="pi pi-power-off" [text]="true" styleClass="p-button-rounded p-button-danger" ariaLabel="Desactivar promoción" (onClick)="desactivarPromo(p)"></p-button>
+                    </div>
+                  </article>
+                } @empty {
+                  <div class="mobile-empty">No hay promociones registradas.</div>
+                }
+              </div>
+            </div>
           </div>
         </div>
       </p-tabpanel>
