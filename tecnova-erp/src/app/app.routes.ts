@@ -8,8 +8,6 @@ import { ArticulosComponent } from './features/articulos/articulos';
 import { MainLayoutComponent } from './layout/main-layout/main-layout';
 import { authGuard } from './core/guards/auth-guard'; // <--- Importamos el guard funcional
 import { menuGuard } from './core/guards/menu-guard';
-import { ArticuloPrecioComponent } from './features/precios/articulo-precio/articulo-precio';
-
 export const routes: Routes = [
     // 1. Redirección inicial
     { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -120,7 +118,6 @@ export const routes: Routes = [
                 canActivate: [menuGuard],
                 data: { clave: 'REP_LIBROS' }
             },
-      { path: 'precios', component: ArticuloPrecioComponent, canActivate: [menuGuard], data: { clave: 'INV_PRECIOS' } },
             {
                 path: 'mi-perfil',
                 loadComponent: () => import('./features/perfil/mi-perfil').then((m) => m.MiPerfilComponent)
