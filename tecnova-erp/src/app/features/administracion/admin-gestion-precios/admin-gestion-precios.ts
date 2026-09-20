@@ -25,6 +25,7 @@ import {
 } from '../../../core/models/gestion-precios-admin.models';
 import { ArticuloPorBodegaDto } from '../../../core/models/facturacion.models';
 import { FacturacionService } from '../../facturacion/services/facturacion';
+import { AccesoRestringidoComponent } from '../../../shared/components/acceso-restringido/acceso-restringido';
 
 @Component({
   selector: 'app-admin-gestion-precios',
@@ -36,7 +37,7 @@ import { FacturacionService } from '../../facturacion/services/facturacion';
     CommonModule, ReactiveFormsModule, TableModule, ButtonModule,
     InputTextModule, InputNumberModule, DialogModule, ToastModule,
     TagModule, AutoCompleteModule, TabsModule, DatePickerModule,
-    CheckboxModule, SelectModule
+    CheckboxModule, SelectModule, AccesoRestringidoComponent
   ],
   providers: [MessageService]
 })
@@ -68,6 +69,7 @@ export class AdminGestionPreciosComponent implements OnInit {
   displayCrossDialog = signal(false);
   loading = signal(false);
   isSaving = signal(false);
+  sinPermiso = signal(false);
 
   // Formulario Precios (Pilares 1, 2, 3)
   precioForm = this.fb.group({
@@ -152,7 +154,10 @@ export class AdminGestionPreciosComponent implements OnInit {
     this.loading.set(true);
     this.service.getPrecios().subscribe({
       next: (data) => this.precios.set(data),
-      error: (err) => this.showError('Error', err?.message || 'No se pudieron cargar precios'),
+      error: (err) => {
+        if (err?.status === 403) this.sinPermiso.set(true);
+        else this.showError('Error', err?.message || 'No se pudieron cargar precios');
+      },
       complete: () => this.loading.set(false)
     });
   }
@@ -160,14 +165,14 @@ export class AdminGestionPreciosComponent implements OnInit {
   cargarPromociones() {
     this.service.getPromociones().subscribe({
       next: (data) => this.promociones.set(data),
-      error: () => {}
+      error: (err) => { if (err?.status === 403) this.sinPermiso.set(true); }
     });
   }
 
   cargarCrossSelling() {
     this.service.getCrossSelling().subscribe({
       next: (data) => this.crossSelling.set(data),
-      error: () => {}
+      error: (err) => { if (err?.status === 403) this.sinPermiso.set(true); }
     });
   }
 

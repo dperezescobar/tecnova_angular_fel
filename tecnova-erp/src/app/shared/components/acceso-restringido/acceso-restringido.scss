@@ -1,0 +1,31 @@
+.ar-restricted-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.75rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: #991b1b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+
+  .ar-restricted-icon {
+    font-size: 2.5rem;
+    color: #ef4444;
+    margin-bottom: 0.5rem;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #b91c1c;
+    max-width: 480px;
+  }
+}

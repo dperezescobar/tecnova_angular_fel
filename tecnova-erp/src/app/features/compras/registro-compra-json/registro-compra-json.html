@@ -1,6 +1,9 @@
 <section class="compras-page">
   <p-toast position="top-right"></p-toast>
 
+  @if (sinPermiso()) {
+    <app-acceso-restringido mensaje="Solo administradores o gerentes pueden gestionar el registro de compras." />
+  } @else {
   <!-- ── Header ── -->
   <header class="compras-header">
     <div class="header-title-group">
@@ -442,5 +445,6 @@
 
     </form>
   </p-dialog>
+  }
 
 </section>

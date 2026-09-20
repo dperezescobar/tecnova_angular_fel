@@ -15,6 +15,7 @@ import {
   CompraManualForm
 } from './registro-compra-json.service';
 import { ReciboCompraService } from './recibo-compra.service';
+import { AccesoRestringidoComponent } from '../../../shared/components/acceso-restringido/acceso-restringido';
 
 interface CatalogOption { id: number; nombre: string; }
 
@@ -53,7 +54,7 @@ type OriginalMap = Map<number, { clasificacion: number; sector: number; codCosto
 @Component({
   selector: 'app-registro-compra-json',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, ButtonModule, ProgressSpinnerModule, ToastModule, DialogModule],
+  imports: [CommonModule, FormsModule, ButtonModule, ProgressSpinnerModule, ToastModule, DialogModule, AccesoRestringidoComponent],
   providers: [MessageService],
   templateUrl: './registro-compra-json.html',
   styleUrl: './registro-compra-json.scss'
@@ -64,6 +65,7 @@ export class RegistroCompraJsonComponent {
   private toast = inject(MessageService);
 
   cargandoRecibo = signal<number | null>(null);
+  sinPermiso = signal(false);
 
   readonly optsClasificacion = OPTS_CLASIFICACION;
   readonly optsSector = OPTS_SECTOR;
@@ -158,7 +160,8 @@ export class RegistroCompraJsonComponent {
         this.isLoading.set(false);
       },
       error: err => {
-        this.toast.add({ severity: 'error', summary: 'Error', detail: err.message });
+        if (err?.status === 403) this.sinPermiso.set(true);
+        else this.toast.add({ severity: 'error', summary: 'Error', detail: err.message });
         this.isLoading.set(false);
       }
     });

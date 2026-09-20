@@ -1,5 +1,10 @@
 <p-toast></p-toast>
 
+@if (sinPermiso()) {
+  <div class="container-fluid py-4">
+    <app-acceso-restringido mensaje="Solo administradores o gerentes pueden gestionar precios, promociones y venta cruzada." />
+  </div>
+} @else {
 <div class="container-fluid py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -273,3 +278,4 @@
     </div>
   </form>
 </p-dialog>
+}
