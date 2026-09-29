@@ -118,6 +118,7 @@ export class ClientesService {
           TIPO_CLIENTE: String(this.pick(raw, 'TIPO_CLIENTE', 'tipo_cliente') ?? ''),
           ACTIVO: this.toBoolean(this.pick(raw, 'ACTIVO', 'activo')),
           idGiro: String(this.pick(raw, 'idGiro', 'IDGIRO') ?? ''),
+          ACTIVIDAD_ECONOMICA: String(this.pick(raw, 'ACTIVIDAD_ECONOMICA', 'actividad_economica') ?? ''),
           TipoPersona: this.toNumber(this.pick(raw, 'TipoPersona', 'TIPOPERSONA'), 1),
           OBSERVACION_CLIE: String(this.pick(raw, 'OBSERVACION_CLIE', 'OBSERVACION', 'observacion_clie') ?? ''),
           CLIENTE_PREFERENCIAL: this.toBoolean(this.pick(raw, 'CLIENTE_PREFERENCIAL', 'cliente_preferencial')),

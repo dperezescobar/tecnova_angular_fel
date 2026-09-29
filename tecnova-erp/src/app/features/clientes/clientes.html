@@ -276,6 +276,7 @@
               ></p-select>
             </div>
 
+            @if (!esExtranjero()) {
             <div class="field-item">
               <label for="giro">Giro</label>
               <p-autocomplete
@@ -297,6 +298,13 @@
                 placeholder="Buscar giro por coincidencia"
               ></p-autocomplete>
             </div>
+            } @else {
+            <div class="field-item">
+              <label for="actividad-economica">Actividad Económica</label>
+              <input pInputText id="actividad-economica" formControlName="ACTIVIDAD_ECONOMICA" placeholder="Describa la actividad económica del cliente" />
+              <small class="field-help-text">Cliente extranjero: el catálogo de Giro de Hacienda no aplica.</small>
+            </div>
+            }
 
             <div class="field-item field-wide">
               <label for="direccion">* Dirección</label>

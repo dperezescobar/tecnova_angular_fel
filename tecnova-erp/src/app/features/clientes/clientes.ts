@@ -96,6 +96,7 @@ export class ClientesComponent {
     IDMUNICIPIO: this.fb.control('', { validators: [Validators.required], nonNullable: true }),
     CONDICION_PAGO: ['', [Validators.required]],
     IDGIRO: this.fb.control<CatalogOptionDTO | null>(null),
+    ACTIVIDAD_ECONOMICA: [''],
     ACTIVO: this.fb.control(true, { nonNullable: true }),
     DIRECCION: [''],
     TELEFONO: [''],
@@ -311,13 +312,15 @@ this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferenci
     });
   }
 
-  private toOrigen(tipoCliente: string): 'L' | 'E' {
-    const value = tipoCliente.trim().toUpperCase();
-    if (value === 'PE' || value.startsWith('E')) {
-      return 'E';
-    }
+  // El origen se deriva del país, no del Tipo de Cliente: ese código es frágil (el catálogo real
+  // usa 'CE'/'CL', no 'PE' ni nada que empiece con 'E', así que la comparación anterior nunca
+  // detectaba un cliente extranjero). El Salvador (idPais=201) = Local; cualquier otro país = Exterior.
+  private toOrigen(idPais: string | number | null | undefined): 'L' | 'E' {
+    return String(idPais ?? '').trim() === '201' ? 'L' : 'E';
+  }
 
-    return 'L';
+  esExtranjero(): boolean {
+    return this.toOrigen(this.clienteForm.controls.IDPAIS.value) === 'E';
   }
 
   private applyClienteDetalle(detalle: ClienteDetalleDTO) {
@@ -341,6 +344,7 @@ this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferenci
         IDMUNICIPIO: municipio,
         CONDICION_PAGO: detalle.CONDICION_PAGO,
         IDGIRO: giroSelected,
+        ACTIVIDAD_ECONOMICA: detalle.ACTIVIDAD_ECONOMICA ?? '',
         ACTIVO: detalle.ACTIVO,
         DIRECCION: detalle.DIRECCION,
         TELEFONO: detalle.TELEFONO,
@@ -513,14 +517,14 @@ this.clienteForm.get('CLIENTE_PREFERENCIAL')?.valueChanges.subscribe((preferenci
       CLIENTE: s(value.CLIENTE),
       NOMBRE: s(value.NOMBRE),
       ALIAS: s(value.ALIAS),
-      ORIGEN: this.toOrigen(tipoCliente),
+      ORIGEN: this.toOrigen(value.IDPAIS),
       DIRECCION: s(value.DIRECCION),
       IDPAIS: this.toNumber(value.IDPAIS),
       IDDEPARTAMENTO: s(value.IDDEPARTAMENTO),
       IDMUNICIPIO: s(value.IDMUNICIPIO),
       TELEFONO: s(value.TELEFONO),
       NIT: s(value.NIT),
-      ACTIVIDAD: '',
+      ACTIVIDAD: s(value.ACTIVIDAD_ECONOMICA),
       NRC: s(value.NRC),
       CONDICION_PAGO: s(value.CONDICION_PAGO),
       ACTIVO: !!value.ACTIVO,

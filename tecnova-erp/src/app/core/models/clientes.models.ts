@@ -44,6 +44,7 @@ export interface ClienteDetalleDTO {
   TIPO_CLIENTE: string;
   ACTIVO: boolean;
   idGiro: string;
+  ACTIVIDAD_ECONOMICA: string;
   TipoPersona: number;
   OBSERVACION_CLIE: string;
   CLIENTE_PREFERENCIAL: boolean;
