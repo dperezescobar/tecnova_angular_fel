@@ -555,6 +555,7 @@ refreshClientes(): void {
     this.detalleRows.set([]);
     this.isLocked.set(false);
     this.formasPagoDetalle.set([]);
+    this.retencionAplicada.set(null);
     this.hasSavedCurrentRecord.set(false);
 
     this.facForm.reset({
@@ -620,6 +621,8 @@ refreshClientes(): void {
     this.loadingDetail.set(true);
     this.selectedFactura.set(item);
     this.hasSavedCurrentRecord.set(true);
+    this.formasPagoDetalle.set([]);
+    this.retencionAplicada.set(null);
 
     forkJoin({
       encabezado: this.facturacionService.getFacturaEncabezado(item.Prefijo, item.Factura, sucursal, puntoVenta, idEmpresa),
@@ -1813,6 +1816,7 @@ refreshClientes(): void {
       },
       error: (error) => {
         this.showError('Facturación FAC', this.extractError(error, 'No se pudo registrar la forma de pago.'));
+        this.loadFacturaFormaPago(idFactura);
       }
     });
   }
@@ -2230,8 +2234,6 @@ this.clientesFiltradosParaTabla.set(profiles);
 
     this.blockEmissionFields();
     this.selectedSucursal.set(encabezado.Sucursal || '');
-    this.formasPagoDetalle.set([]);
-    this.retencionAplicada.set(null);
   }
 
   private loadFacturaFormaPago(idFactura: number) {

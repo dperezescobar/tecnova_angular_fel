@@ -505,6 +505,7 @@ export class FexComponent {
     this.detalleRows.set([]);
     this.isLocked.set(false);
     this.formasPagoDetalle.set([]);
+    this.retencionAplicada.set(null);
     this.hasSavedCurrentRecord.set(false);
 
     this.facForm.reset({
@@ -569,6 +570,8 @@ export class FexComponent {
     this.loadingDetail.set(true);
     this.selectedFactura.set(item);
     this.hasSavedCurrentRecord.set(true);
+    this.formasPagoDetalle.set([]);
+    this.retencionAplicada.set(null);
 
     forkJoin({
       encabezado: this.facturacionService.getFacturaEncabezado(item.Prefijo, item.Factura, sucursal, puntoVenta, idEmpresa),
@@ -693,12 +696,20 @@ export class FexComponent {
         next: (response) => {
           this.patchIdFacturaFromUpdateResponse(response);
           const idFactura = this.toNumber(this.facForm.controls.IdFactura.value);
-          if (idFactura > 0) this.loadFacturaFormaPago(idFactura);
           this.hasSavedCurrentRecord.set(true);
           this.showInfo('Facturación FEX', 'Factura guardada correctamente.');
           this.loadMaestro();
-          // Releer el encabezado para reflejar los totales reales recalculados (incl. Flete/Seguro en TOTAL_FACTURAR).
-          this.refreshEncabezado().subscribe({ error: () => {} });
+          // Releer el encabezado para reflejar los totales reales recalculados (incl. Flete/Seguro en TOTAL_FACTURAR)
+          // y recargar formas de pago sincronizadas con la base de datos.
+          this.refreshEncabezado().subscribe({
+            next: (enc) => {
+              const currentId = enc?.IdFactura || idFactura;
+              if (currentId > 0) this.loadFacturaFormaPago(currentId);
+            },
+            error: () => {
+              if (idFactura > 0) this.loadFacturaFormaPago(idFactura);
+            }
+          });
         },
         error: (error) => {
           this.showError('Facturación FEX', this.extractError(error, 'No se pudo guardar la factura.'));
@@ -1593,7 +1604,10 @@ export class FexComponent {
 
     this.facturacionService.updateFacturaFormaPago(payload).subscribe({
       next: () => { this.loadFacturaFormaPago(idFactura); this.facForm.patchValue({ FormaPagoMonto: 0 }); },
-      error: (error) => { this.showError('Facturación FEX', this.extractError(error, 'No se pudo registrar la forma de pago.')); }
+      error: (error) => {
+        this.showError('Facturación FEX', this.extractError(error, 'No se pudo registrar la forma de pago.'));
+        this.loadFacturaFormaPago(idFactura);
+      }
     });
   }
 
@@ -1928,8 +1942,6 @@ export class FexComponent {
 
     this.blockEmissionFields();
     this.selectedSucursal.set(encabezado.Sucursal || '');
-    this.formasPagoDetalle.set([]);
-    this.retencionAplicada.set(null);
   }
 
   private loadFacturaFormaPago(idFactura: number) {
