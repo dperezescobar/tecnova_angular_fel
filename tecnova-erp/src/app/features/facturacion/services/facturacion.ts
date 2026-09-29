@@ -38,7 +38,8 @@ import {
   UpdateFacturaDevolucionDto,
   RecintoFiscalCatalogo,
   RegimenExportacionCatalogo,
-  TipoRegimenCatalogo
+  TipoRegimenCatalogo,
+  IncotermCatalogo
 } from '../../../core/models/facturacion.models';
 
 @Injectable({ providedIn: 'root' })
@@ -194,6 +195,7 @@ export class FacturacionService {
       Municipio: this.toString(this.pickValue(raw, 'Municipio', 'municipio')),
       Direccion: this.toString(this.pickValue(raw, 'Direccion', 'DIRECCION', 'direccion')),
       IdRecintoFiscal: this.toNumber(this.pickValue(raw, 'idRecintoFiscal', 'IdRecintoFiscal')),
+      IdIncoterm: this.toNumber(this.pickValue(raw, 'idIncoterm', 'IdIncoterm')),
       IdRegimenExportacion: this.toNumber(this.pickValue(raw, 'idRegimenExportacion', 'IdRegimenExportacion')),
       TipoRegimen: this.toString(this.pickValue(raw, 'TipoRegimen', 'tipoRegimen')),
       Flete: this.toNumber(this.pickValue(raw, 'Flete', 'flete', 'FLETE')),
@@ -535,6 +537,18 @@ export class FacturacionService {
           id: this.toNumber(this.pickValue(r, 'idRecintoFiscal', 'IdRecintoFiscal')),
           codigo: this.toString(this.pickValue(r, 'codigoRecintoFiscal', 'CodigoRecintoFiscal')),
           descripcion: this.toString(this.pickValue(r, 'descripcionRecintoFiscal', 'DescripcionRecintoFiscal'))
+        }))))
+    );
+  }
+
+  getCatalogoIncoterm(): Observable<IncotermCatalogo[]> {
+    return this.getCachedRequest('catalogo:incoterm', () =>
+      this.http
+        .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetCatalogoIncoterm`)
+        .pipe(map((rows) => (rows ?? []).map((r) => ({
+          id: this.toNumber(this.pickValue(r, 'idIncoterm', 'IdIncoterm')),
+          codigo: this.toString(this.pickValue(r, 'codigoIncoterm', 'CodigoIncoterm')),
+          descripcion: this.toString(this.pickValue(r, 'descripcionIncoterm', 'DescripcionIncoterm'))
         }))))
     );
   }

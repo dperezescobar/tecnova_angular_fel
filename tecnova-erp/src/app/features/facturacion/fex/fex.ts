@@ -40,7 +40,8 @@ import {
   UpdateFacturaRetencionDto,
   RecintoFiscalCatalogo,
   RegimenExportacionCatalogo,
-  TipoRegimenCatalogo
+  TipoRegimenCatalogo,
+  IncotermCatalogo
 } from '../../../core/models/facturacion.models';
 import { environment } from '../../../../environments/environment';
 import { getTipoFacturaDescripcion } from '../../../shared/utils/tipo-factura';
@@ -226,6 +227,7 @@ export class FexComponent {
   recintosFiscales = signal<RecintoFiscalCatalogo[]>([]);
   regimenesExportacion = signal<RegimenExportacionCatalogo[]>([]);
   tiposRegimen = signal<TipoRegimenCatalogo[]>([]);
+  incoterms = signal<IncotermCatalogo[]>([]);
   // Los catálogos de exportación solo se piden si hay al menos un artículo NO servicio (tipoArticulo != 'SV').
   requiereExportacion = computed(() =>
     this.detalleRows().some((d) => String(d.TIPO_ARTICULO ?? '').trim().toUpperCase() !== 'SV')
@@ -311,6 +313,7 @@ export class FexComponent {
     IdDTE: this.fb.control(0, { nonNullable: true }),
     // Exportación (FEX): 0/'' = "Seleccione". Obligatorios solo si hay artículos no-servicio.
     IdRecintoFiscal: this.fb.control(0, { nonNullable: true }),
+    IdIncoterm: this.fb.control(0, { nonNullable: true }),
     IdRegimenExportacion: this.fb.control(0, { nonNullable: true }),
     TipoRegimen: this.fb.control('', { nonNullable: true }),
     // Flete/Seguro (FEX): default 0, NO obligatorios; para 100% servicios quedan en 0.
@@ -668,9 +671,10 @@ export class FexComponent {
     if (!this.requiereExportacion()) return true;
     const raw = this.facForm.getRawValue();
     if (this.toNumber(raw.IdRecintoFiscal) <= 0
+        || this.toNumber(raw.IdIncoterm) <= 0
         || this.toNumber(raw.IdRegimenExportacion) <= 0
         || !String(raw.TipoRegimen ?? '').trim()) {
-      this.showError('Facturación FEX', 'Seleccione Recinto Fiscal, Régimen de Exportación y Tipo de Régimen: la factura contiene artículos que no son servicios.');
+      this.showError('Facturación FEX', 'Seleccione Recinto Fiscal, Incoterm, Régimen de Exportación y Tipo de Régimen: la factura contiene artículos que no son servicios.');
       return false;
     }
     return true;
@@ -769,6 +773,7 @@ export class FexComponent {
     if (this.requiereExportacion()) return;
     this.facForm.patchValue({
       IdRecintoFiscal: 0,
+      IdIncoterm: 0,
       IdRegimenExportacion: 0,
       TipoRegimen: '',
       Flete: 0,
@@ -1830,6 +1835,10 @@ export class FexComponent {
       next: (rows) => this.regimenesExportacion.set(rows ?? []),
       error: () => this.regimenesExportacion.set([])
     });
+    this.facturacionService.getCatalogoIncoterm().subscribe({
+      next: (rows) => this.incoterms.set(rows ?? []),
+      error: () => this.incoterms.set([])
+    });
     this.facturacionService.getCatalogoTipoRegimen().subscribe({
       next: (rows) => this.tiposRegimen.set(rows ?? []),
       error: () => this.tiposRegimen.set([])
@@ -1916,6 +1925,7 @@ export class FexComponent {
       Municipio: encabezado.Municipio,
       Direccion: encabezado.Direccion,
       IdRecintoFiscal: this.toNumber(encabezado.IdRecintoFiscal),
+      IdIncoterm: this.toNumber(encabezado.IdIncoterm),
       IdRegimenExportacion: this.toNumber(encabezado.IdRegimenExportacion),
       TipoRegimen: String(encabezado.TipoRegimen ?? ''),
       Flete: this.toNumber(encabezado.Flete),
@@ -2035,7 +2045,7 @@ export class FexComponent {
       NumeroConductor: '',
       PlacaTransporte: '',
       IdRecintoFiscal: this.requiereExportacion() ? this.toNumber(raw.IdRecintoFiscal) : 0,
-      IdIncoterm: 0,
+      IdIncoterm: this.requiereExportacion() ? this.toNumber(raw.IdIncoterm) : 0,
       IdRegimenExportacion: this.requiereExportacion() ? this.toNumber(raw.IdRegimenExportacion) : 0,
       TipoRegimen: this.requiereExportacion() ? String(raw.TipoRegimen ?? '').trim() : '',
       PrecioConIVA: raw.IncluyeIVA ? 1 : 0,

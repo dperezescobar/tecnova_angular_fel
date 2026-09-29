@@ -59,6 +59,7 @@ export interface FacturaEncabezadoDto {
   Municipio: string;
   Direccion: string;
   IdRecintoFiscal: number;
+  IdIncoterm: number;
   IdRegimenExportacion: number;
   TipoRegimen: string;
   Flete: number;
@@ -137,6 +138,12 @@ export interface RecintoFiscalCatalogo {
 }
 
 export interface RegimenExportacionCatalogo {
+  id: number;
+  codigo: string;
+  descripcion: string;
+}
+
+export interface IncotermCatalogo {
   id: number;
   codigo: string;
   descripcion: string;

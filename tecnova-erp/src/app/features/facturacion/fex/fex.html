@@ -408,6 +408,15 @@
                         </select>
                       </div>
                       <div class="field-item">
+                        <label for="incoterm">Incoterm</label>
+                        <select id="incoterm" formControlName="IdIncoterm" [disabled]="isReadOnlyField()">
+                          <option [ngValue]="0">Seleccione</option>
+                          @for (i of incoterms(); track i.id) {
+                            <option [ngValue]="i.id">{{ i.codigo }} — {{ i.descripcion }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="field-item">
                         <label for="regimen-exp">Régimen de Exportación</label>
                         <select id="regimen-exp" formControlName="IdRegimenExportacion" [disabled]="isReadOnlyField()">
                           <option [ngValue]="0">Seleccione</option>
