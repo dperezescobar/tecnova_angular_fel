@@ -512,6 +512,8 @@ export class FacPosComponent implements OnDestroy {
     this.tipoFacturaActual.set(this.normalizeTipoFactura(item.Tipo_Factura));
     this.showCobroSection.set(false);
     this.hasSavedCurrentRecord.set(true);
+    this.formasPagoDetalle.set([]);
+    this.retencionAplicada.set(null);
     forkJoin({
       encabezado: this.facturacionService.getFacturaEncabezado(item.Prefijo, item.Factura, sucursal, puntoVenta, idEmpresa),
       detalle: this.facturacionService.getFacturaDetalle(item.Prefijo, item.Factura, sucursal, puntoVenta, item.Tipo_Factura)
@@ -889,6 +891,10 @@ export class FacPosComponent implements OnDestroy {
   }
 
   private reloadFacturaDataAfterTipoChange(tipoFactura: string, idFacturaNuevo: number) {
+    // El documento cambia de identidad (nuevo idFactura/Prefijo/Factura tras FAC<->CCF): las formas
+    // de pago y retención del documento anterior ya no aplican, igual que al abrir otro documento.
+    this.formasPagoDetalle.set([]);
+    this.retencionAplicada.set(null);
     const selected = this.selectedFactura();
     const prefijo = String(selected?.Prefijo ?? '').trim();
     const factura = String(selected?.Factura ?? '').trim();
@@ -2402,6 +2408,7 @@ else{
       },
       error: (error) => {
         this.showError('FAC POS', this.extractError(error, 'No se pudo registrar la forma de pago.'));
+        this.loadFacturaFormaPago(idFactura);
       }
     });
   }
@@ -2903,8 +2910,6 @@ else{
     this.blockEmissionFields();
     this.tipoFacturaActual.set(this.normalizeTipoFactura(encabezado.TipoFactura));
     this.selectedSucursal.set(encabezado.Sucursal || '');
-    this.formasPagoDetalle.set([]);
-    this.retencionAplicada.set(null);
     this.syncClienteSuggestions(clienteDisplay);
     this.syncDisabledControls();
   }
