@@ -79,10 +79,6 @@ export const routes: Routes = [
                 loadComponent: () => import('./features/facturacion/fac-pos/fac-pos').then((m) => m.FacPosComponent)
             },
             {
-                path: 'facturacion/fac-pos-replica',
-                loadComponent: () => import('./features/facturacion/fac-pos-replica/fac-pos-replica').then((m) => m.FacPosReplicaComponent)
-            },
-            {
                 path: 'facturacion/pos',
                 loadComponent: () => import('./features/facturacion/pos-hibrido/pos-hibrido').then((m) => m.PosHibridoComponent),
                 canActivate: [menuGuard],
