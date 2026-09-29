@@ -109,6 +109,12 @@ export class FacComponent {
   emiteDte = computed(() => !!this.authService.currentUser()?.selectedEmpresa?.emiteDte);
   esRegistroSinDte = computed(() => !this.emiteDte());
   emitirDteLabel = computed(() => (this.esRegistroSinDte() ? 'Registrar factura' : 'Emitir DTE'));
+  // Mismo criterio y nombre que ya usa fac-pos.ts para desaplicar/eliminar (Tipo='A'). Solo gatea la
+  // anulación directa (sin Hacienda); el backend es la autoridad real (AutorizacionRolesHelper.
+  // EsAdministradorAsync, algo más amplio: también acepta root y el usuario literal "ADMIN").
+  adminAccess(): boolean {
+    return String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase() === 'A';
+  }
   isEmpresa2 = computed(() => this.authService.currentUser()?.selectedEmpresa?.idEmpresa === 2);
   private route = inject(ActivatedRoute);
   private messageService = inject(MessageService);
@@ -883,8 +889,10 @@ refreshClientes(): void {
   }
 
   anularDte() {
-    if (!this.canAnularDte()) {
-      this.showError('Facturación FAC', 'Solo las facturas aplicadas con sello de recepción permiten anular DTE.');
+    if (!this.canAnularDte() && !this.canAnularDirecta()) {
+      this.showError('Facturación FAC', this.esRegistroSinDte()
+        ? 'Solo un administrador puede anular este documento.'
+        : 'Solo las facturas aplicadas con sello de recepción permiten anular DTE.');
       return;
     }
 
@@ -939,6 +947,37 @@ refreshClientes(): void {
     if (!motivoAnulacion) {
       this.showError('Facturación FAC', 'Debe ingresar un motivo de anulación válido.');
       this.focusAnulacionMotivoInput();
+      return;
+    }
+
+    // Documento "registrado sin DTE" (EmiteDTE apagado): nunca hubo nada que transmitir a Hacienda,
+    // así que se omite por completo el paso de invalidación DTE y se anula directo en el servidor
+    // (mismo SP local que usa el flujo con Hacienda, ver AnularFacturaDirecta). Solo Administrador --
+    // ya validado por canAnularDirecta()/el botón, y re-validado por el backend (403 si no califica).
+    if (this.esRegistroSinDte()) {
+      const rawDirecta = this.facForm.getRawValue();
+      const tipoFacturaDirecta = String(this.selectedFactura()?.Tipo_Factura ?? 'FAC').trim() || 'FAC';
+      const payloadDirecta: AnulacionFacturaDto = {
+        codGeneracion: String(rawDirecta.CodGeneracion ?? '').trim(),
+        Sucursal: String(rawDirecta.Sucursal ?? '').trim(),
+        PuntoVenta: String(rawDirecta.PuntoVenta ?? '').trim(),
+        TipoFactura: tipoFacturaDirecta,
+        ComentarioAnulacion: motivoAnulacion,
+        usuario: String(this.authService.currentUser()?.username ?? '').trim()
+      };
+      this.anulandoDte.set(true);
+      this.confirmAnulacionDialogVisible.set(false);
+      this.anulacionDialogVisible.set(false);
+      this.facturacionService.anularFacturaDirecta(payloadDirecta)
+        .pipe(finalize(() => { this.anulandoDte.set(false); this.anulacionMotivo.set(''); }))
+        .subscribe({
+          next: () => {
+            this.showInfo('Facturación FAC', 'Documento anulado localmente (sin transmisión a Hacienda).');
+            this.refreshEncabezadoAfterEmission();
+            this.loadMaestro();
+          },
+          error: (error) => this.showError('Facturación FAC', this.extractError(error, 'No se pudo anular.'))
+        });
       return;
     }
 
@@ -1359,6 +1398,12 @@ refreshClientes(): void {
 
   canEmit(): boolean {
     return !this.emitting() && this.currentEstado() === 'APLICADO' && !this.hasSelloRecepcion() && !!this.facForm.controls.IdFactura.value;
+  }
+
+  // Anulación directa: documento "registrado sin DTE" (EmiteDTE apagado), nunca tiene sello real,
+  // así que no se exige hasSelloRecepcion(). Restringido a Administrador (ver esAdministrador()).
+  canAnularDirecta(): boolean {
+    return !this.emitting() && this.currentEstado() === 'APLICADO' && this.esRegistroSinDte() && this.adminAccess() && !!this.facForm.controls.IdFactura.value;
   }
 
   canAnularDte(): boolean {

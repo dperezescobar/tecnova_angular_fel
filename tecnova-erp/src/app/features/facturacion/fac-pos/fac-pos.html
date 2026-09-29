@@ -668,6 +668,10 @@
             <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger"
               [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
           }
+          @if (currentEstadoVisualKey() === 'EMITIDO' && esRegistroSinDte() && adminAccess()) {
+            <p-button type="button" label="Anular documento" icon="pi pi-ban" severity="danger"
+              [loading]="anulandoDte()" [disabled]="!canAnularDirecta()" (onClick)="anularDte()"></p-button>
+          }
           @if (esRegistroSinDte() && canDesaplicar() && adminAccess()) {
             <p-button type="button" label="Habilitar factura" icon="pi pi-unlock" severity="secondary"
               (onClick)="desaplicar()"></p-button>

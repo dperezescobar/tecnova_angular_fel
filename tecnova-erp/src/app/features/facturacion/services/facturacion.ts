@@ -727,6 +727,14 @@ getEmiteDte(): Observable<boolean> {
     );
   }
 
+  /** Anulación local sin transmitir a Hacienda (documentos con EmiteDTE apagado). Solo Administrador
+   *  -- el backend rechaza con 403 a cualquier otro usuario. */
+  anularFacturaDirecta(payload: AnulacionFacturaDto): Observable<unknown> {
+    return this.http.post(`${this.facturaApiUrl}/AnularFacturaDirecta`, payload).pipe(
+      tap(() => this.invalidateFacturasGeneralCache())
+    );
+  }
+
   enviarDteAnulado(
     idEmpresa: number,
     tipoFactDescripcion: string,
