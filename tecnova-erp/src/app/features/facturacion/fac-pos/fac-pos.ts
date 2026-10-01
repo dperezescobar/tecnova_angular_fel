@@ -1525,6 +1525,11 @@ if(!this.emiteDte() || this.esRegistroSinDte()){
     if (normalized === 'APLICADO') {
       return 'EMITIDO';
     }
+    // Esta rama trataba cualquier estado que no fuera APLICADO como ELABORACION -- válido antes de
+    // que existiera la anulación directa, pero un documento "sin DTE" ahora sí puede quedar ANULADO.
+    if (normalized === 'ANULADO') {
+      return 'ANULADO';
+    }
     return "ELABORACION";
   }
 else{

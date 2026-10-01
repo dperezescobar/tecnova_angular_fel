@@ -1,6 +1,6 @@
 {
   "name": "tecnova-erp",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "eurosoccerVersion": "1.0.0",
   "scripts": {
     "ng": "ng",
