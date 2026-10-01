@@ -73,6 +73,9 @@ export class PosSignalRService {
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
         accessTokenFactory: () => this.auth.getAccessToken() ?? ''
       })
+      // Sin esto, el nivel por defecto es Information, que registra la URL completa del
+      // WebSocket -incluido el access_token en texto plano- en la consola del navegador.
+      .configureLogging(signalR.LogLevel.Warning)
       .withAutomaticReconnect()
       .build();
 
