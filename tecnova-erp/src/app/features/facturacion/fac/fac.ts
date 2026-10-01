@@ -664,6 +664,20 @@ refreshClientes(): void {
     this.loadMaestro();
   }
 
+  // Refleja la anulación en el listado de inmediato (sin esperar el round-trip de loadMaestro()),
+  // para que el badge no quede mostrando el estado anterior si el usuario vuelve al listado rápido.
+  private marcarFacturaAnuladaEnListado() {
+    const selected = this.selectedFactura();
+    if (!selected) return;
+    this.facturas.update((rows) =>
+      rows.map((row) =>
+        row.Prefijo === selected.Prefijo && row.Factura === selected.Factura
+          ? { ...row, ESTADO: 'ANULADO' }
+          : row
+      )
+    );
+  }
+
   cerrarEmisionPanel(): void {
     this.emisionPanelOpen.set(false);
   }
@@ -973,7 +987,9 @@ refreshClientes(): void {
         .subscribe({
           next: () => {
             this.showInfo('Facturación FAC', 'Documento anulado localmente (sin transmisión a Hacienda).');
-            this.refreshEncabezadoAfterEmission();
+            this.facForm.patchValue({ Estado: 'ANULADO' }, { emitEvent: false });
+            this.marcarFacturaAnuladaEnListado();
+            this.refreshEncabezadoAfterEmission().subscribe();
             this.loadMaestro();
           },
           error: (error) => this.showError('Facturación FAC', this.extractError(error, 'No se pudo anular.'))
@@ -1074,7 +1090,9 @@ refreshClientes(): void {
       .subscribe({
         next: () => {
           this.showInfo('Facturación FAC', 'Documento anulado correctamente.');
-          this.refreshEncabezadoAfterEmission();
+          this.facForm.patchValue({ Estado: 'ANULADO' }, { emitEvent: false });
+          this.marcarFacturaAnuladaEnListado();
+          this.refreshEncabezadoAfterEmission().subscribe();
           this.loadMaestro();
         },
         error: (error) => {
