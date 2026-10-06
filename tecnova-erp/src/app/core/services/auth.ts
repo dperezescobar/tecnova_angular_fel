@@ -44,6 +44,8 @@ export class AuthService {
     esRoot?: boolean | string | number;
     RequierePasswordChange?: boolean;
     requierePasswordChange?: boolean;
+    Roles?: string[];
+    roles?: string[];
   }): AuthResponse {
     const toBool = (raw: boolean | string | number | undefined) =>
       typeof raw === 'boolean' ? raw : ['1', 'true', 'si', 'sí'].includes(String(raw ?? '').trim().toLowerCase());
@@ -76,6 +78,11 @@ export class AuthService {
     const bloqueado = toBoolOrUndef(response.bloqueado ?? response.Bloqueado);
     const esRoot = toBoolOrUndef(response.esRoot ?? response.EsRoot);
 
+    const rawRoles = response.roles ?? response.Roles;
+    const roles = Array.isArray(rawRoles)
+      ? rawRoles.map((r: unknown) => String(r ?? '').trim().toUpperCase()).filter(Boolean)
+      : undefined;
+
     if (!token || !refreshToken) {
       throw new Error('Respuesta de autenticación inválida: faltan token o refreshToken');
     }
@@ -91,6 +98,7 @@ export class AuthService {
       tipoUsuario,
       bloqueado,
       esRoot,
+      roles,
       requierePasswordChange: false
     };
   }
@@ -194,6 +202,7 @@ export class AuthService {
       dui: authData?.dui ?? previous?.dui,
       nombreUsuario: authData?.nombreUsuario ?? previous?.nombreUsuario,
       tipoUsuario: authData?.tipoUsuario ?? previous?.tipoUsuario,
+      roles: authData?.roles ?? previous?.roles,
       bloqueado: authData?.bloqueado ?? previous?.bloqueado,
       esRoot: authData?.esRoot ?? previous?.esRoot,
       selectedEmpresa: empresa
@@ -227,6 +236,17 @@ export class AuthService {
 
   isRoot(): boolean {
     return !!this.currentUser()?.esRoot;
+  }
+
+  tieneRolAdmin(): boolean {
+    const roles = this.currentUser()?.roles;
+    if (!roles || !Array.isArray(roles)) {
+      return false;
+    }
+    return roles.some((r) => {
+      const upper = String(r ?? '').trim().toUpperCase();
+      return upper === 'ADMIN' || upper === 'ADMINISTRADOR';
+    });
   }
 
   // Paso 1: Obtener Token
@@ -435,6 +455,7 @@ export class AuthService {
               dui: response.dui ?? user.dui,
               nombreUsuario: response.nombreUsuario ?? user.nombreUsuario,
               tipoUsuario: response.tipoUsuario ?? user.tipoUsuario,
+              roles: response.roles ?? user.roles,
               bloqueado: response.bloqueado ?? user.bloqueado,
               esRoot: response.esRoot ?? user.esRoot,
               selectedEmpresa: null
@@ -502,6 +523,7 @@ export class AuthService {
               dui: response.dui ?? user.dui,
               nombreUsuario: response.nombreUsuario ?? user.nombreUsuario,
               tipoUsuario: response.tipoUsuario ?? user.tipoUsuario,
+              roles: response.roles ?? user.roles,
               bloqueado: response.bloqueado ?? user.bloqueado,
               esRoot: response.esRoot ?? user.esRoot,
               selectedEmpresa: null

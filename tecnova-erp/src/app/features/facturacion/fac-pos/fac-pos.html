@@ -668,7 +668,7 @@
             <p-button type="button" label="Anular DTE" icon="pi pi-ban" severity="danger"
               [loading]="anulandoDte()" [disabled]="!canAnularDte()" (onClick)="anularDte()"></p-button>
           }
-          @if (currentEstadoVisualKey() === 'EMITIDO' && esRegistroSinDte() && adminAccess()) {
+          @if (currentEstadoVisualKey() === 'EMITIDO' && esRegistroSinDte() && (adminAccess() || tieneRolAdmin())) {
             <p-button type="button" label="Anular documento" icon="pi pi-ban" severity="danger"
               [loading]="anulandoDte()" [disabled]="!canAnularDirecta()" (onClick)="anularDte()"></p-button>
           }

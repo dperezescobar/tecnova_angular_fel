@@ -115,6 +115,9 @@ export class FacComponent {
   adminAccess(): boolean {
     return String(this.authService.currentUser()?.tipoUsuario ?? '').trim().toUpperCase() === 'A';
   }
+  tieneRolAdmin(): boolean {
+    return this.authService.tieneRolAdmin();
+  }
   isEmpresa2 = computed(() => this.authService.currentUser()?.selectedEmpresa?.idEmpresa === 2);
   private route = inject(ActivatedRoute);
   private messageService = inject(MessageService);
@@ -1421,7 +1424,7 @@ refreshClientes(): void {
   // Anulación directa: documento "registrado sin DTE" (EmiteDTE apagado), nunca tiene sello real,
   // así que no se exige hasSelloRecepcion(). Restringido a Administrador (ver esAdministrador()).
   canAnularDirecta(): boolean {
-    return !this.emitting() && this.currentEstado() === 'APLICADO' && this.esRegistroSinDte() && this.adminAccess() && !!this.facForm.controls.IdFactura.value;
+    return !this.emitting() && this.currentEstado() === 'APLICADO' && this.esRegistroSinDte() && (this.adminAccess() || this.authService.tieneRolAdmin()) && !!this.facForm.controls.IdFactura.value;
   }
 
   canAnularDte(): boolean {

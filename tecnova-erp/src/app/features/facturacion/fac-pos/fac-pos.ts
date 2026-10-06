@@ -1244,6 +1244,9 @@ adminAccess(): boolean {
     if (tipoUsuario === 'A') return true;
     return false;
   }
+  tieneRolAdmin(): boolean {
+    return this.authService.tieneRolAdmin();
+  }
   solicitarEliminarFactura() {
     if (!this.canEliminarFactura()) {
       this.showError('FAC POS', 'Solo facturas en elaboración o pendientes de emitir permiten eliminar.');
@@ -1611,7 +1614,7 @@ else{
   canAnularDte(): boolean { return !this.emitting() && this.currentEstado() === 'APLICADO' && this.hasSelloRecepcion() && !!this.facForm.controls.IdFactura.value; }
   // Anulación directa: documento "registrado sin DTE" (EmiteDTE apagado), nunca tiene sello real,
   // así que no se exige hasSelloRecepcion(). Restringido a Administrador (ver esAdministrador()).
-  canAnularDirecta(): boolean { return !this.emitting() && this.currentEstado() === 'APLICADO' && this.esRegistroSinDte() && this.adminAccess() && !!this.facForm.controls.IdFactura.value; }
+  canAnularDirecta(): boolean { return !this.emitting() && this.currentEstado() === 'APLICADO' && this.esRegistroSinDte() && (this.adminAccess() || this.authService.tieneRolAdmin()) && !!this.facForm.controls.IdFactura.value; }
   canVistaPrevia(): boolean { return !!this.facForm.controls.IdFactura.value && this.currentEstadoVisualKey() !== 'ANULADO'; }
   canCambiarTipoFacturaCobro(): boolean {
     return !this.saving() && !this.emitting() && this.cobroDialogVisible() && !!this.facForm.controls.IdFactura.value;

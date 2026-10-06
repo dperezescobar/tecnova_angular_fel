@@ -18,6 +18,7 @@ export interface LoginResponse {
   bloqueado?: boolean;
   esRoot?: boolean;
   requierePasswordChange?: boolean;
+  roles?: string[];
 }
 
 // Basado en EmpresaUserInfoDTO y EmpresaSessionDataDTO
@@ -47,6 +48,7 @@ export interface AuthResponse {
   bloqueado?: boolean;
   esRoot?: boolean;
   requierePasswordChange?: boolean;
+  roles?: string[];
 }
 
 // Para guardar el estado del usuario en la app
@@ -58,6 +60,7 @@ export interface UserSession {
   dui?: string;
   nombreUsuario?: string;
   tipoUsuario?: string;
+  roles?: string[];
   bloqueado?: boolean;
   esRoot?: boolean;
   expiration?: string;
