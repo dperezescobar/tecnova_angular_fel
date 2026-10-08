@@ -459,7 +459,17 @@ export class FacturacionService {
       const params = new HttpParams().set('usuario', usuarioNormalized);
       return this.http
         .get<Array<Record<string, unknown>>>(`${this.facturaApiUrl}/GetSucursalPuntoVendedor`, { params })
-        .pipe(map((rows) => (rows ?? []).map((item) => this.mapSucursalPuntoVendedor(item))));
+        .pipe(map((rows) => {
+          const vistos = new Set<string>();
+          return (rows ?? [])
+            .map((item) => this.mapSucursalPuntoVendedor(item))
+            .filter((sp) => {
+              const key = `${sp.Sucursal}|${sp.PUNTO_VENTA}`.toUpperCase();
+              if (vistos.has(key)) return false;
+              vistos.add(key);
+              return true;
+            });
+        }));
     });
   }
 
