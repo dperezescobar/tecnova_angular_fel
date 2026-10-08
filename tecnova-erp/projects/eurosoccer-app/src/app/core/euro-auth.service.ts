@@ -70,7 +70,7 @@ export class EuroAuthService {
 
         // 2. Resolver dinámicamente las empresas del usuario desde la API (sin quemar ID numérico)
         return this.http.get<any[]>(
-          `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(username)}&idsistema=${this.systemId}`,
+          `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(username)}&idsistema=${this.systemId}&incluirLogo=false`,
           authHeaders
         ).pipe(
           switchMap((empresas: any[]) => {
@@ -166,7 +166,7 @@ export class EuroAuthService {
 
     // Si la sesión local guardada no tenía idEmpresa, consultarlo dinámicamente
     return this.http.get<any[]>(
-      `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(user.username)}&idsistema=${this.systemId}`,
+      `${this.baseUrl}/Data/getempresas?usuario=${encodeURIComponent(user.username)}&idsistema=${this.systemId}&incluirLogo=false`,
       authHeaders
     ).pipe(
       switchMap((empresas: any[]) => {
