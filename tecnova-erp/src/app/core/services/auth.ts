@@ -276,23 +276,50 @@ export class AuthService {
     return this.http.post<void>(url, {});
   }
   // Paso 2: Obtener Empresas
-  getEmpresas(usuario: string, token?: string, idsistema: number = this.systemId): Observable<Empresa[]> {
+  getEmpresas(usuario: string, token?: string, idsistema: number = this.systemId, incluirLogo = true): Observable<Empresa[]> {
     const usuarioEncoded = encodeURIComponent(usuario);
     const options = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-    return this.http
-      .get<Array<Partial<Empresa> & { [key: string]: unknown }>>(
-        `${this.apiUrl}/Data/getempresas?usuario=${usuarioEncoded}&idsistema=${idsistema}`,
+    const baseUrl = `${this.apiUrl}/Data/getempresas?usuario=${usuarioEncoded}&idsistema=${idsistema}`;
+    const request = (omitirLogo: boolean) =>
+      this.http.get<Array<Partial<Empresa> & { [key: string]: unknown }>>(
+        omitirLogo ? `${baseUrl}&incluirLogo=false` : baseUrl,
         options
-      )
-      .pipe(
-        map((empresas) => empresas.map((empresa) => this.normalizeEmpresa(empresa))),
-        catchError((error) => {
-          if (error?.status === 404) {
-            return of([]);
-          }
-          return throwError(() => error);
-        })
       );
+
+    // Si el servidor aún no soporta omitir el logo (SP sin @IncluirLogo → 500), reintenta con la consulta clásica.
+    const source$ = incluirLogo
+      ? request(false)
+      : request(true).pipe(catchError((error) => (error?.status === 500 ? request(false) : throwError(() => error))));
+
+    return source$.pipe(
+      map((empresas) => empresas.map((empresa) => this.normalizeEmpresa(empresa))),
+      catchError((error) => {
+        if (error?.status === 404) {
+          return of([]);
+        }
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /** Trae el logo de la empresa activa en segundo plano (el login ya no lo descarga) y lo refleja en la sesión. */
+  private hidratarLogoEmpresa(empresa: Empresa): void {
+    if (empresa.logo) return;
+    this.http
+      .get<{ logo?: string }>(`${this.apiUrl}/Data/GetLogoEmpresa?idEmpresa=${empresa.idEmpresa}`)
+      .pipe(catchError(() => of(null)))
+      .subscribe((res) => {
+        const logo = String(res?.logo ?? '').trim();
+        const current = this.currentUser();
+        if (!logo || !current?.selectedEmpresa || current.selectedEmpresa.idEmpresa !== empresa.idEmpresa) return;
+        const updated: UserSession = { ...current, selectedEmpresa: { ...current.selectedEmpresa, logo } };
+        try {
+          localStorage.setItem('contask_session', JSON.stringify(updated));
+        } catch {
+          // cuota de localStorage: se mantiene solo en memoria
+        }
+        this.currentUser.set(updated);
+      });
   }
 
   createEmpresaSession(token: string, username: string, empresa: Empresa): Observable<void> {
@@ -395,6 +422,7 @@ export class AuthService {
       }),
       tap(() => {
         this.router.navigate(['/inicio']);
+        this.hidratarLogoEmpresa(empresa);
       }),
       map(() => void 0)
     );

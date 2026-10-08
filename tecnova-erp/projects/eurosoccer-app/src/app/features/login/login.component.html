@@ -15,6 +15,31 @@
       </div>
     }
 
+    @if (cambioPassword()) {
+      <form (submit)="onCambioPassword($event)" class="login-form">
+        <p class="brand-subtitle">Su contraseña fue reiniciada. Defina una nueva contraseña para continuar.</p>
+        <div class="form-group">
+          <label for="password-nueva"><i class="fa-solid fa-key"></i> Nueva contraseña</label>
+          <input id="password-nueva" type="password" class="login-input" [(ngModel)]="passwordNueva" name="passwordNueva"
+                 placeholder="Mínimo 6 caracteres" required autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label for="password-confirmar"><i class="fa-solid fa-key"></i> Confirmar contraseña</label>
+          <input id="password-confirmar" type="password" class="login-input" [(ngModel)]="passwordConfirmar" name="passwordConfirmar"
+                 placeholder="Repita la contraseña" required autocomplete="new-password" />
+        </div>
+        <button type="submit" class="btn-login" [disabled]="loading()">
+          @if (loading()) {
+            <i class="fa-solid fa-arrows-rotate spin"></i> Guardando...
+          } @else {
+            <i class="fa-solid fa-floppy-disk"></i> Guardar y entrar
+          }
+        </button>
+        <button type="button" class="btn-login" style="margin-top:8px;opacity:.7" [disabled]="loading()" (click)="cancelarCambioPassword()">
+          Cancelar
+        </button>
+      </form>
+    } @else {
     <form (submit)="onLogin($event)" class="login-form">
       <div class="form-group">
         <label for="username"><i class="fa-solid fa-user"></i> Usuario</label>
@@ -52,6 +77,7 @@
         }
       </button>
     </form>
+    }
 
     <div class="login-footer">
       <span class="tenant-tag"><i class="fa-solid fa-shield-halved"></i> Sede: EuroSoccer Central</span>

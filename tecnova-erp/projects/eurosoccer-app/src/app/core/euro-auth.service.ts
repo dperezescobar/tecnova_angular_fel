@@ -16,6 +16,11 @@ export interface EuroUser {
   nombreUsuario?: string;
 }
 
+export interface EuroPasswordChangeRequired {
+  requierePasswordChange: true;
+  username: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -29,20 +34,39 @@ export class EuroAuthService {
   currentUser = signal<EuroUser | null>(this.getStoredUser());
   private recoverSessionRequest$: Observable<string> | null = null;
 
-  login(credenciales: { usuario: string; clave: string }): Observable<EuroUser> {
-    // 1. Obtener Token JWT
+  login(credenciales: { usuario: string; clave: string }): Observable<EuroUser | EuroPasswordChangeRequired> {
     return this.http.post<any>(`${this.baseUrl}/Auth/PostToken`, {
       user: credenciales.usuario,
       pass: credenciales.clave,
       idsistema: this.systemId
     }).pipe(
       switchMap((res: any) => {
+        if (res?.requierePasswordChange === true || res?.RequierePasswordChange === true) {
+          return of<EuroPasswordChangeRequired>({ requierePasswordChange: true, username: credenciales.usuario });
+        }
+        return this.continuarLogin(res, credenciales.usuario);
+      })
+    );
+  }
+
+  completarCambioPassword(datos: { usuario: string; passwordActual: string; passwordNueva: string; passwordConfirmar: string }): Observable<EuroUser> {
+    return this.http.post<any>(`${this.baseUrl}/Auth/CompletarCambioPasswordReiniciado`, {
+      usuario: datos.usuario,
+      passwordActual: datos.passwordActual,
+      passwordNueva: datos.passwordNueva,
+      passwordConfirmar: datos.passwordConfirmar,
+      idSistema: this.systemId
+    }).pipe(switchMap((res: any) => this.continuarLogin(res, datos.usuario)));
+  }
+
+  private continuarLogin(res: any, username: string): Observable<EuroUser> {
+    return of(res).pipe(
+      switchMap((res: any) => {
         const token = res?.token || res?.Token;
         const refreshToken = res?.refreshToken || res?.RefreshToken || '';
         if (!token) throw new Error('No se recibió token de autenticación.');
 
         const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
-        const username = credenciales.usuario;
 
         // 2. Resolver dinámicamente las empresas del usuario desde la API (sin quemar ID numérico)
         return this.http.get<any[]>(

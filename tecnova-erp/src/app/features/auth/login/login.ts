@@ -203,7 +203,7 @@ export class LoginComponent {
 
   // Una vez hay token válido (login normal o tras cambio de contraseña forzado), resuelve la empresa.
   private resolverEmpresas(usuario: string, idsistema: number) {
-    this.authService.getEmpresas(usuario, this.authResponse!.token, idsistema).subscribe({
+    this.authService.getEmpresas(usuario, this.authResponse!.token, idsistema, false).subscribe({
       next: (listado) => {
         if (listado.length === 0) {
           this.showMessage('No se encontraron empresas para este usuario.', 'error');
