@@ -58,8 +58,6 @@ export class SucursalesPuntoVentaComponent {
   private messageService = inject(MessageService);
   private fb = inject(FormBuilder);
 
-  private readonly idSistema = 2;
-
   activeTab = signal<'sucursales' | 'puntos-venta'>('sucursales');
 
   // ===== Sucursales =====
@@ -426,7 +424,9 @@ export class SucursalesPuntoVentaComponent {
     if (this.usuariosCatalogo().length === 0) {
       const idEmpresa = this.authService.currentUser()?.selectedEmpresa?.idEmpresa ?? 0;
       if (idEmpresa) {
-        this.usuariosService.getListado(idEmpresa, this.idSistema).subscribe({
+        // Sin filtro de sistema: la asignación a un punto de venta es por empresa. Filtrar por CONTASKLITE (2)
+        // excluía a quienes solo usan otro sistema (p. ej. EUROSOCCER=5) aunque pertenezcan a la empresa.
+        this.usuariosService.getListado(idEmpresa).subscribe({
           next: (lista) => this.usuariosCatalogo.set(lista ?? [])
         });
       }
